@@ -1,0 +1,2 @@
+# get full entry
+curl -X POST -H 'Accept: text/csv' -H 'Content-Type: application/json' -d '{"mongo_search_parameters":{"query":{"acc":"P04050"},"projection":{"_id":0,"acc":1,"uniref50":1,"uniref90":1,"uniref100":1,"uniparc":1,"mobidb_consensus":1,"mobidb_data":1},"limit":1,"skip":null,"sort":{"acc":1}}}' http://localhost:8088/search

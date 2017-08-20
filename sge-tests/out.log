@@ -1,0 +1,345 @@
+------------------------------------------------------------------------
+Job started on ven 18 ago 2017, 14.40.30, CEST
+------------------------------------------------------------------------
+HOME is /home/marco
+USER is marco
+JOB_ID is 24
+JOB_NAME is simple.sh
+HOSTNAME is marco
+SGE_TASK_ID is undefined
+current pwd is /home/marco
+simple.sh IS using grid engine
+Sleeping 4 seconds...
+------------------------------------------------------------------------
+Job ended on ven 18 ago 2017, 14.40.40, CEST
+------------------------------------------------------------------------
+------------------------------------------------------------------------
+Job started on ven 18 ago 2017, 14.42.30, CEST
+------------------------------------------------------------------------
+HOME is /home/marco
+USER is marco
+JOB_ID is 25
+JOB_NAME is simple.sh
+HOSTNAME is marco
+SGE_TASK_ID is undefined
+current pwd is /home/marco
+simple.sh IS using grid engine
+Sleeping 3 seconds...
+------------------------------------------------------------------------
+Job ended on ven 18 ago 2017, 14.42.40, CEST
+------------------------------------------------------------------------
+------------------------------------------------------------------------
+Job started on sab 19 ago 2017, 12.20.12, CEST
+------------------------------------------------------------------------
+HOME is /home/marco
+USER is marco
+JOB_ID is 26
+JOB_NAME is simple.sh
+HOSTNAME is marco
+SGE_TASK_ID is undefined
+current pwd is /home/marco
+simple.sh IS using grid engine
+Sleeping 3 seconds...
+------------------------------------------------------------------------
+Job ended on sab 19 ago 2017, 12.20.22, CEST
+------------------------------------------------------------------------
+------------------------------------------------------------------------
+Job started on sab 19 ago 2017, 12.30.42, CEST
+------------------------------------------------------------------------
+HOME is /home/marco
+USER is marco
+JOB_ID is 31
+JOB_NAME is ciao
+HOSTNAME is marco
+SGE_TASK_ID is undefined
+current pwd is /home/marco
+ciao IS using grid engine
+Sleeping 2 seconds...
+------------------------------------------------------------------------
+Job ended on sab 19 ago 2017, 12.30.52, CEST
+------------------------------------------------------------------------
+------------------------------------------------------------------------
+Job started on sab 19 ago 2017, 12.31.42, CEST
+------------------------------------------------------------------------
+HOME is /home/marco
+USER is marco
+JOB_ID is 32
+JOB_NAME is ciao
+HOSTNAME is marco
+SGE_TASK_ID is undefined
+current pwd is /home/marco
+ciao IS using grid engine
+Sleeping 5 seconds...
+------------------------------------------------------------------------
+Job ended on sab 19 ago 2017, 12.31.52, CEST
+------------------------------------------------------------------------
+------------------------------------------------------------------------
+Job started on sab 19 ago 2017, 12.33.57, CEST
+------------------------------------------------------------------------
+HOME is /home/marco
+USER is marco
+JOB_ID is 33
+JOB_NAME is ciao
+HOSTNAME is marco
+SGE_TASK_ID is undefined
+current pwd is /home/marco
+ciao IS using grid engine
+Sleeping 2 seconds...
+------------------------------------------------------------------------
+Job ended on sab 19 ago 2017, 12.34.07, CEST
+------------------------------------------------------------------------
+------------------------------------------------------------------------
+Job started on sab 19 ago 2017, 12.37.12, CEST
+------------------------------------------------------------------------
+HOME is /home/marco
+USER is marco
+JOB_ID is 34
+JOB_NAME is simple.sh
+HOSTNAME is marco
+SGE_TASK_ID is undefined
+current pwd is /home/marco
+simple.sh IS using grid engine
+Sleeping 5 seconds...
+------------------------------------------------------------------------
+Job ended on sab 19 ago 2017, 12.37.22, CEST
+------------------------------------------------------------------------
+------------------------------------------------------------------------
+Job started on sab 19 ago 2017, 12.37.27, CEST
+------------------------------------------------------------------------
+HOME is /home/marco
+USER is marco
+JOB_ID is 35
+JOB_NAME is ciao
+HOSTNAME is marco
+SGE_TASK_ID is undefined
+current pwd is /home/marco
+ciao IS using grid engine
+Sleeping 2 seconds...
+------------------------------------------------------------------------
+Job ended on sab 19 ago 2017, 12.37.37, CEST
+------------------------------------------------------------------------
+------------------------------------------------------------------------
+Job started on sab 19 ago 2017, 12.41.42, CEST
+------------------------------------------------------------------------
+HOME is /home/marco
+USER is marco
+JOB_ID is 36
+JOB_NAME is ciao
+HOSTNAME is marco
+SGE_TASK_ID is undefined
+current pwd is /home/marco
+ciao IS using grid engine
+Sleeping 5 seconds...
+------------------------------------------------------------------------
+Job ended on sab 19 ago 2017, 12.41.52, CEST
+------------------------------------------------------------------------
+------------------------------------------------------------------------
+Job started on sab 19 ago 2017, 12.41.57, CEST
+------------------------------------------------------------------------
+HOME is /home/marco
+USER is marco
+JOB_ID is 37
+JOB_NAME is test
+HOSTNAME is marco
+SGE_TASK_ID is undefined
+current pwd is /home/marco
+test IS using grid engine
+Sleeping 3 seconds...
+------------------------------------------------------------------------
+Job ended on sab 19 ago 2017, 12.42.07, CEST
+------------------------------------------------------------------------
+------------------------------------------------------------------------
+Job started on sab 19 ago 2017, 12.44.27, CEST
+------------------------------------------------------------------------
+HOME is /home/marco
+USER is marco
+JOB_ID is 38
+JOB_NAME is simple.sh
+HOSTNAME is marco
+SGE_TASK_ID is undefined
+current pwd is /home/marco
+simple.sh IS using grid engine
+Sleeping 3 seconds...
+------------------------------------------------------------------------
+Job ended on sab 19 ago 2017, 12.44.37, CEST
+------------------------------------------------------------------------
+------------------------------------------------------------------------
+Job started on sab 19 ago 2017, 12.47.27, CEST
+------------------------------------------------------------------------
+HOME is /home/marco
+USER is marco
+JOB_ID is 39
+JOB_NAME is simple.sh
+HOSTNAME is marco
+SGE_TASK_ID is undefined
+current pwd is /home/marco
+simple.sh IS using grid engine
+Sleeping 2 seconds...
+------------------------------------------------------------------------
+Job ended on sab 19 ago 2017, 12.47.37, CEST
+------------------------------------------------------------------------
+------------------------------------------------------------------------
+Job started on sab 19 ago 2017, 13.02.57, CEST
+------------------------------------------------------------------------
+HOME is /home/marco
+USER is marco
+JOB_ID is 40
+JOB_NAME is test
+HOSTNAME is marco
+SGE_TASK_ID is undefined
+current pwd is /home/marco
+test IS using grid engine
+Sleeping 2 seconds...
+------------------------------------------------------------------------
+Job ended on sab 19 ago 2017, 13.03.07, CEST
+------------------------------------------------------------------------
+------------------------------------------------------------------------
+Job started on sab 19 ago 2017, 13.03.27, CEST
+------------------------------------------------------------------------
+HOME is /home/marco
+USER is marco
+JOB_ID is 41
+JOB_NAME is test
+HOSTNAME is marco
+SGE_TASK_ID is undefined
+current pwd is /home/marco
+test IS using grid engine
+Sleeping 5 seconds...
+------------------------------------------------------------------------
+Job ended on sab 19 ago 2017, 13.03.37, CEST
+------------------------------------------------------------------------
+------------------------------------------------------------------------
+Job started on sab 19 ago 2017, 13.05.12, CEST
+------------------------------------------------------------------------
+HOME is /home/marco
+USER is marco
+JOB_ID is 42
+JOB_NAME is test
+HOSTNAME is marco
+SGE_TASK_ID is undefined
+current pwd is /home/marco
+test IS using grid engine
+Sleeping 3 seconds...
+------------------------------------------------------------------------
+Job ended on sab 19 ago 2017, 13.05.22, CEST
+------------------------------------------------------------------------
+------------------------------------------------------------------------
+Job started on sab 19 ago 2017, 13.31.12, CEST
+------------------------------------------------------------------------
+HOME is /home/marco
+USER is marco
+JOB_ID is 43
+JOB_NAME is simple.sh
+HOSTNAME is marco
+SGE_TASK_ID is undefined
+current pwd is /home/marco
+simple.sh IS using grid engine
+Sleeping 5 seconds...
+------------------------------------------------------------------------
+Job ended on sab 19 ago 2017, 13.31.22, CEST
+------------------------------------------------------------------------
+------------------------------------------------------------------------
+Job started on sab 19 ago 2017, 13.43.57, CEST
+------------------------------------------------------------------------
+HOME is /home/marco
+USER is marco
+JOB_ID is 44
+JOB_NAME is simple.sh
+HOSTNAME is marco
+SGE_TASK_ID is undefined
+current pwd is /home/marco
+simple.sh IS using grid engine
+Sleeping 3 seconds...
+------------------------------------------------------------------------
+Job ended on sab 19 ago 2017, 13.44.07, CEST
+------------------------------------------------------------------------
+------------------------------------------------------------------------
+Job started on sab 19 ago 2017, 13.46.42, CEST
+------------------------------------------------------------------------
+HOME is /home/marco
+USER is marco
+JOB_ID is 45
+JOB_NAME is simple.sh
+HOSTNAME is marco
+SGE_TASK_ID is undefined
+current pwd is /home/marco
+simple.sh IS using grid engine
+Sleeping 5 seconds...
+------------------------------------------------------------------------
+Job ended on sab 19 ago 2017, 13.46.52, CEST
+------------------------------------------------------------------------
+------------------------------------------------------------------------
+Job started on sab 19 ago 2017, 13.47.12, CEST
+------------------------------------------------------------------------
+HOME is /home/marco
+USER is marco
+JOB_ID is 46
+JOB_NAME is simple.sh
+HOSTNAME is marco
+SGE_TASK_ID is undefined
+current pwd is /home/marco
+simple.sh IS using grid engine
+Sleeping 2 seconds...
+------------------------------------------------------------------------
+Job ended on sab 19 ago 2017, 13.47.22, CEST
+------------------------------------------------------------------------
+------------------------------------------------------------------------
+Job started on sab 19 ago 2017, 13.48.42, CEST
+------------------------------------------------------------------------
+HOME is /home/marco
+USER is marco
+JOB_ID is 47
+JOB_NAME is simple.sh
+HOSTNAME is marco
+SGE_TASK_ID is undefined
+current pwd is /home/marco
+simple.sh IS using grid engine
+Sleeping 3 seconds...
+------------------------------------------------------------------------
+Job ended on sab 19 ago 2017, 13.48.52, CEST
+------------------------------------------------------------------------
+------------------------------------------------------------------------
+Job started on sab 19 ago 2017, 13.49.57, CEST
+------------------------------------------------------------------------
+HOME is /home/marco
+USER is marco
+JOB_ID is 48
+JOB_NAME is simple.sh
+HOSTNAME is marco
+SGE_TASK_ID is undefined
+current pwd is /home/marco
+simple.sh IS using grid engine
+Sleeping 4 seconds...
+------------------------------------------------------------------------
+Job ended on sab 19 ago 2017, 13.50.07, CEST
+------------------------------------------------------------------------
+------------------------------------------------------------------------
+Job started on sab 19 ago 2017, 13.51.12, CEST
+------------------------------------------------------------------------
+HOME is /home/marco
+USER is marco
+JOB_ID is 49
+JOB_NAME is simple.sh
+HOSTNAME is marco
+SGE_TASK_ID is undefined
+current pwd is /home/marco
+simple.sh IS using grid engine
+Sleeping 2 seconds...
+------------------------------------------------------------------------
+Job ended on sab 19 ago 2017, 13.51.22, CEST
+------------------------------------------------------------------------
+------------------------------------------------------------------------
+Job started on sab 19 ago 2017, 13.51.42, CEST
+------------------------------------------------------------------------
+HOME is /home/marco
+USER is marco
+JOB_ID is 50
+JOB_NAME is simple.sh
+HOSTNAME is marco
+SGE_TASK_ID is undefined
+current pwd is /home/marco
+simple.sh IS using grid engine
+Sleeping 4 seconds...
+------------------------------------------------------------------------
+Job ended on sab 19 ago 2017, 13.51.52, CEST
+------------------------------------------------------------------------

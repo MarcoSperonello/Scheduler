@@ -1,0 +1,41 @@
+{
+  "name": "Mobidb3-ws",
+  "version": "1.0.0",
+  "description": "",
+  "main": "init_ws.js",
+  "scripts": {
+    "start": "pm2 startOrReload ./ecosystem.config.js && pm2 log mobidb3-ws --raw | ./node_modules/.bin/bunyan",
+    "s": "./node-v6.11.0-linux-x64/bin/node dist/init_mobidb3 | ./node_modules/.bin/bunyan",
+    "stop": "pm2 delete mobidb3-ws && pm2 kill",
+    "test": "./node_modules/.bin/mocha -r dotenv/config --compilers js:babel-core/register",
+    "deploy": "pm2 deploy production"
+  },
+  "author": "",
+  "license": "BSD-2-Clause",
+  "dependencies": {
+    "babel-polyfill": "~6.23.0",
+    "bcrypt": "~1.0.2",
+    "bunyan": "~1.8.10",
+    "cookie": "~0.3.1",
+    "dotenv": "~4.0.0",
+    "forever": "0.15.3",
+    "formidable": "~1.1.1",
+    "js2xmlparser": "~3.0.0",
+    "mongodb": "~2.2.29",
+    "nodemailer": "~0.7.1",
+    "restify": "~5.0.0",
+    "restify-plugins": "~1.5.1",
+    "restify-errors": "~4.3.0",
+    "bson": "~1.0.4",
+    "json2csv-stream": "~0.1.4",
+    "babyparse": "~0.4.6"
+  },
+  "devDependencies": {
+    "babel-cli": "~6.23.0",
+    "babel-preset-es2015": "~6.22.0",
+    "babel-register": "6.24.1",
+    "chai": "~4.0.2",
+    "chai-http": "3.0.0",
+    "mocha": "~3.4.2"
+  }
+}
