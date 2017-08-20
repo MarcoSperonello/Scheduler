@@ -12,9 +12,9 @@ class SchedulerSecurity {
         this._maxReqPerSecGlobal = inputParams.maxReqPerSecGlobal;  // Max number of requests per time unit for all users.
         this._blockingTimeUser = inputParams.blockingTimeUser;  // Not used yet.
         this._blockingTimeGlobal = inputParams.blockingTimeGlobal;  // Not used yet.
-        this._requestLifespan = inputParams.requestLifespan;    //
-        this._maxConcurrentJobs = inputParams.maxConcurrentJobs;
-        this._maxJobRuntime = inputParams.maxJobRuntime;
+        this._requestLifespan = inputParams.requestLifespan;  // Time after which a request can be removed from history.
+        this._maxConcurrentJobs = inputParams.maxConcurrentJobs; // Max number of concurrent jobs.
+        this._maxJobRuntime = inputParams.maxJobRuntime; // Time after which a job execution can be forcibly stopped.
 
         //setInterval(this.pollJobs(), 1000);
     }
@@ -24,7 +24,7 @@ class SchedulerSecurity {
         let userIndex = this.findUserIndex(requestData);
         console.log("userIndex " + userIndex);
 
-        if (userIndex === -1) { //User is submitting a request for the same time
+        if (userIndex === -1) { //User is submitting a request for the first time.
             // Proceeds only if the max number of requests per time unit by all users has not been exceeded.
             if (this.checkGlobalRequests(requestData)) {
                 console.log("Creating user.");
