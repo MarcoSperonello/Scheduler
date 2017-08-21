@@ -29,11 +29,13 @@ var SchedulerSecurity = function () {
         this._globalReqs = []; // Recent requests by all users.
         this._maxReqPerSecUser = inputParams.maxReqPerSecUser; // Max number of requests per user per time unit.
         this._maxReqPerSecGlobal = inputParams.maxReqPerSecGlobal; // Max number of requests per time unit for all users.
-        this._blockingTimeUser = inputParams.blockingTimeUser; // Not used yet.
-        this._blockingTimeGlobal = inputParams.blockingTimeGlobal; // Not used yet.
-        this._requestLifespan = inputParams.requestLifespan; //
-        this._maxConcurrentJobs = inputParams.maxConcurrentJobs;
-        this._maxJobRuntime = inputParams.maxJobRuntime;
+        this._blockingTimeUser = inputParams.blockingTimeUser; // Not used yet. Might not be needed.
+        this._blockingTimeGlobal = inputParams.blockingTimeGlobal; // Not used yet. Might not be needed.
+        this._requestLifespan = inputParams.requestLifespan; // Time after which a request can be removed from history.
+        this._maxConcurrentJobs = inputParams.maxConcurrentJobs; // Max number of concurrent jobs.
+        this._maxJobRuntime = inputParams.maxJobRuntime; // Time after which a job execution can be forcibly stopped.
+        this._blacklist = inputParams.blacklist; // Requests from blacklisted users are always rejected.
+        this._whitelist = inputParams.whitelist; // Requests from whitelisted users are always accepted.
 
         //setInterval(this.pollJobs(), 1000);
     }
@@ -44,13 +46,13 @@ var SchedulerSecurity = function () {
     _createClass(SchedulerSecurity, [{
         key: 'handleRequest',
         value: function handleRequest(requestData) {
-            var userIndex = this.findUserIndex(requestData);
+            var userIndex = this.findUserIndex(this._users, requestData);
             console.log("userIndex " + userIndex);
-
+            _logger2.default.info("Request received by " + requestData.ip + " at " + new Date(requestData.time).toUTCString());
             if (userIndex === -1) {
-                //User is submitting a request for the same time
+                //User is submitting a request for the first time.
                 // Proceeds only if the max number of requests per time unit by all users has not been exceeded.
-                if (this.checkGlobalRequests(requestData)) {
+                if (this.isWhitelisted(requestData) || !this.isBlacklisted(requestData) && this.checkGlobalRequests(requestData)) {
                     console.log("Creating user.");
                     // The new user is added to the user list along with the request timestamp.
                     this._users.push({
@@ -61,6 +63,7 @@ var SchedulerSecurity = function () {
                     // The new request is added to the global requests list.
                     this._globalReqs.push(requestData.time);
                     console.log("New user ip: " + this._users[0].ip + ", user time: " + this._users[0].requests[0] + ", user qty: " + this._users[0].reqQty);
+                    _logger2.default.info("Request accepted");
                     // Logs the request to database.
                     this.registerRequestToDatabase(requestData);
                 }
@@ -85,10 +88,12 @@ var SchedulerSecurity = function () {
     }, {
         key: 'verifyRequest',
         value: function verifyRequest(requestData) {
-            if (!this.checkUserRequests(requestData, this._users[this.findUserIndex(requestData)])) {
+            if (!this.checkUserRequests(requestData, this._users[this.findUserIndex(this._users, requestData)])) {
+                _logger2.default.info("Request denied");
                 console.log("Request denied.");
                 return false;
             }
+            _logger2.default.info("Request accepted");
             console.log("Request accepted.");
             return true;
         }
@@ -99,6 +104,12 @@ var SchedulerSecurity = function () {
     }, {
         key: 'checkUserRequests',
         value: function checkUserRequests(requestData, user) {
+            // If the user is blacklisted, the request is accepted.
+            if (this.isWhitelisted(requestData)) return true;
+
+            // If the user is blacklisted, the request is rejected.
+            if (this.isBlacklisted(requestData)) return false;
+
             // If the server is already at capacity, additional requests cannot be serviced.
             if (!this.checkGlobalRequests(requestData)) return false;
 
@@ -145,11 +156,40 @@ var SchedulerSecurity = function () {
             return true;
         }
 
+        // Returns true if the user is blacklisted.
+
+    }, {
+        key: 'isBlacklisted',
+        value: function isBlacklisted(requestData) {
+            //if (this.findUserIndex(this._blacklist, requestData) !== -1) return true;
+            //return false;
+            if (this.findUserIndex(this._blacklist, requestData) !== -1) {
+                console.log("User " + requestData.ip + " is blacklisted.");
+                return true;
+            }
+            return false;
+        }
+
+        // Returns true if the user is whitelisted.
+
+    }, {
+        key: 'isWhitelisted',
+        value: function isWhitelisted(requestData) {
+            //if (this.findUserIndex(this._blacklist, requestData) !== -1) return true;
+            //return false;
+            if (this.findUserIndex(this._whitelist, requestData) !== -1) {
+                console.log("User " + requestData.ip + " is whitelisted.");
+                return true;
+            }
+            return false;
+        }
+
         // Logs a request (ip and timestamp) to database.
 
     }, {
         key: 'registerRequestToDatabase',
         value: function registerRequestToDatabase(requestData) {
+            _logger2.default.info("Logging request to database");
             _database2.default.performInsertOne(requestData, "test");
         }
 
@@ -158,8 +198,8 @@ var SchedulerSecurity = function () {
 
     }, {
         key: 'findUserIndex',
-        value: function findUserIndex(requestData) {
-            return this._users.findIndex(function (elem) {
+        value: function findUserIndex(userArray, requestData) {
+            return userArray.findIndex(function (elem) {
                 return elem.ip === requestData.ip;
             });
         }
@@ -174,6 +214,7 @@ var SchedulerSecurity = function () {
             console.log("addJob: qsub " + path);
 
             if (this._jobs.length >= this._maxConcurrentJobs) {
+                _logger2.default.info("Request denied. Max number of concurrent jobs reached.");
                 console.log("Request denied. Max number of concurrent jobs reached.");
                 return false;
             }
@@ -251,5 +292,12 @@ exports.default = new SchedulerSecurity({
     blockingTimeGlobal: 6000,
     requestLifespan: 5000,
     maxConcurrentJobs: 1,
-    maxJobRuntime: 10000
+    maxJobRuntime: 10000,
+    /* blacklist: [{
+         ip: "::ffff:127.0.0.1"
+     }],*/
+    blacklist: [],
+    whitelist: [{
+        ip: "::ffff:127.0.0.1"
+    }]
 });
