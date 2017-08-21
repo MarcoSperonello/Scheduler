@@ -23,6 +23,7 @@
     "mongodb": "2.2.30",
     "nodemailer": "~0.7.1",
     "pm2": "2.6.1",
+    "promised-io": "0.3.5",
     "restify": "5.0.1",
     "restify-errors": "~4.3.0",
     "restify-plugins": "~1.5.1"
