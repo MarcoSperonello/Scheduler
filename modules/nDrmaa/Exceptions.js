@@ -2,7 +2,7 @@ let exceptions = [
   "DeniedByDrmsException",
   "DrmCommunicationException",
   "TryLaterException",
-  "TimeoutException",
+  "ExitTimeoutException",
   "InternalException",
   "InvalidArgumentException",
   "InvalidSessionArgument",

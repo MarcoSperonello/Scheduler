@@ -14,6 +14,10 @@ export default {
     'scheduler': {
         path: '/scheduler',
         handler: Handlers.handleScheduler
+    },
+    'submitJob': {
+      path: '/submit',
+      handler: Handlers.handleSubmitJob
     }
   },
 };

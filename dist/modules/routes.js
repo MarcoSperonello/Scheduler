@@ -24,6 +24,10 @@ exports.default = {
     'scheduler': {
       path: '/scheduler',
       handler: _handlers2.default.handleScheduler
+    },
+    'submitJob': {
+      path: '/submit',
+      handler: _handlers2.default.handleSubmitJob
     }
   }
 };

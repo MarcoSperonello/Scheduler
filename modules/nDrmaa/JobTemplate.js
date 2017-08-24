@@ -1,36 +1,26 @@
+/**
+ * Class representing a Job Template. The attributes are defined according to the specifications found at
+ * http://gridscheduler.sourceforge.net/htmlman/htmlman3/drmaa_attributes.html
+ * NOTE: The options -help,  -sync,  -t,  -verify,  and  -w  w|v  are not supported, as specified on the manual.
+ */
 export default class JobTemplate {
   constructor(params){
     this.remoteCommand = "";
-    this.args = [];
-    this.nativeParams = "";
+    this.args = ["pippo", 2]; // specify like "[arg1, arg2, ...]"
     this.submitAsHold = false;
-    this.rerunnable = false;
-    this.jobEnvironment = {};
+    this.jobEnvironment = { a:20, b:40, c:""};
     this.workingDirectory = "";
-    this.jobCatgegory = "";
-    this.email = [];
-    this.emailOnStarted = false;
-    this.emailOnTerminated = false;
+    this.jobCategory = "";
+    this.nativeSpecification = "";
+    this.email = ["andrea.gallina.2@studenti.unipd.it"];
+    this.blockEmail = true;
+    this.startTime = '';
     this.jobName = "";
     this.inputPath = "";
     this.outputPath = "";
     this.errorPath = "";
     this.joinFiles = "";
-    this.reservationId = "";
-    this.queueName = "";
-    this.minSlots = null;
-    this.maxSlots = null;
-    this.priority = null;
-    this.candidateMachines = [];
-    this.minPhysMemory = null;
-    this.machineOS = null;
-    this.machineArch = null;
-    this.startTime = null;
-    this.deadlineTime = null;
-    this.stageInFiles = {};
-    this.stageOutFiles = {};
-    this.resourceLimits = {};
-    this.accountingId = "";
+    this.transferFiles = "";
 
     if(params){
       for (var prop in params){

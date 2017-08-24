@@ -8,6 +8,11 @@ import Db from './database';
 import {getRoutes} from './server';
 import Sec from './scheduler-security';
 
+import {when,defer} from "promised-io";
+import JobTemplate from "./nDrmaa/JobTemplate";
+import SessionManager from "./nDrmaa/sge/SessionManager";
+import Job from "./nDrmaa/Job";
+
 export default {
 
   handleRoot: function handleRoot(req, res, next) {
@@ -70,5 +75,36 @@ export default {
       res.send(200, "done");
 
       return next()
+  },
+
+  handleSubmitJob: function handleSubmitJob(req, res, next) {
+    req.log.info(`request handler is ${handleSubmitJob.name}`);
+
+    var jobExample = new JobTemplate({
+      remoteCommand:'/home/andrea/Documents/sge-tests/simple.sh',
+      workingDirectory: '/home/andrea/Documents/sge-tests/',
+      jobName: 'testJob',
+      // submitAsHold: true
+      nativeSpecification: '-now y'
+    });
+
+    var sm = new SessionManager();
+    when(sm.createSession("ciccio"), (session) => {
+      when(session.runJob(jobExample), (job) => {
+        when(session.wait(job, session.TIMEOUT_WAIT_FOREVER), (jobInfo) => {
+          console.log(jobInfo);
+          if(jobInfo.failed === "0" && jobInfo.exit_status==="0")
+            res.send(200, "Job " + job.jobId + " terminated execution with no errors");
+          else
+            res.send(500, "Job " + job.jobId + " terminated execution with errors");
+        }, (err) => {
+          res.send(500, "Job " + job.jobId + " encountered the following errors: " + err["error_reason"]);
+        });
+
+        sm.closeSession(session.sessionName);
+      });
+    });
+
+    return next()
   }
 }

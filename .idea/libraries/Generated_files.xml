@@ -2,27 +2,27 @@
   <library name="Generated files" type="javaScript">
     <properties>
       <sourceFilesUrls>
+        <item url="file://$PROJECT_DIR$/dist/init_ws.js" />
+        <item url="file://$PROJECT_DIR$/dist/modules/authorization.js" />
         <item url="file://$PROJECT_DIR$/dist/modules/aux.js" />
         <item url="file://$PROJECT_DIR$/dist/modules/database.js" />
         <item url="file://$PROJECT_DIR$/dist/modules/handlers.js" />
         <item url="file://$PROJECT_DIR$/dist/modules/logger.js" />
         <item url="file://$PROJECT_DIR$/dist/modules/routes.js" />
         <item url="file://$PROJECT_DIR$/dist/modules/server.js" />
-        <item url="file://$PROJECT_DIR$/dist/init_ws.js" />
-        <item url="file://$PROJECT_DIR$/dist/modules/authorization.js" />
       </sourceFilesUrls>
     </properties>
     <CLASSES>
       <root url="file://$PROJECT_DIR$/dist/test/test.js" />
       <root url="file://$PROJECT_DIR$/dist/test/test.js" />
+      <root url="file://$PROJECT_DIR$/dist/init_ws.js" />
+      <root url="file://$PROJECT_DIR$/dist/modules/authorization.js" />
       <root url="file://$PROJECT_DIR$/dist/modules/aux.js" />
       <root url="file://$PROJECT_DIR$/dist/modules/database.js" />
       <root url="file://$PROJECT_DIR$/dist/modules/handlers.js" />
       <root url="file://$PROJECT_DIR$/dist/modules/logger.js" />
       <root url="file://$PROJECT_DIR$/dist/modules/routes.js" />
       <root url="file://$PROJECT_DIR$/dist/modules/server.js" />
-      <root url="file://$PROJECT_DIR$/dist/init_ws.js" />
-      <root url="file://$PROJECT_DIR$/dist/modules/authorization.js" />
     </CLASSES>
     <SOURCES />
   </library>

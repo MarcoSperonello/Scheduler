@@ -1,15 +1,21 @@
 import {when,defer} from "promised-io/promise";
-import exceptions from "./Exceptions";
+import * as Exceptions from "./Exceptions";
 import Version from "./Version";
 
-let _JobSessions = {}
-let _MonitoringSessions = {}
+let _Sessions = {};
 
 export default class SessionManager{
+
   constructor(drmsName){
-    this.drmsName = "efef";
+    // Make sure that this class can't be constructed directly but only through subclasses
+    if (new.target === SessionManager) {
+      throw new TypeError("Cannot construct SessionManager instances from its abstract class.");
+    }
+
+    this.drmsName = "";
     this.drmsVersion = "";
     this.drmaaName = "nDrmaa";
+
     try {
       if (drmsName && typeof drmsName==='string') {
         console.log("Loading DRMS Libs for "+drmsName);
@@ -27,23 +33,46 @@ export default class SessionManager{
 
   createSession(sessionName, contact){
     let _self=this;
-    when(this.ready, function(){
+
+    return when(this.ready, function(){
       if (!sessionName) {
-        throw new exceptions.InvalidArgumentException("Session Name is a required parameter for 'createJobSession'");
+        throw new Exceptions.InvalidArgumentException("Session Name is a required parameter for 'createJobSession'");
       }
-      if (_JobSessions[sessionName]){
-        throw new exceptions.InvalidSessionArgument("A Job Session with the name '" + sessionName + "' already exists");
+      if (_Sessions[sessionName]){
+        throw new Exceptions.InvalidSessionArgument("A Session named '" + sessionName + "' already exists");
       }
-      _JobSessions[sessionName] = "ciccio";
+      _Sessions[sessionName] = new _self.Session(sessionName, contact);
+
+      return _Sessions[sessionName];
     });
   }
 
-  test(){
-    let def = new defer();
-    setTimeout(function(){
-      console.log("Timer expired");
-      def.reject(5);
-    }, 3000);
-    return def.promise;
+  getSession(sessionName){
+    return when(this.ready, function(){
+      if (!sessionName) {
+        throw new Exceptions.InvalidArgumentException("Session Name is a required parameter for 'openJobSession'");
+      }
+      if (!_Sessions[sessionName]){
+        throw new Exceptions.InvalidSessionException("Session with name '" + sessionName + "' not found.");
+      }
+      return _Sessions[sessionName];
+    });
   }
+
+  closeSession(sessionName){
+    if (!_Sessions[sessionName]){
+      throw new Exceptions.InvalidSessionException("Job Session with the name '" + sessionName + "' not found.");
+    }
+
+    delete _Sessions[sessionName];
+  }
+
+  // test(){
+  //   let def = new defer();
+  //   setTimeout(function(){
+  //     console.log("Timer expired");
+  //     def.reject(5);
+  //   }, 3000);
+  //   return def.promise;
+  // }
 }

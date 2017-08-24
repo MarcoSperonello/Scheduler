@@ -26,6 +26,20 @@ var _schedulerSecurity = require('./scheduler-security');
 
 var _schedulerSecurity2 = _interopRequireDefault(_schedulerSecurity);
 
+var _promisedIo = require('promised-io');
+
+var _JobTemplate = require('./nDrmaa/JobTemplate');
+
+var _JobTemplate2 = _interopRequireDefault(_JobTemplate);
+
+var _SessionManager = require('./nDrmaa/sge/SessionManager');
+
+var _SessionManager2 = _interopRequireDefault(_SessionManager);
+
+var _Job = require('./nDrmaa/Job');
+
+var _Job2 = _interopRequireDefault(_Job);
+
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
@@ -90,6 +104,34 @@ exports.default = {
     //Sec.pollJobs("simple.sh");
 
     res.send(200, "done");
+
+    return next();
+  },
+
+  handleSubmitJob: function handleSubmitJob(req, res, next) {
+    req.log.info('request handler is ' + handleSubmitJob.name);
+
+    var jobExample = new _JobTemplate2.default({
+      remoteCommand: '/home/andrea/Documents/sge-tests/simple.sh',
+      workingDirectory: '/home/andrea/Documents/sge-tests/',
+      jobName: 'testJob',
+      // submitAsHold: true
+      nativeSpecification: '-now y'
+    });
+
+    var sm = new _SessionManager2.default();
+    (0, _promisedIo.when)(sm.createSession("ciccio"), function (session) {
+      (0, _promisedIo.when)(session.runJob(jobExample), function (job) {
+        (0, _promisedIo.when)(session.wait(job, session.TIMEOUT_WAIT_FOREVER), function (jobInfo) {
+          console.log(jobInfo);
+          if (jobInfo.failed === "0" && jobInfo.exit_status === "0") res.send(200, "Job " + job.jobId + " terminated execution with no errors");else res.send(500, "Job " + job.jobId + " terminated execution with errors");
+        }, function (err) {
+          res.send(500, "Job " + job.jobId + " encountered the following errors: " + err["error_reason"]);
+        });
+
+        sm.closeSession(session.sessionName);
+      });
+    });
 
     return next();
   }

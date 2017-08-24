@@ -17,12 +17,6 @@ export default class Session{
   }
 
   runJob(jobTemplate){
-    if (!(jobTemplate instanceof JobTemplate)){
-      throw new exceptions.InvalidArgumentException("Job Template must be an instance of JobTemplate");
-    }
-
-    let job = new Job(null,this.sessionName,jobtemplate);
-    this.jobs.push(job);
-    return job;
-  },
+    throw new UnsupportedOperationException("runJob() must be implemented in subclass");
+  }
 }
