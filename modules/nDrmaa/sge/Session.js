@@ -1,14 +1,15 @@
 import * as Exception from "../Exceptions";
 import * as sge from "./sge-cli";
 import {when, defer} from "promised-io";
+import SessionBase from "../Session";
 import JobTemplate from "../JobTemplate";
 import Job from "../Job";
+import JobInfo from "./JobInfo";
 
-export default class Session{
+export default class Session extends SessionBase{
   constructor(sessionName,contact,jobCategories){
-    this.TIMEOUT_WAIT_FOREVER = -1;
-
-    this.jobs = [];
+    super();
+    this.jobs = {};
     this.sessionName = sessionName;
     this.contact = contact;
     this.jobCategories = jobCategories || [];
@@ -31,6 +32,7 @@ export default class Session{
       throw new Exception.InvalidArgumentException("Job Template must be an instance of JobTemplate");
     }
 
+
     let def = new defer();
 
     when(sge.qsub(jobTemplate), (res) => {
@@ -38,8 +40,11 @@ export default class Session{
       console.log("job id: "+id);
       let job = new Job(id,this.sessionName,jobTemplate);
       // assicurarsi che non ci sia un job con lo stesso ID per sicurezza
-      this.jobs.push(job);
+      this.jobs[id]=job;
       def.resolve(job);
+    }, (err) => {
+      console.log(err);
+      def.reject(err);
     });
 
     return def.promise;
@@ -54,6 +59,10 @@ export default class Session{
 
     if(!(job instanceof Job))
       throw new Exception.InvalidArgumentException("Job must be an instance of class Job");
+
+    if(!this.jobs[job.jobId])
+      def.reject(new Exception.InvalidArgumentException("No jobs with id " + job.jobId + " were found in session "
+        + this.sessionName));
 
     let jobStatus = "UNDETERMINED";
 
@@ -105,10 +114,10 @@ export default class Session{
        else{
          // The job is not on the list, hence it must be completed or failed.
          // We thus have to use the qacct function to query the info of finished jobs.
-          when(sge.qacct(job), (jobInfo) => {
+          when(sge.qacct(job.jobId), (jobInfo) => {
             if(jobInfo.failed !== "0")
               jobStatus = "FAILED";
-            else if(jobInfo.exit_status === "0")
+            else
               jobStatus = "DONE";
 
             def.resolve(jobStatus);
@@ -121,8 +130,9 @@ export default class Session{
 
   /**
    * Waits for a particular job to complete its execution. If the job completes successfully or with a failure status,
-   * returns the job information using the command "qacct", otherwise if there's an error returns the job information
-   * retrieved with the command "qstat" in order to be able to access the error reason.
+   * returns the job information using the command "qacct", otherwise if there's an error preventing the job from
+   * completing, returns the job information retrieved with the command "qstat" in order to be able to access the error
+   * reasons.
    * @param job: job to wait for
    * @param timeout: amount of time in milliseconds to wait for the job to terminate its execution.
    * Can pass the value this.TIMEOUT_WAIT_FOREVER to wait indefinitely for the job termination.
@@ -146,16 +156,17 @@ export default class Session{
         {
           clearInterval(monitor);
 
-          when(sge.qacct(job), (jobInfo) => {
-            def.resolve(jobInfo)
+          when(sge.qacct(job.jobId), (jobInfo) => {
+            def.resolve(new JobInfo(jobInfo))
           });
         }
         else if(jobStatus === "ERROR")
         {
+          // Job is in error state; retrieve the error reason with qstat.
           clearInterval(monitor);
 
-          when(sge.qstat(job), (jobInfo) => {
-            def.reject(jobInfo)
+          when(sge.qstat(job.jobId), (jobInfo) => {
+            def.reject("Job " + job.jobId + " encountered the following errors: " + jobInfo["error_reason"])
           });
         }
       });
@@ -165,9 +176,57 @@ export default class Session{
     {
       setTimeout(() => {
         clearInterval(monitor);
-        def.reject(new Exception.ExitTimeoutException("Timeout expired after " + timeout + " ms"));
+        def.reject(new Exception.ExitTimeoutException("Timeout expired before job completion"));
       }, timeout)
     }
+
+    return def.promise;
+  }
+
+  control(job, action){
+    let def = new defer();
+
+    if(!(job instanceof Job)) {
+      throw new Exception.InvalidArgumentException("Job must be an instance of class Job");
+    }
+
+    if(!this.jobs[job.jobId]){
+      throw new Exception.InvalidArgumentException("Job " + job.jobId + " doesn't exist.")
+    }
+
+    if(action !== this.SUSPEND &&
+      action !== this.RESUME &&
+      action !== this.HOLD &&
+      action !== this.RELEASE &&
+      action !== this.TERMINATE){
+      throw new Exception.InvalidArgumentException("Invalid action: " + action);
+    }
+
+    switch(action){
+      case(this.SUSPEND):
+        console.log("Suspending job "+job.jobId);
+        break;
+
+      case(this.RESUME):
+        console.log("Resuming job "+job.jobId);
+        break;
+
+      case(this.HOLD):
+        console.log("Holding job "+job.jobId);
+        break;
+
+      case(this.RELEASE):
+        console.log("Releasing job "+job.jobId);
+        break;
+
+      case(this.TERMINATE):
+        console.log("Terminating job "+job.jobId);
+        break;
+    }
+
+    when(sge.control(job.jobId, action), (res) => {
+      def.resolve(res);
+    });
 
     return def.promise;
   }

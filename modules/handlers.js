@@ -91,19 +91,62 @@ export default {
     var sm = new SessionManager();
     when(sm.createSession("ciccio"), (session) => {
       when(session.runJob(jobExample), (job) => {
-        when(session.wait(job, session.TIMEOUT_WAIT_FOREVER), (jobInfo) => {
-          console.log(jobInfo);
-          if(jobInfo.failed === "0" && jobInfo.exit_status==="0")
-            res.send(200, "Job " + job.jobId + " terminated execution with no errors");
-          else
-            res.send(500, "Job " + job.jobId + " terminated execution with errors");
-        }, (err) => {
-          res.send(500, "Job " + job.jobId + " encountered the following errors: " + err["error_reason"]);
-        });
 
+        setTimeout(() => {
+          when(session.control(job, session.SUSPEND), (resp) => {
+            console.log(resp);
+            setTimeout(() => {
+              when(session.control(job, session.RESUME), (resp) => {
+                console.log(resp);
+                setTimeout(() => {
+                  when(session.control(job, session.HOLD), (resp) => {
+                    console.log(resp);
+                    setTimeout(() => {
+                      when(session.control(job, session.RELEASE), (resp) => {
+                        console.log(resp);
+                        setTimeout(() => {
+                          when(session.control(job, session.TERMINATE), (resp) => {
+                            res.send(200, resp);
+                            sm.closeSession(session.sessionName);
+                          });
+                        }, 2000);
+                      });
+                    }, 4000);
+                  });
+                }, 4000);
+              });
+            }, 4000);
+          });
+        }, 2000);
+
+
+      }, (err) => {
+        res.send(500, err);
         sm.closeSession(session.sessionName);
       });
     });
+
+    // when(sm.createSession("pippo"), (session) => {
+    //   when(session.runJob(jobExample), (job) => {
+    //     when(session.wait(job, session.TIMEOUT_WAIT_FOREVER), (jobInfo) => {
+    //
+    //       let response = "Job " + job.jobId + " terminated execution with exit status " + jobInfo.exitStatus ;
+    //
+    //       if(jobInfo.failed !== "0")
+    //         response += "; failed with code: " + jobInfo.failed ;
+    //
+    //       res.send(200, response);
+    //
+    //     }, (err) => {
+    //       res.send(500, err);
+    //     });
+    //
+    //
+    //   }, (err) => {
+    //     res.send(500, err);
+    //     sm.closeSession(session.sessionName);
+    //   });
+    // });
 
     return next()
   }
