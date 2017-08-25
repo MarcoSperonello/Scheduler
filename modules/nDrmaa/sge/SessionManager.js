@@ -4,6 +4,7 @@ import SessionManagerBase from "../SessionManager";
 import Version from "../Version";
 import * as sge from "./sge-cli";
 import Session from "./Session";
+import SessionMonitor from "./SessionMonitor";
 
 export default class SessionManager extends SessionManagerBase{
 

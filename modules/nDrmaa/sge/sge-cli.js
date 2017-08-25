@@ -25,14 +25,14 @@ export function getDrmsInfo() {
 
 /**
  * Function for invoking the qstat command of SGE.
- * @param job optional param indicating the job of which we want to retrieve information.
+ * @param job: the id of the job for which we want to retrieve information.
  */
-export function qstat(job){
+export function qstat(jobId){
   let def = new defer();
   let args = "";
 
-  if(job)
-    args += "-j "+job.jobId;
+  if(jobId)
+    args += "-j "+jobId;
 
   let command = "qstat " + args;
 
@@ -41,7 +41,7 @@ export function qstat(job){
   let qstat = exec(command, (err, stdout, stderr) => {
     if (err) { def.reject(err) ; return; }
 
-    let isSingleJobResult = job ? true : false;
+    let isSingleJobResult = jobId ? true : false;
 
     let res = _parseQstatResult(stdout, isSingleJobResult);
 
@@ -53,7 +53,7 @@ export function qstat(job){
 
 /**
  * Function for invoking the qsub command of SGE.
- * @param jobTemplate contains all the job's parameters.
+ * @param jobTemplate: contains all the job's parameters.
  */
 export function qsub(jobTemplate){
   // Options for the exec fuctions; set the working directory specified in the jobTemplate.
@@ -77,12 +77,12 @@ export function qsub(jobTemplate){
 
 /**
  * Function for invoking the qacct command of SGE.
- * @param job required param indicating the job of which we want to retrieve information.
+ * @param jobId: the id of the job for which we want to retrieve information.
  */
-export function qacct(job){
+export function qacct(jobId){
   let def = new defer();
 
-  let args = "-j "+job.jobId;
+  let args = "-j "+jobId;
 
   let command = "qacct " + args;
 
@@ -90,7 +90,7 @@ export function qacct(job){
 
   let qstat = exec(command, (err, stdout, stderr) => {
     if (err) {
-      if(!stderr.includes("error: job id " + job.jobId + " not found")){
+      if(!stderr.includes("error: job id " + jobId + " not found")){
         // In order for a job to show up on qacct, some seconds have to pass after the job has finished,
         // hence the call to qacct will return an error complaining that the job can't be found.
         // We thus ignore the "Job not found" error, sending a reject promise only for the other kind of errors.
@@ -106,6 +106,112 @@ export function qacct(job){
   });
   return def.promise;
 }
+
+export function control(jobIds, action)
+{
+  let def = new defer();
+
+  const SUSPEND = 0, RESUME = 1, HOLD = 2, RELEASE = 3, TERMINATE = 4;
+
+  jobIds = (jobIds && typeof jobIds=='string') ? jobIds : jobIds.join(",");
+
+  let command = "";
+
+  switch(action){
+    case(SUSPEND):
+      command = "qmod -sj " + jobIds;
+      break;
+
+    case(RESUME):
+      command = "qmod -usj " + jobIds;
+      break;
+
+    case(HOLD):
+      command = "qhold " + jobIds;
+      break;
+
+    case(RELEASE):
+      command = "qrls " + jobIds;
+      break;
+
+    case(TERMINATE):
+      command = "qdel " + jobIds;
+      break;
+  }
+
+  let cmd = exec(command, (err, stdout, stderr) => {
+    if (err) { def.reject(err + stdout); return;  }
+
+    def.resolve(stdout);
+
+  });
+  return def.promise;
+}
+
+
+
+// /**
+//  * Function for invoking the qdel command of SGE.
+//  * @param jobIds: can be a string or an array indicating the job(s) that we want to delete.
+//  */
+// export function qdel(jobIds){
+//   let def = new defer();
+//
+//   jobIds = (jobIds && typeof jobIds=='string') ? jobIds : jobIds.join(",");
+//
+//   let command = "qdel " + jobIds;
+//
+//   let qstat = exec(command, (err, stdout, stderr) => {
+//     if (err) { def.reject(err); return;  }
+//
+//     def.resolve(stdout);
+//
+//   });
+//   return def.promise;
+// }
+//
+// export function qmod(jobIds, action){
+//   let def = new defer();
+//
+//   const SUSPEND = 0, RESUME = 1;
+//
+//   jobIds = (jobIds && typeof jobIds=='string') ? jobIds : jobIds.join(",");
+//
+//   let command = "qmod ";
+//
+//   if(action === SUSPEND)
+//     command += "-sj " + jobIds;
+//   else if(action === RESUME)
+//     command += "-usj " + jobIds;
+//   else
+//     def.err(new Exception.InvalidArgumentException("Invalid action for command qmod: " + action));
+//
+//   let qstat = exec(command, (err, stdout, stderr) => {
+//     if (err) { def.reject(err); return;  }
+//
+//     def.resolve(stdout);
+//
+//   });
+//   return def.promise;
+// }
+//
+// export function qhold(jobIds){
+//   let def = new defer();
+//
+//   jobIds = (jobIds && typeof jobIds=='string') ? jobIds : jobIds.join(",");
+//
+//   let command = "qhold " + jobIds;
+//
+//   let qstat = exec(command, (err, stdout, stderr) => {
+//     if (err) { def.reject(err); return;  }
+//
+//     def.resolve(stdout);
+//
+//   });
+//   return def.promise;
+// }
+
+
 
 
 
