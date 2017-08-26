@@ -1,13 +1,14 @@
 import * as errors from 'restify-errors';
-import plugins from 'restify-plugins';
-
 
 import aux from './aux';
 
-import Db from './database';
-import {getRoutes} from './server';
-import Sec from './scheduler-security';
+// import Db from './database';
+import {getRoutes,isMonitoring,setMonitor} from './server';
+import {spawn} from 'child_process';
+import fs from 'fs';
 
+
+import * as sge from "./nDrmaa/sge/sge-cli";
 import {when,defer} from "promised-io";
 import JobTemplate from "./nDrmaa/JobTemplate";
 import SessionManager from "./nDrmaa/sge/SessionManager";
@@ -17,64 +18,23 @@ export default {
 
   handleRoot: function handleRoot(req, res, next) {
     req.log.info(`request handler is ${handleRoot.name}`);
+
     const routes = getRoutes();
     const ret_routes = {};
-      for (let method in routes) {
-        console.log("method " + method);
+    for (let method in routes) {
       if (routes.hasOwnProperty(method)) {
         ret_routes[method] = [];
         for (let i = 0; i < routes[method].length; i++) {
           let r = routes[method][i]['spec'];
           delete r['versions'];
           delete r['method'];
-          ret_routes[method].push(r);
+          ret_routes[method].push(r)
         }
       }
     }
+
     res.send(200, ret_routes);
     return next()
-  },
-
-  handleTest: function handleTest(req, res, next) {
-      req.log.info(`request handler is ${handleTest.name}`);
-
-      var requestIp = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
-      var requestData = {
-        ip: requestIp,
-        time: req.time()
-      };
-      Db.performInsertOne(requestData, "test");
-
-      /*var cursor = Db.performFind({ ip: "::ffff:127.0.0.1" }, { ip: 1, time: 1}, "test");
-      cursor.forEach( (docs) => {
-          console.log(docs["time"]);
-      }, (err) => {
-          console.log("error");
-      });*/
-
-      console.log("req path " + req.path());
-
-      res.send(200, "test");
-
-      return next()
-  },
-
-  handleScheduler: function handleScheduler(req, res, next) {
-      req.log.info(`request handler is ${handleScheduler.name}`);
-
-      var requestIp = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
-      var requestData = {
-          ip: requestIp,
-          time: req.time()
-      };
-
-      Sec.handleRequest(requestData);
-      //Sec.addJob(req.query["jobfile"]);
-      //Sec.pollJobs("simple.sh");
-
-      res.send(200, "done");
-
-      return next()
   },
 
   handleSubmitJob: function handleSubmitJob(req, res, next) {
@@ -88,49 +48,58 @@ export default {
       nativeSpecification: '-now y'
     });
 
-    var sm = new SessionManager();
+    let sm = new SessionManager();
+
     when(sm.createSession("ciccio"), (session) => {
-      when(session.runJob(jobExample), (job) => {
+      when(session.runJob(jobExample), (jobId) => {
 
         setTimeout(() => {
-          when(session.control(job, session.SUSPEND), (resp) => {
+          when(session.control(jobId, session.SUSPEND), (resp) => {
             console.log(resp);
             setTimeout(() => {
-              when(session.control(job, session.RESUME), (resp) => {
+              when(session.control(jobId, session.RESUME), (resp) => {
                 console.log(resp);
                 setTimeout(() => {
-                  when(session.control(job, session.HOLD), (resp) => {
+                  when(session.control(jobId, session.HOLD), (resp) => {
                     console.log(resp);
                     setTimeout(() => {
-                      when(session.control(job, session.RELEASE), (resp) => {
+                      when(session.control(jobId, session.RELEASE), (resp) => {
                         console.log(resp);
                         setTimeout(() => {
-                          when(session.control(job, session.TERMINATE), (resp) => {
+                          when(session.control(jobId, session.TERMINATE), (resp) => {
                             res.send(200, resp);
-                            sm.closeSession(session.sessionName);
+                          }, (err) => {
+                            res.send(500, err);
                           });
                         }, 2000);
+                      }, (err) => {
+                        res.send(500, err);
                       });
                     }, 4000);
+                  }, (err) => {
+                    res.send(500, err);
                   });
                 }, 4000);
+              }, (err) => {
+                res.send(500, err);
               });
             }, 4000);
+          }, (err) => {
+            res.send(500, err);
           });
         }, 2000);
 
-
       }, (err) => {
         res.send(500, err);
-        sm.closeSession(session.sessionName);
       });
+      sm.closeSession(session.sessionName);
     });
 
     // when(sm.createSession("pippo"), (session) => {
-    //   when(session.runJob(jobExample), (job) => {
-    //     when(session.wait(job, session.TIMEOUT_WAIT_FOREVER), (jobInfo) => {
+    //   when(session.runJob(jobExample), (jobId) => {
+    //     when(session.wait(jobId, session.TIMEOUT_WAIT_FOREVER), (jobInfo) => {
     //
-    //       let response = "Job " + job.jobId + " terminated execution with exit status " + jobInfo.exitStatus ;
+    //       let response = "Job " + jobId + " terminated execution with exit status " + jobInfo.exitStatus ;
     //
     //       if(jobInfo.failed !== "0")
     //         response += "; failed with code: " + jobInfo.failed ;
@@ -147,6 +116,57 @@ export default {
     //     sm.closeSession(session.sessionName);
     //   });
     // });
+
+    return next()
+  },
+
+  handleFoo: function handleFoo(req, res, next) {
+    req.log.info(`request handler is ${handleFoo.name}`);
+
+    const args = [
+      //'-l', 'h_rt=00:00:01',  //set maximum run time (aborts job after 1 second of running time)
+      '-sync', 'y',
+      '/home/andrea/Documents/sge-tests/simple.sh'  //script file path
+    ];
+
+    const options = {
+      cwd: '/home/andrea/Documents/sge-tests/',
+      env: process.env
+    };
+
+    /*
+    const qsub = spawn('qsub',args,options);
+
+    qsub.stdout.on('data', (data) => {
+      console.log(`stdout: ${data}`);
+      res.send(200, "Task submitted");
+
+      // if(!isMonitoring())
+      // {
+      //   setMonitor(true);
+      //   setInterval(function(){
+      //     const qstat = spawn('qstat');
+      //
+      //     qstat.stdout.on('data', (data) => {
+      //       console.log(`stdout: ${data}`);
+      //     });
+      //   },1000);
+      // }
+
+    });
+
+    qsub.on('close', (code) => {
+      console.log(`child ended with code ${code}`);
+    });
+
+    qsub.stderr.on('data', (data) => {
+      var errorMsg = "Error:"  + data;
+      res.send(500, errorMsg);
+      console.log(`error: ${data}`);
+    });
+    */
+
+
 
     return next()
   }

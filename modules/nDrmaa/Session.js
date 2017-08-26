@@ -44,15 +44,15 @@ export default class Session{
   get RELEASE(){ return RELEASE }
   get TERMINATE(){ return TERMINATE }
 
-  getJobs(){
-    return this.jobs;
-  }
+  getJobs(){ return this.jobs; }
 
-  getJobArray(){
+  getJobArray(){ }
 
-  }
+  runJob(jobTemplate){ }
 
-  runJob(jobTemplate){
+  getJobProgramStatus(job){ }
 
-  }
+  wait(job, timeout){ }
+
+  control(job, action){ }
 }
