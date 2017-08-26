@@ -4,7 +4,7 @@ import {when, defer} from "promised-io";
 import SessionBase from "../Session";
 import JobTemplate from "../JobTemplate";
 import Job from "../Job";
-import JobInfo from "./JobInfo";
+//import JobInfo from "./JobInfo";
 
 export default class Session extends SessionBase{
   constructor(sessionName,contact,jobCategories){
@@ -57,7 +57,7 @@ export default class Session extends SessionBase{
     let def = new defer();
 
     if(!this.jobs[jobId])
-      def.reject(new Exception.InvalidArgumentException("No jobs with id " + job.jobId + " were found in session "
+      def.reject(new Exception.InvalidArgumentException("No jobs with id " + jobId + " were found in session "
         + this.sessionName));
 
     let jobStatus = "UNDETERMINED";
@@ -125,6 +125,42 @@ export default class Session extends SessionBase{
   }
 
   /**
+   * Get the program status of the job.
+   * @param job: the job of which we want to know to status.
+   */
+  getJobProgramSubmitDate(jobId){
+    let def = new defer();
+
+    if(!this.jobs[jobId])
+      def.reject(new Exception.InvalidArgumentException("No jobs with id " + jobId + " were found in session "
+          + this.sessionName));
+
+    let jobSubmitDate = "UNDETERMINED";
+
+    when(sge.qstat(), (jobs) => {
+      if(jobs[jobId]){
+        // The job appears on the list (hence not completed/failed)
+        jobSubmitDate = jobs[jobId].submitDate;
+        def.resolve(jobSubmitDate);
+      }
+      else{
+        // The job is not on the list, hence it must be completed or failed.
+        // We thus have to use the qacct function to query the info of finished jobs.
+        when(sge.qacct(jobId), (jobInfo) => {
+          if(jobInfo.failed !== "0")
+            jobStatus = "FAILED";
+          else
+            jobStatus = "DONE";
+
+          def.resolve(jobStatus);
+        });
+      }
+    });
+
+    return def.promise;
+  }
+
+  /**
    * Waits for a particular job to complete its execution. If the job completes successfully or with a failure status,
    * returns the job information using the command "qacct", otherwise if there's an error preventing the job from
    * completing, returns the job information retrieved with the command "qstat" in order to be able to access the error
@@ -139,7 +175,7 @@ export default class Session extends SessionBase{
     let hasTimeout = timeout !== this.TIMEOUT_WAIT_FOREVER;
 
     if(!this.jobs[jobId])
-      def.reject(new Exception.InvalidArgumentException("No jobs with id " + job.jobId + " were found in session "
+      def.reject(new Exception.InvalidArgumentException("No jobs with id " + jobId + " were found in session "
         + this.sessionName));
 
     if(hasTimeout && timeout < refreshInterval)
@@ -183,7 +219,7 @@ export default class Session extends SessionBase{
     let def = new defer();
 
     if(!this.jobs[jobId])
-      def.reject(new Exception.InvalidArgumentException("No jobs with id " + job.jobId + " were found in session "
+      def.reject(new Exception.InvalidArgumentException("No jobs with id " + jobId + " were found in session "
         + this.sessionName));
 
     if(action !== this.SUSPEND &&

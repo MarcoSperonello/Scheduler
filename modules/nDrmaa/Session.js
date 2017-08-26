@@ -50,9 +50,9 @@ export default class Session{
 
   runJob(jobTemplate){ }
 
-  getJobProgramStatus(job){ }
+  getJobProgramStatus(jobId){ }
 
-  wait(job, timeout){ }
+  wait(jobId, timeout){ }
 
-  control(job, action){ }
+  control(jobId, action){ }
 }

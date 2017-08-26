@@ -1,0 +1,13 @@
+{
+	"maxReqPerSecUser": 2,
+	"maxReqPerSecGlobal": 4,
+	"blockingTimeUser": 2000,
+	"blockingTimeGlobal": 6000,
+	"requestLifespan": 5000,
+	"maxConcurrentJobs": 1,
+	"maxJobRuntime": 10000,
+	"blacklist": [],
+	"whitelist": [
+		{"ip": "::ffff:127.0.0.1"}
+	]
+}
