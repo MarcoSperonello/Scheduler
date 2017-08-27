@@ -7,7 +7,5 @@
 	"maxConcurrentJobs": 1,
 	"maxJobRuntime": 10000,
 	"blacklist": [],
-	"whitelist": [
-		{"ip": "::ffff:127.0.0.1"}
-	]
+	"whitelist": []
 }

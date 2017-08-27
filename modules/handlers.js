@@ -38,19 +38,22 @@ export default {
   handleScheduler: function handleScheduler(req, res, next) {
     req.log.info(`request handler is ${handleScheduler.name}`);
 
+    // Fetches the IP of the client who made the request.
     var requestIp = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+    // Loads request information.
     var requestData = {
       ip: requestIp,
       time: req.time(),
       jobPath: req.query["jobPath"]
     };
 
-    //Sec.handleRequest(requestData);
+    // Calls the request handler.
+    Sec.handleRequest(requestData);
     //Sec.addJob(req.query["jobfile"]);
     //Sec.pollJobs("simple.sh");
-    Sec.handleJobSubmission(requestData);
+    //Sec.handleJobSubmission(requestData);
 
-    res.send(200, "done");
+    res.send(200, "Done\r\n");
 
     return next()
   },

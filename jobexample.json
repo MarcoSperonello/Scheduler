@@ -1,0 +1,6 @@
+{
+  "remoteCommand": "/home/marco/Uni/Tesi/Projects/node-ws-template/sge-tests/simple.sh",
+  "workingDirectory": "/home/marco/Uni/Tesi/Projects/node-ws-template/sge-tests/",
+  "jobName": "testJob",
+  "nativeSpecification": "-now y"
+}
