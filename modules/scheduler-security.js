@@ -1,14 +1,14 @@
 import Db from './database';
 import Logger from './logger';
 
-import {when,defer} from "promised-io";
+import {when, defer} from 'promised-io';
 import fs from 'fs';
-import JobTemplate from "./nDrmaa/JobTemplate";
-import SessionManager from "./nDrmaa/sge/SessionManager";
+import JobTemplate from './nDrmaa/JobTemplate';
+import SessionManager from './nDrmaa/sge/SessionManager';
 
 // Creates a Drmaa session.
 const sm = new SessionManager();
-sm.createSession("testSession");
+sm.createSession('testSession');
 
 /**
  * Class that manages clients' requests to submit a job to the Sun Grid Engine (SGE).
@@ -25,7 +25,7 @@ class SchedulerSecurity {
     this._globalReqs = [];  // Recent requests by all users.
     try {
       let inputParams = JSON.parse(fs.readFileSync(inputFile, 'utf8'));
-      console.log("Successfully read input file " + inputFile);
+      Logger.info('Successfully read input file ' + inputFile);
 
       this._maxReqPerSecUser = inputParams.maxReqPerSecUser;  // Max number of requests per user per time unit (requestLifespan).
       this._maxReqPerSecGlobal = inputParams.maxReqPerSecGlobal;   // Max number of requests per time unit for all users.
@@ -37,8 +37,8 @@ class SchedulerSecurity {
       this._blacklist = inputParams.blacklist; // Requests from blacklisted users are always rejected.
       this._whitelist = inputParams.whitelist; // Requests from whitelisted users are always accepted.
 
-    } catch(err) {
-      console.log("Error while reading input file " + inputFile + ". Using default parameters.");
+    } catch (err) {
+      Logger.info('Error while reading input file ' + inputFile + '. Using default parameters.');
 
       this._maxReqPerSecUser = 2;  // Max number of requests per user per time unit (requestLifespan).
       this._maxReqPerSecGlobal = 4;   // Max number of requests per time unit for all users.
@@ -63,12 +63,12 @@ class SchedulerSecurity {
    */
   handleRequest(requestData) {
     let userIndex = this.findUserIndex(this._users, requestData);
-    Logger.info("Request received by " + requestData.ip + " at " + new Date(requestData.time).toUTCString());
+    Logger.info('Request received by ' + requestData.ip + ' at ' + new Date(requestData.time).toUTCString());
     if (userIndex === -1) { //User is submitting a request for the first time.
       // Proceeds only if the max number of requests per time unit by all users has not been exceeded.
       if (this.isWhitelisted(requestData) ||
           (!this.isBlacklisted(requestData) && this.checkGlobalRequests(requestData))) {
-        console.log("Creating user " + requestData.ip);
+        Logger.info('Creating user ' + requestData.ip);
         // The new user is added to the user list along with the request timestamp.
         this._users.push({
           ip: requestData.ip,
@@ -77,16 +77,14 @@ class SchedulerSecurity {
         });
         // The new request is added to the global requests list.
         this._globalReqs.push(requestData.time);
-        console.log("New user ip: " + this._users[0].ip + ", user time: " + this._users[0].requests[0]
-            +", user qty: " + this._users[0].reqQty);
-        Logger.info("Request accepted");
+        Logger.info('Request accepted');
         // Logs the request to database.
         this.registerRequestToDatabase(requestData);
         // Attempts to submit the job to the SGE.
         this.handleJobSubmission(requestData);
       }
     } else { // User has already submitted one or more requests in the past.
-      console.log("User found");
+      Logger.info('User ' + requestData.ip + ' found');
       // Proceeds only if the max number of requests per time unit for all users AND for this user have not been
       // exceeded.
       if (this.verifyRequest(requestData)) {
@@ -94,9 +92,6 @@ class SchedulerSecurity {
         this._users[userIndex].requests.push(requestData.time);
         this._users[userIndex].reqQty++;
         this._globalReqs.push(requestData.time);
-        console.log("Existing user ip: " + this._users[0].ip + ", user time: "
-            + this._users[0].requests[this._users[0].requests.length - 1] + ", user qty: "
-            + this._users[0].reqQty);
         this.registerRequestToDatabase(requestData);
         this.handleJobSubmission(requestData);
       }
@@ -111,12 +106,10 @@ class SchedulerSecurity {
    */
   verifyRequest(requestData) {
     if (!this.checkUserRequests(requestData, this._users[this.findUserIndex(this._users, requestData)])) {
-      Logger.info("Request denied");
-      console.log("Request denied.");
+      Logger.info('Request denied');
       return false;
     }
-    Logger.info("Request accepted");
-    console.log("Request accepted.");
+    Logger.info('Request accepted');
     return true;
   }
 
@@ -145,15 +138,15 @@ class SchedulerSecurity {
       if (requestData.time - user.requests[i] > this._requestLifespan) {
         user.requests.splice(0, i + 1);
         user.reqQty -= (i + 1);
-        console.log("Removed " + (i + 1) + " request(s) from user " + user.ip + " request history. "
-            + "There are currently " + user.requests.length + " request(s) in the user's history.");
+        //console.log("Removed " + (i + 1) + " request(s) from user " + user.ip + " request history. "
+        //    + "There are currently " + user.requests.length + " request(s) in the user's history.");
         return true;
       }
     }
 
     // If no user requests were pruned, the user is already at capacity. Additional requests cannot be serviced.
-    console.log("User " + user.ip + " cannot submit more requests right now. " +
-        "There are currently " + user.requests.length + " request(s) in the user's history.");
+    //console.log("User " + user.ip + " cannot submit more requests right now. " +
+    //    "There are currently " + user.requests.length + " request(s) in the user's history.");
     return false;
   }
 
@@ -165,19 +158,20 @@ class SchedulerSecurity {
    */
   checkGlobalRequests(requestData) {
     // Pruning of expired global requests, if any.
-    console.log("_globalReqs.length: " + this._globalReqs.length);
+    //console.log("_globalReqs.length: " + this._globalReqs.length);
     for (let i = this._globalReqs.length - 1; i >= 0; i--) {
       if (requestData.time - this._globalReqs[i] > this._requestLifespan) {
         this._globalReqs.splice(0, i + 1);
-        console.log("Removed " + (i + 1) + " request(s) from global request history. "
-            + "There are currently " + this._globalReqs.length + " global request(s).");
+        //console.log("Removed " + (i + 1) + " request(s) from global request history. "
+        //    + "There are currently " + this._globalReqs.length + " global request(s).");
         break;
       }
     }
 
     // If the server is already at capacity, additional requests cannot be serviced.
     if (this._globalReqs.length >= this._maxReqPerSecGlobal) {
-      console.log("_globalReqs.length: " + this._globalReqs.length + ". Cannot service more requests.");
+      //console.log("_globalReqs.length: " + this._globalReqs.length + ". Cannot service more requests.");
+      Logger.info('Server already at capacity. Cannot service more requests.');
       return false;
     }
 
@@ -192,7 +186,7 @@ class SchedulerSecurity {
    */
   isBlacklisted(requestData) {
     if (this.findUserIndex(this._blacklist, requestData) !== -1) {
-      console.log("User " + requestData.ip + " is blacklisted.");
+      Logger.log('User ' + requestData.ip + ' is blacklisted.');
       return true;
     }
     return false;
@@ -206,7 +200,7 @@ class SchedulerSecurity {
    */
   isWhitelisted(requestData) {
     if (this.findUserIndex(this._whitelist, requestData) !== -1) {
-      console.log("User " + requestData.ip + " is whitelisted.");
+      Logger.log('User ' + requestData.ip + ' is whitelisted.');
       return true;
     }
     return false;
@@ -218,8 +212,8 @@ class SchedulerSecurity {
    * @param requestData: object holding request information.
    */
   registerRequestToDatabase(requestData) {
-    Logger.info("Logging request to database.");
-    Db.performInsertOne(requestData, "test");
+    Logger.info('Logging request to database.');
+    Db.performInsertOne(requestData, 'test');
   }
 
   /**
@@ -242,13 +236,6 @@ class SchedulerSecurity {
    * @param requestData: object holding request information.
    */
   handleJobSubmission(requestData) {
-    /*var jobData = new JobTemplate({
-      remoteCommand: '/home/marco/Uni/Tesi/Projects/node-ws-template/sge-tests/simple.sh',
-      workingDirectory: '/home/marco/Uni/Tesi/Projects/node-ws-template/sge-tests/',
-      jobName: 'testJob',
-      // submitAsHold: true
-      nativeSpecification: '-now y'
-    });*/
     try {
       // Loads job specifications from file.
       let jobInfo = JSON.parse(fs.readFileSync(requestData.jobPath, 'utf8'));
@@ -261,13 +248,12 @@ class SchedulerSecurity {
 
       // Submits the job to the SGE.
       when(sm.getSession('testSession'), (session) => {
-        when(session.runJob(jobData), (jobId) => {
-          console.log('Job ' + jobId + ' submitted.');
-          // Fetches the date and time of submission of the job.
+        when(session.runJob(jobData), (jobId) => {// Fetches the date and time of submission of the job.
           when(session.getJobProgramSubmitDate(jobId), (jobSubmitDate) => {
             // Formats the date and time to an ISO-compliant format.
-            jobSubmitDate = jobSubmitDate.split(' ').join('T').split('/').join('-')+"+02:00";
-            let date = new Date(jobSubmitDate.substr(6,4) + '-' + jobSubmitDate.substr(0,5) + jobSubmitDate.substr(10,15));
+            jobSubmitDate = jobSubmitDate.split(' ').join('T').split('/').join('-') + '+02:00';
+            let date = new Date(jobSubmitDate.substr(6, 4) + '-' + jobSubmitDate.substr(0, 5)
+                + jobSubmitDate.substr(10, 15));
             // Adds the job to the job history.
             this._jobs.push({
               jobId: jobId,
@@ -275,10 +261,12 @@ class SchedulerSecurity {
               submitDate: date.getTime()
             });
           });
+        }, () => {
+          Logger.info('Error found in job specifications. Job not submitted to the SGE.');
         });
       });
-    } catch(err) {
-        console.log("Error reading job file. Job not submitted to the SGE.");
+    } catch (err) {
+      Logger.info('Error reading job specifications from file. Job not submitted to the SGE.');
     }
   }
 
@@ -289,27 +277,30 @@ class SchedulerSecurity {
    */
   pollJobs() {
     // There are no jobs in the job history.
-    if(this._jobs.length === 0) return;
+    if (this._jobs.length === 0) return;
 
     when(sm.getSession('testSession'), (session) => {
       // Checks the status of each job in the job history.
-      for(let i = this._jobs.length - 1; i >= 0; i--) {
+      for (let i = this._jobs.length - 1; i >= 0; i--) {
         when(session.getJobProgramStatus(this._jobs[i].jobId), (jobStatus) => {
-          console.log("JOBTIME for JOB " + this._jobs[i].jobId + " equal to " + (new Date().getTime() - this._jobs[i].submitDate));
+          //console.log("JOBTIME for JOB " + this._jobs[i].jobId + " equal to " + (new Date().getTime() - this._jobs[i].submitDate));
           // Terminates and removes from history jobs which are still running after the maximum allotted runtime.
-          if(jobStatus !== 'FAILED' && jobStatus !== 'DONE' && new Date().getTime() - this._jobs[i].submitDate > this._maxJobRuntime) {
-            console.log("Job " + this._jobs[i].jobId + " has exceeded maximum runtime. Terminating.");
+          if (jobStatus !== 'FAILED' && jobStatus !== 'DONE' &&
+              new Date().getTime() - this._jobs[i].submitDate > this._maxJobRuntime) {
+            Logger.info('Job ' + this._jobs[i].jobId + ' has exceeded maximum runtime. Terminating.');
             when(session.control(this._jobs[i].jobId, session.TERMINATE), (resp) => {
-              console.log("Removing job " + this._jobs[i].jobId + " from job history.");
-              this._jobs.splice(i,1);
+              Logger.info('Removing job ' + this._jobs[i].jobId + ' from job history.');
+              this._jobs.splice(i, 1);
             });
           }
           // Jobs whose execution ended within the maximum allotted runtime are removed from history.
           else if (jobStatus === 'FAILED' || jobStatus === 'DONE') {
-            console.log("Job " + this._jobs[i].jobId + " already terminated execution.");
-            console.log("Removing job " + this._jobs[i].jobId + " from job history.");
-            this._jobs.splice(i,1);
+            Logger.info('Job ' + this._jobs[i].jobId + ' already terminated execution.');
+            Logger.info('Removing job ' + this._jobs[i].jobId + ' from job history.');
+            this._jobs.splice(i, 1);
           }
+        }, () => {
+          Logger.info('Error reading status for job ' + this._jobs[i].jobId);
         });
       }
     });

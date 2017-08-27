@@ -53,7 +53,7 @@ export default {
     //Sec.pollJobs("simple.sh");
     //Sec.handleJobSubmission(requestData);
 
-    res.send(200, "Done\r\n");
+    res.send(200, "Done");
 
     return next()
   },
