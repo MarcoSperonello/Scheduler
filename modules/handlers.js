@@ -61,7 +61,7 @@ export default {
   handleSubmitJob: function handleSubmitJob(req, res, next) {
     req.log.info(`request handler is ${handleSubmitJob.name}`);
 
-    var jobExample = new JobTemplate({
+    var jobExample1 = new JobTemplate({
       remoteCommand:'/home/andrea/Documents/sge-tests/simple.sh',
       workingDirectory: '/home/andrea/Documents/sge-tests/',
       jobName: 'testJob',
@@ -69,73 +69,114 @@ export default {
       nativeSpecification: '-now y'
     });
 
+    var jobExample2 = new JobTemplate({
+      remoteCommand:'/home/andrea/Documents/sge-tests/simple2.sh',
+      workingDirectory: '/home/andrea/Documents/sge-tests/',
+      jobName: 'testJob2',
+      // submitAsHold: true
+      nativeSpecification: '-now y'
+    });
+
     let sm = new SessionManager();
 
-    when(sm.createSession("ciccio"), (session) => {
-      when(session.runJob(jobExample), (jobId) => {
+    // when(sm.createSession("ciccio"), (session) => {
+    //   when(session.runJob(jobExample1), (jobId) => {
+    //
+    //     setTimeout(() => {
+    //       when(session.control(jobId, session.SUSPEND), (resp) => {
+    //         console.log(resp);
+    //         setTimeout(() => {
+    //           when(session.control(jobId, session.RESUME), (resp) => {
+    //             console.log(resp);
+    //             setTimeout(() => {
+    //               when(session.control(jobId, session.HOLD), (resp) => {
+    //                 console.log(resp);
+    //                 setTimeout(() => {
+    //                   when(session.control(jobId, session.RELEASE), (resp) => {
+    //                     console.log(resp);
+    //                     setTimeout(() => {
+    //                       when(session.control(jobId, session.TERMINATE), (resp) => {
+    //                         res.send(200, resp);
+    //                       }, (err) => {
+    //                         res.send(500, err);
+    //                       });
+    //                     }, 2000);
+    //                   }, (err) => {
+    //                     res.send(500, err);
+    //                   });
+    //                 }, 4000);
+    //               }, (err) => {
+    //                 res.send(500, err);
+    //               });
+    //             }, 4000);
+    //           }, (err) => {
+    //             res.send(500, err);
+    //           });
+    //         }, 4000);
+    //       }, (err) => {
+    //         res.send(500, err);
+    //       });
+    //     }, 2000);
+    //
+    //   }, (err) => {
+    //     res.send(500, err);
+    //   });
+    //   sm.closeSession(session.sessionName);
+    // });
 
-        setTimeout(() => {
-          when(session.control(jobId, session.SUSPEND), (resp) => {
-            console.log(resp);
-            setTimeout(() => {
-              when(session.control(jobId, session.RESUME), (resp) => {
-                console.log(resp);
-                setTimeout(() => {
-                  when(session.control(jobId, session.HOLD), (resp) => {
-                    console.log(resp);
-                    setTimeout(() => {
-                      when(session.control(jobId, session.RELEASE), (resp) => {
-                        console.log(resp);
-                        setTimeout(() => {
-                          when(session.control(jobId, session.TERMINATE), (resp) => {
-                            res.send(200, resp);
-                          }, (err) => {
-                            res.send(500, err);
-                          });
-                        }, 2000);
-                      }, (err) => {
-                        res.send(500, err);
-                      });
-                    }, 4000);
-                  }, (err) => {
-                    res.send(500, err);
-                  });
-                }, 4000);
-              }, (err) => {
-                res.send(500, err);
-              });
-            }, 4000);
-          }, (err) => {
-            res.send(500, err);
-          });
-        }, 2000);
 
+    when(sm.createSession("pippo"), (session) => {
+      when(session.runJob(jobExample1), (jobId) => {
+        when(session.wait(jobId, session.TIMEOUT_WAIT_FOREVER), (jobInfo) => {
+
+          let statusCode, response;
+
+          if(jobInfo.jobStatus && jobInfo.jobStatus.mainStatus === "ERROR") {
+            response = jobInfo;
+            statusCode = 500;
+          }
+          else{
+            response = "Job " + jobId + " terminated execution with exit status " + jobInfo.exitStatus ;
+            if(jobInfo.failed !== "0")
+              response += "; failed with code: " + jobInfo.failed ;
+            statusCode = 200;
+          }
+          console.log(response);
+          res.send(statusCode, response);
+
+        });
       }, (err) => {
         res.send(500, err);
       });
       sm.closeSession(session.sessionName);
     });
 
+
+
     // when(sm.createSession("pippo"), (session) => {
-    //   when(session.runJob(jobExample), (jobId) => {
-    //     when(session.wait(jobId, session.TIMEOUT_WAIT_FOREVER), (jobInfo) => {
+    //   when(session.runJob(jobExample1), (jobId1) => {
+    //     when(session.runJob(jobExample2), (jobId2) => {
+    //       when(session.runJob(jobExample1), (jobId3) => {
     //
-    //       let response = "Job " + jobId + " terminated execution with exit status " + jobInfo.exitStatus ;
+    //         when(session.synchronize(session.JOB_IDS_SESSION_ALL, session.TIMEOUT_WAIT_FOREVER), (response) => {
+    //           res.send(200, response);
     //
-    //       if(jobInfo.failed !== "0")
-    //         response += "; failed with code: " + jobInfo.failed ;
     //
-    //       res.send(200, response);
+    //         }, (err) => {
+    //           res.send(500, err);
+    //         });
     //
+    //
+    //       }, (err) => {
+    //         res.send(500, err);
+    //       });
     //     }, (err) => {
     //       res.send(500, err);
     //     });
-    //
-    //
     //   }, (err) => {
     //     res.send(500, err);
-    //     sm.closeSession(session.sessionName);
     //   });
+    //   sm.closeSession(session.sessionName);
     // });
 
     return next()

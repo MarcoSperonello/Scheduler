@@ -9,6 +9,7 @@ export default class JobInfo{
 
     this.jobId = null;
     this.exitStatus = null;
+    this.failed = false;
     this.rawInfo = {};
   }
 

@@ -17,10 +17,6 @@ exports.default = {
       path: '/',
       handler: _handlers2.default.handleRoot
     },
-    'test': {
-      path: '/test',
-      handler: _handlers2.default.handleTest
-    },
     'scheduler': {
       path: '/scheduler',
       handler: _handlers2.default.handleScheduler

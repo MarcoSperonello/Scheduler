@@ -4,6 +4,9 @@ import Version from "./Version";
 
 let _Sessions = {};
 
+/**
+ * Class used to retrieve a Session object tailored to the DRM in use.
+ */
 export default class SessionManager{
 
   constructor(drmsName){
@@ -66,13 +69,4 @@ export default class SessionManager{
 
     delete _Sessions[sessionName];
   }
-
-  // test(){
-  //   let def = new defer();
-  //   setTimeout(function(){
-  //     console.log("Timer expired");
-  //     def.reject(5);
-  //   }, 3000);
-  //   return def.promise;
-  // }
 }

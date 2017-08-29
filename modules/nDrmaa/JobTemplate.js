@@ -1,7 +1,7 @@
 /**
  * Class representing a Job Template. The attributes are defined according to the specifications found at
  * http://gridscheduler.sourceforge.net/htmlman/htmlman3/drmaa_attributes.html
- * NOTE: The options -help,  -sync,  -t,  -verify,  and  -w  w|v  are not supported, as specified on the manual.
+ * NOTE: The options -help,  -sync,  -t,  -verify,  and  -w  w|v  are not supported, as specified on that page.
  */
 export default class JobTemplate {
   constructor(params){

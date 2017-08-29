@@ -3,6 +3,8 @@ import {defer} from "promised-io/promise";
 import Version from "../Version";
 import * as Exception from "../Exceptions";
 
+/** Set of functions to interact with Grid Engine through CLI **/
+
 /**
  * Get SGE version.
  */
@@ -66,7 +68,7 @@ export function qsub(jobTemplate){
   let args = _parseQsubOptions(jobTemplate);
   let command = "qsub " + args + " " + jobTemplate.remoteCommand + " " + jobTemplate.args.join(" ");
 
-  console.log("Executing command: " + command);
+  // console.log("Executing command: " + command);
 
   let qsub = exec(command, opts, (err, stdout, stderr) => {
     if (err) { def.reject(err) ; return; }
@@ -90,13 +92,15 @@ export function qacct(jobId){
 
   let qstat = exec(command, (err, stdout, stderr) => {
     if (err) {
-      if(!stderr.includes("error: job id " + jobId + " not found")){
+      if(stderr.includes("error: job id " + jobId + " not found")){
         // In order for a job to show up on qacct, some seconds have to pass after the job has finished,
-        // hence the call to qacct will return an error complaining that the job can't be found.
-        // We thus ignore the "Job not found" error, sending a reject promise only for the other kind of errors.
-        def.reject(err);
+        // hence the call to qacct might return an error complaining that the job can't be found if called to early.
+        // We thus treat the "Job not found" error as a special state resolving the promise (instead of rejecting it)
+        // with the "NOT FOUND" message.
+        def.resolve("NOT FOUND");
       }
-
+      else
+        def.reject(err);
       return;
     }
 
@@ -150,71 +154,7 @@ export function control(jobIds, action)
 
 
 
-// /**
-//  * Function for invoking the qdel command of SGE.
-//  * @param jobIds: can be a string or an array indicating the job(s) that we want to delete.
-//  */
-// export function qdel(jobIds){
-//   let def = new defer();
-//
-//   jobIds = (jobIds && typeof jobIds=='string') ? jobIds : jobIds.join(",");
-//
-//   let command = "qdel " + jobIds;
-//
-//   let qstat = exec(command, (err, stdout, stderr) => {
-//     if (err) { def.reject(err); return;  }
-//
-//     def.resolve(stdout);
-//
-//   });
-//   return def.promise;
-// }
-//
-// export function qmod(jobIds, action){
-//   let def = new defer();
-//
-//   const SUSPEND = 0, RESUME = 1;
-//
-//   jobIds = (jobIds && typeof jobIds=='string') ? jobIds : jobIds.join(",");
-//
-//   let command = "qmod ";
-//
-//   if(action === SUSPEND)
-//     command += "-sj " + jobIds;
-//   else if(action === RESUME)
-//     command += "-usj " + jobIds;
-//   else
-//     def.err(new Exception.InvalidArgumentException("Invalid action for command qmod: " + action));
-//
-//   let qstat = exec(command, (err, stdout, stderr) => {
-//     if (err) { def.reject(err); return;  }
-//
-//     def.resolve(stdout);
-//
-//   });
-//   return def.promise;
-// }
-//
-// export function qhold(jobIds){
-//   let def = new defer();
-//
-//   jobIds = (jobIds && typeof jobIds=='string') ? jobIds : jobIds.join(",");
-//
-//   let command = "qhold " + jobIds;
-//
-//   let qstat = exec(command, (err, stdout, stderr) => {
-//     if (err) { def.reject(err); return;  }
-//
-//     def.resolve(stdout);
-//
-//   });
-//   return def.promise;
-// }
-
-
-
-
-
+/** ------------ HELPER FUNCTIONS -------------- **/
 
 /**
  * Helper function that parses the options and arguments included in a jobTemplate.
@@ -315,7 +255,7 @@ function _parseQsubOptions(jobTemplate){
     }
   });
 
-  console.log("opts: " + opts);
+  // console.log("opts: " + opts);
 
   return opts.join(" ");
 }
