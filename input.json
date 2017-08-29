@@ -1,6 +1,6 @@
 {
-	"maxReqPerSecUser": 2,
-	"maxReqPerSecGlobal": 4,
+	"maxRequestsPerSecUser": 2,
+	"maxRequestsPerSecGlobal": 4,
 	"blockingTimeUser": 2000,
 	"blockingTimeGlobal": 6000,
 	"requestLifespan": 5000,

@@ -4,7 +4,7 @@ import {when, defer} from "promised-io";
 import SessionBase from "../Session";
 import JobTemplate from "../JobTemplate";
 import Job from "../Job";
-import JobInfo from "./JobInfo";
+import JobInfo from "../JobInfo";
 
 export default class Session extends SessionBase{
   constructor(sessionName,contact,jobCategories){
