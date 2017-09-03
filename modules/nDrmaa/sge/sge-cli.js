@@ -10,24 +10,26 @@ import * as Exception from "../Exceptions";
  */
 export function getDrmsInfo() {
   let def = new defer();
+
   exec("qstat -help", (error, stdout, stderr) => {
     if (error) {
       def.reject(err);
       return;
     }
-    let data = stdout.split("\n")[0].split(" ");
-    let res = {drmsName: data[0]};
-    let vparts = data[1].split(".");
+    let data = stdout.split("\n")[0].split(" ");    // The first line is the one containing the SGE version.
+    let res = {drmsName: data[0]};                  // DRM name (SGE in this case)
+    let vparts = data[1].split(".");                // Split into major and minor version number
     res.version = new Version(vparts[0],vparts[1]);
     def.resolve(res);
   });
+
   return def.promise;
 }
 
 
 /**
  * Function for invoking the qstat command of SGE.
- * @param job: the id of the job for which we want to retrieve information.
+ * @param jobId: id of the job on which qstat will be called (optional)
  */
 export function qstat(jobId){
   let def = new defer();
@@ -40,15 +42,16 @@ export function qstat(jobId){
 
   console.log("Executing command: " + command);
 
-  let qstat = exec(command, (err, stdout, stderr) => {
+  exec(command, (err, stdout, stderr) => {
     if (err) { def.reject(err) ; return; }
 
-    let isSingleJobResult = jobId ? true : false;
+    let isSingleJobResult = !!jobId; // If qstat() is called with no parameters, equals to false
 
     let res = _parseQstatResult(stdout, isSingleJobResult);
 
     def.resolve(res);
   });
+
   return def.promise;
 
 }
@@ -70,10 +73,11 @@ export function qsub(jobTemplate){
 
   // console.log("Executing command: " + command);
 
-  let qsub = exec(command, opts, (err, stdout, stderr) => {
+  exec(command, opts, (err, stdout, stderr) => {
     if (err) { def.reject(err) ; return; }
     def.resolve({stdout: stdout, stderr: stderr});
   });
+
   return def.promise;
 }
 
@@ -85,18 +89,17 @@ export function qacct(jobId){
   let def = new defer();
 
   let args = "-j "+jobId;
-
   let command = "qacct " + args;
 
   console.log("Executing command: " + command);
 
-  let qstat = exec(command, (err, stdout, stderr) => {
+  exec(command, (err, stdout, stderr) => {
     if (err) {
+      // In order for a job to show up on qacct, some seconds have to pass after the job has finished,
+      // hence the call to qacct might return an error complaining that the job can't be found if called to early.
+      // We thus treat the "Job not found" error as a special state resolving the promise (instead of rejecting it)
+      // with the "NOT FOUND" message.
       if(stderr.includes("error: job id " + jobId + " not found")){
-        // In order for a job to show up on qacct, some seconds have to pass after the job has finished,
-        // hence the call to qacct might return an error complaining that the job can't be found if called to early.
-        // We thus treat the "Job not found" error as a special state resolving the promise (instead of rejecting it)
-        // with the "NOT FOUND" message.
         def.resolve("NOT FOUND");
       }
       else
@@ -111,13 +114,12 @@ export function qacct(jobId){
   return def.promise;
 }
 
-export function control(jobIds, action)
-{
+export function control(jobIds, action) {
   let def = new defer();
 
   const SUSPEND = 0, RESUME = 1, HOLD = 2, RELEASE = 3, TERMINATE = 4;
 
-  jobIds = (jobIds && typeof jobIds=='string') ? jobIds : jobIds.join(",");
+  jobIds = (jobIds && typeof jobIds==='string') ? jobIds : jobIds.join(",");
 
   let command = "";
 
@@ -143,12 +145,13 @@ export function control(jobIds, action)
       break;
   }
 
-  let cmd = exec(command, (err, stdout, stderr) => {
+  exec(command, (err, stdout, stderr) => {
     if (err) { def.reject(err + stdout); return;  }
 
     def.resolve(stdout);
 
   });
+
   return def.promise;
 }
 

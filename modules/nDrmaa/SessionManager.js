@@ -37,7 +37,7 @@ export default class SessionManager{
   createSession(sessionName, contact){
     let _self=this;
 
-    return when(this.ready, function(){
+    return when(this.ready, () => {
       if (!sessionName) {
         throw new Exceptions.InvalidArgumentException("Session Name is a required parameter for 'createJobSession'");
       }
@@ -51,7 +51,7 @@ export default class SessionManager{
   }
 
   getSession(sessionName){
-    return when(this.ready, function(){
+    return when(this.ready, () => {
       if (!sessionName) {
         throw new Exceptions.InvalidArgumentException("Session Name is a required parameter for 'openJobSession'");
       }
@@ -68,5 +68,13 @@ export default class SessionManager{
     }
 
     delete _Sessions[sessionName];
+  }
+
+  getVersion(){
+    let _self = this;
+
+    return when(this.ready, () => {
+      return _self.drmsVersion;
+    });
   }
 }

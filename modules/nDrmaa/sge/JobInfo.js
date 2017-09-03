@@ -6,9 +6,9 @@ import JobInfoBase from "../JobInfo";
 export default class JobInfo extends JobInfoBase{
   constructor(info) {
     super();
-    this.jobId = info.jobnumber; // Job id
+    this.jobId = info.jobnumber;        // Job id
     this.exitStatus = info.exit_status; // exit code
-    this.failed = info.failed; // Failure code
-    this.rawInfo = info; // Contains all the information obtained by qacct
+    this.failed = info.failed;          // Failure code
+    this.rawInfo = info;                // Contains all the information obtained from qacct
   }
 }

@@ -7,10 +7,10 @@ export default class JobInfo{
       throw new TypeError("Cannot construct JobInfo instances from its abstract class.");
     }
 
-    this.jobId = null;
-    this.exitStatus = null;
-    this.failed = false;
-    this.rawInfo = {};
+    this.jobId = null;      // Job id
+    this.exitStatus = null; // exit code
+    this.failed = false;    // Failure code
+    this.rawInfo = {};      // Contains all the information obtained from qacct
   }
 
   getExitStatus(){ return this.hasExited() ? this.exitStatus : null; }

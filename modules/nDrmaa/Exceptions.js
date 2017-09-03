@@ -14,11 +14,10 @@ let exceptions = [
 ];
 
 
-exceptions.forEach(function(c){
-  exports[c]=function(msg){
-    //Error.call(this,msg);
+exceptions.forEach(function(exception){
+  exports[exception]=function(msg){
     let err = new Error(msg);
-    err.name=c;
+    err.name=exception;
     return err;
   }
 });

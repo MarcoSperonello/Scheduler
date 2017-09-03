@@ -18,14 +18,6 @@ export default class Session extends SessionBase{
     this.jobCategories = jobCategories || [];
   }
 
-  // getJobs(){
-  //   return this.jobs;
-  // }
-  //
-  // getJobArray(){
-  //
-  // }
-
   /**
    * Submits a Grid Engine job with attributes defined in the JobTemplate jobTemplate parameter.
    * @param jobTemplate: attributes of the job to be run.
@@ -129,13 +121,13 @@ export default class Session extends SessionBase{
       else{
         // The job is not on the list, hence it must have finished successfully or failed.
         // We thus have to use the qacct function to query the info of finished jobs.
-        jobStatus.mainStatus = "COMPLETED"
+        jobStatus.mainStatus = "COMPLETED";
 
         when(sge.qacct(jobId), (jobInfo) => {
           // Job execution has finished but its report has yet to show
           // up on qacct, so its precise status can't be determined
           if(jobInfo === "NOT FOUND")
-            jobStatus.subStatus = "UNDETERMINED"
+            jobStatus.subStatus = "UNDETERMINED";
 
           // Job execution has finished but with failed status.
           else if(jobInfo.failed !== "0")
@@ -170,9 +162,9 @@ export default class Session extends SessionBase{
    */
   synchronize(jobIds, timeout){
     let def = new defer();
-    let refreshInterval = 1000;
-    let hasTimeout = timeout !== this.TIMEOUT_WAIT_FOREVER;
-    let completedJobs = [];
+    let refreshInterval = 1000; // Refresh interval for the jobs' status monitor(s)
+    let hasTimeout = timeout !== this.TIMEOUT_WAIT_FOREVER; // Whether the caller specified a timeout
+    let completedJobs = []; // Array containing the response data of each job
 
     // Arguments validation
 
@@ -207,6 +199,8 @@ export default class Session extends SessionBase{
           // Job execution terminated
           if(jobStatus.mainStatus === "COMPLETED")
           {
+            // Stop the monitor, compose the response object and push it inside the array
+            // to return after all jobs finished execution.
             clearInterval(monitor);
 
             let response = {
@@ -218,6 +212,7 @@ export default class Session extends SessionBase{
 
             completedJobs.push(response);
 
+            // If all jobs have terminated their execution, resolve the promise
             if(completedJobs.length === jobIds.length)
               def.resolve(completedJobs);
           }
@@ -239,7 +234,7 @@ export default class Session extends SessionBase{
                 errors: jobStats["error_reason"]
               };
 
-              completedJobs.push(response); // Here a job that is in error state is treated as complete.
+              completedJobs.push(response);
 
               if(completedJobs.length === jobIds.length)
                 def.resolve(completedJobs);
@@ -279,8 +274,8 @@ export default class Session extends SessionBase{
    * for this call to complete before timing out. The special value TIMEOUT_WAIT_FOREVER can be uesd to wait
    * indefinitely for a result.
    *
-   * The promise resolves a JobInfo object containing the information of the completed/failed job, or a JSON with the
-   * error reasons for a job that is in ERROR status.
+   * The promise is resolved with an object of class JobInfo containing the information of the completed/failed job, or
+   * a JSON with the error reasons for a job that is in ERROR status.
    *
    * @param jobId: the id of the job for which to wait
    * @param timeout: amount of time in milliseconds to wait for the job to terminate its execution.
@@ -300,7 +295,7 @@ export default class Session extends SessionBase{
     when(this.synchronize([jobId], timeout), (response) => {
       let jobState = response[0].jobStatus;
       if(jobState.mainStatus === "COMPLETED"){
-        if(jobState.subStatus == "DONE" || jobState.subStatus == "FAILED"){
+        if(jobState.subStatus === "DONE" || jobState.subStatus === "FAILED"){
           when(sge.qacct(jobId), (jobInfo) => {
             def.resolve(new JobInfo(jobInfo))
           });
@@ -337,6 +332,8 @@ export default class Session extends SessionBase{
 
   /**
    * Hold, release, suspend, resume, or kill the job identified by jobId.
+   * If jobId is JOB_IDS_SESSION_ALL, then this routine acts on all jobs submitted during this DRMAA session up to
+   * the moment control() is called.
    *
    * The legal values for action and their meanings are:
    *  - SUSPEND: stop the job,
@@ -348,51 +345,76 @@ export default class Session extends SessionBase{
    *  This routine returns once the action has been acknowledged by the DRM system, but does not necessarily wait
    *  until the action has been completed.
    *
+   *  Returns an array of objects, one for each jobs on which the action is performed, with the following properties:
+   *  {
+   *    jobId: the id of the job
+   *    response: the response given by a successful call to the function performing the desired action
+   *    error: the error given by a unsuccessful call to the function performing the desired function
+   *  }
+   *
    * @param jobId: The id of the job to control
    * @param action: The control action to be taken
    */
   control(jobId, action){
     let def = new defer();
 
-    if(!this.jobs[jobId])
-      def.reject(new Exception.InvalidArgumentException("No jobs with id " + jobId + " were found in session "
-        + this.sessionName));
+    // Array with the ids of the jobs to control: if JOB_IDS_SESSION_ALL is passed then it will contain all the jobs
+    // submitted during this session.
+    let jobsList = jobId===this.JOB_IDS_SESSION_ALL ? Object.keys(this.jobs) : [jobId];
 
-    if(action !== this.SUSPEND &&
-      action !== this.RESUME &&
-      action !== this.HOLD &&
-      action !== this.RELEASE &&
-      action !== this.TERMINATE){
+    // Container for the response objects of each job that will be used to resolve the promise.
+    let response = [];
+
+    // Template for the response of each call to the desired action on each job
+    let jobResponse = {
+      jobId: null,
+      response: "",
+      error: ""
+    };
+
+    // Check the action's validity
+    if (action !== this.SUSPEND &&
+        action !== this.RESUME &&
+        action !== this.HOLD &&
+        action !== this.RELEASE &&
+        action !== this.TERMINATE) {
       throw new Exception.InvalidArgumentException("Invalid action: " + action);
     }
 
-    // switch(action){
-    //   case(this.SUSPEND):
-    //     console.log("Suspending job "+jobId);
-    //     break;
-    //
-    //   case(this.RESUME):
-    //     console.log("Resuming job "+jobId);
-    //     break;
-    //
-    //   case(this.HOLD):
-    //     console.log("Holding job "+jobId);
-    //     break;
-    //
-    //   case(this.RELEASE):
-    //     console.log("Releasing job "+jobId);
-    //     break;
-    //
-    //   case(this.TERMINATE):
-    //     console.log("Terminating job "+jobId);
-    //     break;
-    // }
+    // Iterate through the list of jobs and perform the action on each job
+    for(let i=0; i<jobsList.length; i++){
+      let jobId = jobsList[i];
 
-    when(sge.control(jobId, action), (res) => {
-      def.resolve(res);
-    }, (err) => {
-      def.reject(err);
-    });
+      if(!this.jobs[jobId]) {
+        def.reject(new Exception.InvalidArgumentException("No jobs with id " + jobId + " were found in session "
+          + this.sessionName));
+        break;
+      }
+
+      when(sge.control(jobId, action), (res) => {
+
+        jobResponse.jobId = jobId;
+        jobResponse.response = res;
+
+        response.push(jobResponse);
+
+        // Action was performed on all jobs => resolve
+        if(response.length===jobsList.length)
+          def.resolve(response);
+
+      }, (err) => {
+
+        jobResponse.jobId = jobId;
+        jobResponse.error = err;
+
+        response.push(jobResponse);
+
+        // Action was performed on all jobs => resolve
+        if(response.length===jobsList.length)
+          def.resolve(response);
+      });
+    }
+
 
     return def.promise;
   }
@@ -437,176 +459,5 @@ export default class Session extends SessionBase{
 
     return def.promise;
   }
-
-
-
-
-  // ------- DIFFERENT VERSIONS OF SYNCHRONIZE AND WAIT ------------ //
-  // In these versions, synchronize returns just a boolean indicating whether one or more jobs are in error status
-  // with no information regarding either which jobs are in error or the reasons of the errors. Therefore, the user must
-  // call the function wait on every job in order to get more information to this regard.
-
-  // /**
-  //  * The synchronize() method returns when all jobs specified in jobIds have failed or finished
-  //  * execution. If jobIds contains JOB_IDS_SESSION_ALL, then this method waits for all jobs submitted during this
-  //  * DRMAA session.
-  //  *
-  //  * To prevent blocking indefinitely in this call, the caller may use timeout, specifying how many milliseconds to wait
-  //  * for this call to complete before timing out. The special value TIMEOUT_WAIT_FOREVER can be used to wait
-  //  * indefinitely for a result.
-  //  *
-  //  * The promise resolves a boolean indicating whether some jobs are in error state or if they all finished execution/failed.
-  //  * Otherwise it rejects with ExitTimeoutException if the timeout expires before all jobs finish.
-  //  *
-  //  * @param jobIds: the ids of the jobs to synchronize
-  //  * @param timeout: the maximum number of milliseconds to wait
-  //  */
-  // synchronize(jobIds, timeout){
-  //   let def = new defer();
-  //   let refreshInterval = 1000;
-  //   let hasTimeout = timeout !== this.TIMEOUT_WAIT_FOREVER;
-  //   let completedJobs = [];
-  //   let hasErrors = false;
-  //
-  //   // Arguments validation
-  //
-  //   if(!Array.isArray(jobIds) && jobIds !== this.JOB_IDS_SESSION_ALL)
-  //     throw new Exception.InvalidArgumentException("Jobs list must be an array!");
-  //
-  //   if(!jobIds || jobIds.length===0)
-  //     throw new Exception.InvalidArgumentException("Empty jobs list: there must be at least one job in the list!");
-  //
-  //   // Passing a timeout that is less than the monitor's refresh interval makes no sense.
-  //   if (hasTimeout && timeout < refreshInterval)
-  //     throw new Exception.InvalidArgumentException("Timeout must be greater than refresh interval " +
-  //       "(" + refreshInterval + ")");
-  //
-  //
-  //   if(jobIds === this.JOB_IDS_SESSION_ALL)
-  //     jobIds = Object.keys(this.jobs);
-  //
-  //   jobIds.forEach((jobId) => {
-  //
-  //     if(jobIds !== this.JOB_IDS_SESSION_ALL && !this.jobs[jobId]) {
-  //       def.reject(new Exception.InvalidArgumentException("No jobs with id " + jobId + " were found in session "
-  //         + this.sessionName));
-  //       return;
-  //     }
-  //
-  //     // Monitor that checks the status of a given job every refreshInterval milliseconds.
-  //     let monitor = setInterval(() => {
-  //
-  //       when(this.getJobProgramStatus(jobId), (jobStatus) => {
-  //
-  //         // Job execution terminated.
-  //         if(jobStatus.mainStatus === "COMPLETED" || jobStatus.mainStatus === "ERROR")
-  //         {
-  //           clearInterval(monitor);
-  //
-  //           completedJobs.push(jobId);
-  //
-  //           if(!hasErrors && jobStatus.mainStatus === "ERROR")
-  //             hasErrors = true;
-  //
-  //           if(completedJobs.length === jobIds.length)
-  //             def.resolve(hasErrors);
-  //         }
-  //       });
-  //     }, refreshInterval);
-  //
-  //
-  //     if(hasTimeout)
-  //     {
-  //       // Clear the monitor after timeout has expired and rejects the promise.
-  //       setTimeout(() => {
-  //         clearInterval(monitor);
-  //
-  //         // Since there's one monitor for each job, reject will be called once for each monitor if the timeout expires,
-  //         // causing an exception due to the fact that a deferred has to be resolved only once. We can thus safely
-  //         // ignore this exception.
-  //         try{
-  //           def.reject(new Exception.ExitTimeoutException("Timeout expired before job completion"));
-  //         }
-  //         catch(e) { }
-  //       }, timeout)
-  //     }
-  //   });
-  //
-  //   return def.promise;
-  // }
-  //
-  // /**
-  //  * Wait until a job is complete and the information regarding the job's execution are available.
-  //  * Whether the job completes successfully or with a failure status, returns the job information using the command "qacct";
-  //  * otherwise if there's an error preventing the job from completing, returns the job information retrieved with the
-  //  * command "qstat" in order to be able to access the error reasons.
-  //  *
-  //  * To prevent blocking indefinitely in this call, the caller may use timeout, specifying how many milliseconds to wait
-  //  * for this call to complete before timing out. The special value TIMEOUT_WAIT_FOREVER can be uesd to wait
-  //  * indefinitely for a result.
-  //  *
-  //  * The promise resolves a JobInfo object containing the information of the completed/failed job, or a JSON with the
-  //  * error reasons for a job that is in ERROR status.
-  //  *
-  //  * @param jobId: the id of the job for which to wait
-  //  * @param timeout: amount of time in milliseconds to wait for the job to terminate its execution.
-  //  */
-  // wait(jobId, timeout){
-  //   let def = new defer();
-  //   let refreshInterval = 1000;
-  //   let hasTimeout = timeout !== this.TIMEOUT_WAIT_FOREVER;
-  //
-  //   if(!this.jobs[jobId])
-  //     def.reject(new Exception.InvalidArgumentException("No jobs with id " + jobId + " were found in session "
-  //       + this.sessionName));
-  //
-  //   if(hasTimeout && timeout < refreshInterval)
-  //     throw new Exception.InvalidArgumentException("Timeout must be greater than refresh interval (" + refreshInterval + ")");
-  //
-  //   when(this.synchronize([jobId], timeout), (response) => {
-  //     when(this.getJobProgramStatus(jobId), (jobState) => {
-  //       if(jobState.mainStatus === "COMPLETED"){
-  //         if(jobState.subStatus == "DONE" || jobState.subStatus == "FAILED"){
-  //           when(sge.qacct(jobId), (jobInfo) => {
-  //             def.resolve(new JobInfo(jobInfo))
-  //           });
-  //         }
-  //         else{
-  //           let monitor = setInterval(() => {
-  //             when(sge.qacct(jobId), (jobInfo) => {
-  //               if(jobInfo !== "NOT FOUND"){ // Job information available, stop the monitor and return the info.
-  //                 clearInterval(monitor);
-  //                 def.resolve(new JobInfo(jobInfo));
-  //               }
-  //             });
-  //           }, refreshInterval);
-  //
-  //           if(hasTimeout)
-  //           {
-  //             // Clear the monitor after timeout has expired.
-  //             setTimeout(() => {
-  //               clearInterval(monitor);
-  //               def.reject(new Exception.ExitTimeoutException("Timeout expired before job completion"));
-  //             }, timeout)
-  //           }
-  //         }
-  //       }
-  //       else if(jobState.mainStatus === "ERROR"){
-  //         when(sge.qstat(jobId), (jobStats) => {
-  //           let response = {
-  //             jobId: jobId,
-  //             msg: "Job " + jobId + " is in error state.",
-  //             jobStatus: jobState.mainStatus,
-  //             errors: jobStats["error_reason"]
-  //           };
-  //
-  //           def.resolve(response);
-  //         });
-  //       }
-  //     });
-  //   },(err) => { def.reject(err);});
-  //
-  //   return def.promise;
-  // }
 
 }

@@ -59,10 +59,6 @@ export default class Session{
   get TERMINATE(){ return TERMINATE }
   get JOB_IDS_SESSION_ALL(){ return JOB_IDS_SESSION_ALL }
 
-  getJobs(){ return this.jobs; }
-
-  getJobArray(){ }
-
   runJob(jobTemplate){ }
 
   getJobProgramStatus(jobId){ }
