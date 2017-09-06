@@ -100,7 +100,7 @@ export function qacct(jobId){
       // We thus treat the "Job not found" error as a special state resolving the promise (instead of rejecting it)
       // with the "NOT FOUND" message.
       if(stderr.includes("error: job id " + jobId + " not found")){
-        def.resolve("NOT FOUND");
+        def.resolve("NOT_FOUND");
       }
       else
         def.reject(err);

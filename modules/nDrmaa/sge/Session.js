@@ -126,7 +126,7 @@ export default class Session extends SessionBase{
         when(sge.qacct(jobId), (jobInfo) => {
           // Job execution has finished but its report has yet to show
           // up on qacct, so its precise status can't be determined
-          if(jobInfo === "NOT FOUND")
+          if(jobInfo === "NOT_FOUND")
             jobStatus.subStatus = "UNDETERMINED";
 
           // Job execution has finished but with failed status.
@@ -138,8 +138,12 @@ export default class Session extends SessionBase{
             jobStatus.subStatus = "DONE";
 
           def.resolve(jobStatus);
+        }, (err) => {
+          def.reject(err);
         });
       }
+    }, (err) => {
+      def.reject(err);
     });
 
     return def.promise;
@@ -238,8 +242,12 @@ export default class Session extends SessionBase{
 
               if(completedJobs.length === jobIds.length)
                 def.resolve(completedJobs);
+            }, (err) => {
+              def.reject(err);
             });
           }
+        }, (err) => {
+          def.reject(err);
         });
       }, refreshInterval);
 
@@ -298,16 +306,20 @@ export default class Session extends SessionBase{
         if(jobState.subStatus === "DONE" || jobState.subStatus === "FAILED"){
           when(sge.qacct(jobId), (jobInfo) => {
             def.resolve(new JobInfo(jobInfo))
+          }, (err) => {
+            def.reject(err);
           });
         }
         // Job subStatus is UNDETERMINED (i.e. not yet available on qacct)
         else{
           let monitor = setInterval(() => {
             when(sge.qacct(jobId), (jobInfo) => {
-              if(jobInfo !== "NOT FOUND"){ // Job information available, stop the monitor and return the info.
+              if(jobInfo !== "NOT_FOUND"){ // Job information available, stop the monitor and return the info.
                 clearInterval(monitor);
                 def.resolve(new JobInfo(jobInfo));
               }
+            }, (err) => {
+              def.reject(err);
             });
           }, refreshInterval);
 
@@ -325,7 +337,9 @@ export default class Session extends SessionBase{
       else if(jobState.mainStatus === "ERROR"){
         def.resolve(response[0]);
       }
-    },(err) => { def.reject(err);});
+    },(err) => {
+      def.reject(err);
+    });
 
     return def.promise;
   }
