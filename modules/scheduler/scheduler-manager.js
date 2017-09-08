@@ -1,13 +1,15 @@
-import Db from './database';
-import Logger from './logger';
+import Db from '../database';
+import Logger from '../logger';
 
 import {when, defer} from 'promised-io';
 import fs from 'fs';
-import JobTemplate from './nDrmaa/JobTemplate';
-import SessionManager from './nDrmaa/sge/SessionManager';
+import JobTemplate from '../nDrmaa/JobTemplate';
+import SessionManager from '../nDrmaa/sge/SessionManager';
+import * as sgeClient from '../nDrmaa/sge/sge-cli';
+import * as monitors from './monitors';
 
 // Creates a Drmaa session.
-const sm = new SessionManager();
+export const sm = new SessionManager();
 sm.createSession('testSession');
 
 /**
@@ -34,17 +36,19 @@ class SchedulerSecurity {
       this.maxRequestsPerSecUser_ = inputParams.maxRequestsPerSecUser;
       // Max number of requests per time unit for all users.
       this.maxRequestsPerSecGlobal_ = inputParams.maxRequestsPerSecGlobal;
-      // Not used yet. Might not be needed.
-      this.blockingTimeUser_ = inputParams.blockingTimeUser;
-      // Not used yet. Might not be needed.
-      this.blockingTimeGlobal_ = inputParams.blockingTimeGlobal;
+      ;
+      // Maximum time allowed to pass after the most recent request of a user
+      // before the user is removed from history.
+      this.userLifespan_ = inputParams.userLifespan;
       // Time after which a request can be removed from history.
       this.requestLifespan_ = inputParams.requestLifespan;
 
       // Not used yet. Might not be needed.
       this.maxConcurrentJobs_ = inputParams.maxConcurrentJobs;
-      // Time after which a job execution can be forcibly stopped.
-      this.maxJobRuntime_ = inputParams.maxJobRuntime;
+      // Time after which a RUNNING job can be forcibly stopped.
+      this.maxJobRunningTime_ = inputParams.maxJobRunningTime;
+      // Time after which a QUEUED job can be forcibly stopped.
+      this.maxJobQueuedTime_ = inputParams.maxJobQueuedTime;
       // Requests from blacklisted users are always rejected.
       this.blacklist_ = inputParams.blacklist;
       // Requests from whitelisted users are always accepted.
@@ -57,17 +61,19 @@ class SchedulerSecurity {
 
       this.maxRequestsPerSecUser_ = 2;
       this.maxRequestsPerSecGlobal_ = 4;
-      this.blockingTimeUser_ = 2000;
-      this.blockingTimeGlobal_ = 6000;
+      this.userLifespan_ = 1000000;
       this.requestLifespan_ = 5000;
       this.maxConcurrentJobs_ = 1;
-      this.maxJobRuntime_ = 10000;
+      this.maxJobRunningTime_ = 10000;
+      this.maxJobQueuedTime_ = 10000;
       this.blacklist_ = [];
       this.whitelist_ = [];
     }
 
     // Polls the job history once per second.
-    setInterval(this.pollJobs.bind(this), 1000);
+    // setInterval(this.pollJobs.bind(this), 1000);
+    setInterval(monitors.pollJobs.bind(this), 1000);
+    setInterval(monitors.pollUsers.bind(this), 1000);
   }
 
   /**
@@ -102,6 +108,7 @@ class SchedulerSecurity {
         // Logs the request to database.
         this.registerRequestToDatabase(requestData);
         // Attempts to submit the job to the SGE.
+        // this.handleJobSubmission(requestData);
         this.handleJobSubmission(requestData);
       }
     } else {  // User has already submitted one or more requests in the past.
@@ -114,6 +121,7 @@ class SchedulerSecurity {
         this.users_[userIndex].requestAmount++;
         this.globalRequests_.push(requestData.time);
         this.registerRequestToDatabase(requestData);
+        // this.handleJobSubmission(requestData);
         this.handleJobSubmission(requestData);
       }
     }
@@ -174,10 +182,10 @@ class SchedulerSecurity {
 
     // If no user requests were pruned, the user is already at capacity.
     // Additional requests cannot be serviced.
-    // console.log("User " + user.ip + " cannot submit more requests right now.
-    // " +
-    //    "There are currently " + user.requests.length + " request(s) in the
-    //    user's history.");
+    Logger.info(
+        'User ' + user.ip +
+        ' cannot submit more requests right now: there are currently ' +
+        user.requests.length + ' request(s) in the user\'s history.');
     return false;
   }
 
@@ -208,7 +216,9 @@ class SchedulerSecurity {
       // console.log("globalRequests_.length: " + this.globalRequests_.length +
       // ".
       // Cannot service more requests.");
-      Logger.info('Server already at capacity. Cannot service more requests.');
+      Logger.info(
+          'Server currently at capacity (' + this.globalRequests_.length +
+          ' global requests currently present). Cannot service more requests.');
       return false;
     }
 
@@ -223,7 +233,7 @@ class SchedulerSecurity {
    */
   isBlacklisted(requestData) {
     if (this.findUserIndex(this.blacklist_, requestData) !== -1) {
-      Logger.log('User ' + requestData.ip + ' is blacklisted.');
+      Logger.info('User ' + requestData.ip + ' is blacklisted.');
       return true;
     }
     return false;
@@ -237,7 +247,7 @@ class SchedulerSecurity {
    */
   isWhitelisted(requestData) {
     if (this.findUserIndex(this.whitelist_, requestData) !== -1) {
-      Logger.log('User ' + requestData.ip + ' is whitelisted.');
+      Logger.info('User ' + requestData.ip + ' is whitelisted.');
       return true;
     }
     return false;
@@ -268,6 +278,125 @@ class SchedulerSecurity {
         (elem) => { return elem.ip === requestData.ip; });
   }
 
+  /*  /!**
+     * Submits a job to the SGE.
+     *
+     * @param requestData: object holding request information.
+     *!/
+    handleJobSubmission(requestData) {
+      try {
+        // Loads job specifications from file.
+        let jobInfo = JSON.parse(fs.readFileSync(requestData.jobPath, 'utf8'));
+        let jobData = new JobTemplate({
+          remoteCommand: jobInfo.remoteCommand,
+          args: jobInfo.args || [],
+          jobEnvironment: jobInfo.jobEnvironment || '',
+          workingDirectory: jobInfo.workingDirectory,
+          jobCategory: jobInfo.jobCategory || '',
+          nativeSpecification: jobInfo.nativeSpecification,
+          email: jobInfo.email,
+          blockEmail: jobInfo.blockEmail || true,
+          startTime: jobInfo.startTime || '',
+          jobName: jobInfo.jobName,
+          inputPath: jobInfo.inputPath || '',
+          outputPath: jobInfo.outputPath || '',
+          errorPath: jobInfo.errorPath || '',
+          joinFiles: jobInfo.joinFiles || '',
+        });
+
+        // Submits the job to the SGE.
+        when(sm.getSession('testSession'), (session) => {
+          when(
+              session.runJob(jobData),
+              (jobId) => {
+                // Fetches the date and time of submission of the job.
+                when(sgeClient.qstat(jobId), (job) => {
+                  // Converts the date to an ms-from-epoch format.
+                  let jobSubmitDate = new Date(job.submission_time).getTime();
+                  // Adds the job to the job history.
+                  this.jobs_.push({
+                    jobId: jobId,
+                    jobName: job.job_name,
+                    user: requestData.ip,
+                    submitDate: jobSubmitDate,
+                  });
+                });
+              },
+              () => {
+                Logger.info(
+                    'Error found in job specifications. Job not submitted to the
+    SGE.');
+              });
+        });
+      } catch (err) {
+        Logger.info(
+            'Error reading job specifications from file. Job not submitted to
+    the SGE.');
+      }
+    }
+
+    /!**
+     * Periodically queries the SGE to monitor the status of submitted jobs.
+    Jobs
+     * which have exceeded their maximum
+     * runtime and are still running are terminated and removed from history.
+     * Jobs which terminated in the allotted time are removed from history.
+     *!/
+    pollJobs() {
+      // There are no jobs in the job history.
+      if (this.jobs_.length === 0) return;
+
+      when(sm.getSession('testSession'), (session) => {
+        // Checks the status of each job in the job history.
+        for (let i = this.jobs_.length - 1; i >= 0; i--) {
+          when(
+              session.getJobProgramStatus(this.jobs_[i].jobId),
+              (jobStatus) => {
+                // console.log("JOBTIME for JOB " + this.jobs_[i].jobId + "
+    equal
+                // to " + (new Date().getTime() - this.jobs_[i].submitDate));
+                // Terminates and removes from history jobs which are still
+                // running after the maximum allotted runtime.
+                if (jobStatus.mainStatus !== 'COMPLETED' &&
+                    new Date().getTime() - this.jobs_[i].submitDate >
+                        this.maxJobRuntime_) {
+                  Logger.info(
+                      'Job ' + this.jobs_[i].jobId + ' (' +
+                      this.jobs_[i].jobName +
+                      ') has exceeded maximum runtime. Terminating.');
+                  when(
+                      session.control(this.jobs_[i].jobId, session.TERMINATE),
+                      (resp) => {
+                        Logger.info(
+                            'Removing job ' + this.jobs_[i].jobId + ' (' +
+                            this.jobs_[i].jobName + ') from job history.');
+                        this.jobs_.splice(i, 1);
+                      });
+                }
+                // Jobs whose execution ended within the maximum allotted
+    runtime
+                // are removed from history.
+                else if (jobStatus.mainStatus === 'COMPLETED') {
+                  Logger.info(
+                      'Job ' + this.jobs_[i].jobId + ' (' +
+                      this.jobs_[i].jobName + ') already terminated
+    execution.');
+                  Logger.info(
+                      'Removing job ' + this.jobs_[i].jobId + ' (' +
+                      this.jobs_[i].jobName + ') from job history.');
+                  this.jobs_.splice(i, 1);
+                }
+              },
+              () => {
+                Logger.info(
+                    'Error reading status for job ' + this.jobs_[i].jobId + ' ('
+    +
+                    this.jobs_[i].jobName + ').');
+              });
+        }
+      });
+    }*/
+
   /**
    * Submits a job to the SGE.
    *
@@ -279,9 +408,19 @@ class SchedulerSecurity {
       let jobInfo = JSON.parse(fs.readFileSync(requestData.jobPath, 'utf8'));
       let jobData = new JobTemplate({
         remoteCommand: jobInfo.remoteCommand,
+        args: jobInfo.args || [],
+        jobEnvironment: jobInfo.jobEnvironment || '',
         workingDirectory: jobInfo.workingDirectory,
+        jobCategory: jobInfo.jobCategory || '',
+        nativeSpecification: jobInfo.nativeSpecification,
+        email: jobInfo.email,
+        blockEmail: jobInfo.blockEmail || true,
+        startTime: jobInfo.startTime || '',
         jobName: jobInfo.jobName,
-        nativeSpecification: jobInfo.nativeSpecification
+        inputPath: jobInfo.inputPath || '',
+        outputPath: jobInfo.outputPath || '',
+        errorPath: jobInfo.errorPath || '',
+        joinFiles: jobInfo.joinFiles || '',
       });
 
       // Submits the job to the SGE.
@@ -290,19 +429,22 @@ class SchedulerSecurity {
             session.runJob(jobData),
             (jobId) => {
               // Fetches the date and time of submission of the job.
-              when(session.getJobProgramSubmitDate(jobId), (jobSubmitDate) => {
-                // Formats the date and time to an ISO-compliant format.
-                jobSubmitDate =
-                    jobSubmitDate.split(' ').join('T').split('/').join('-') +
-                    '+02:00';
-                let date = new Date(
-                    jobSubmitDate.substr(6, 4) + '-' +
-                    jobSubmitDate.substr(0, 5) + jobSubmitDate.substr(10, 15));
-                // Adds the job to the job history.
-                this.jobs_.push({
-                  jobId: jobId,
-                  user: requestData.ip,
-                  submitDate: date.getTime(),
+              when(session.getJobProgramStatus(jobId), (jobStatus) => {
+                when(sgeClient.qstat(jobId), (job) => {
+                  // Converts the date to an ms-from-epoch format.
+                  let jobSubmitDate = new Date(job.submission_time).getTime();
+                  // Adds the job to the job history.
+                  this.jobs_.push({
+                    jobId: jobId,
+                    jobName: job.job_name,
+                    jobStatus: jobStatus.mainStatus,
+                    user: requestData.ip,
+                    submitDate: jobSubmitDate,
+                  });
+                  Logger.info(
+                      'Added job ' + jobId + ' (' + job.job_name +
+                      ') to job history. Current job history size: ' +
+                      this.jobs_.length + '.');
                 });
               });
             },
@@ -316,62 +458,6 @@ class SchedulerSecurity {
           'Error reading job specifications from file. Job not submitted to the SGE.');
     }
   }
-
-  /**
-   * Periodically queries the SGE to monitor the status of submitted jobs. Jobs
-   * which have exceeded their maximum
-   *  runtime and are still running are terminated and removed from history.
-   * Jobs which terminated in the allotted time
-   *  are removed from history.
-   */
-  pollJobs() {
-    // There are no jobs in the job history.
-    if (this.jobs_.length === 0) return;
-
-    when(sm.getSession('testSession'), (session) => {
-      // Checks the status of each job in the job history.
-      for (let i = this.jobs_.length - 1; i >= 0; i--) {
-        when(
-            session.getJobProgramStatus(this.jobs_[i].jobId),
-            (jobStatus) => {
-              // console.log("JOBTIME for JOB " + this.jobs_[i].jobId + " equal
-              // to " + (new Date().getTime() - this.jobs_[i].submitDate));
-              // Terminates and removes from history jobs which are still
-              // running after the maximum allotted runtime.
-              if (jobStatus !== 'FAILED' && jobStatus !== 'DONE' &&
-                  new Date().getTime() - this.jobs_[i].submitDate >
-                      this.maxJobRuntime_) {
-                Logger.info(
-                    'Job ' + this.jobs_[i].jobId +
-                    ' has exceeded maximum runtime. Terminating.');
-                when(
-                    session.control(this.jobs_[i].jobId, session.TERMINATE),
-                    (resp) => {
-                      Logger.info(
-                          'Removing job ' + this.jobs_[i].jobId +
-                          ' from job history.');
-                      this.jobs_.splice(i, 1);
-                    });
-              }
-              // Jobs whose execution ended within the maximum allotted runtime
-              // are removed from history.
-              else if (jobStatus === 'FAILED' || jobStatus === 'DONE') {
-                Logger.info(
-                    'Job ' + this.jobs_[i].jobId +
-                    ' already terminated execution.');
-                Logger.info(
-                    'Removing job ' + this.jobs_[i].jobId +
-                    ' from job history.');
-                this.jobs_.splice(i, 1);
-              }
-            },
-            () => {
-              Logger.info(
-                  'Error reading status for job ' + this.jobs_[i].jobId + '.');
-            });
-      }
-    });
-  }
 }
 
-export default new SchedulerSecurity('input.json');
+export const Sec = new SchedulerSecurity('input.json');

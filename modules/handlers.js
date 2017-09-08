@@ -4,7 +4,7 @@ import aux from './aux';
 
 // import Db from './database';
 import {getRoutes,isMonitoring,setMonitor} from './server';
-import Sec from "./scheduler-security";
+import {Sec} from "./scheduler/scheduler-manager";
 
 import * as sge from "./nDrmaa/sge/sge-cli";
 import {when,defer,all} from "promised-io";

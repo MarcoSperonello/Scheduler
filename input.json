@@ -1,11 +1,11 @@
 {
 	"maxRequestsPerSecUser": 2,
 	"maxRequestsPerSecGlobal": 4,
-	"blockingTimeUser": 2000,
-	"blockingTimeGlobal": 6000,
+	"userLifespan": 10000,
 	"requestLifespan": 5000,
 	"maxConcurrentJobs": 1,
-	"maxJobRuntime": 10000,
+	"maxJobRunningTime": 10000,
+	"maxJobQueuedTime": 5000,
 	"blacklist": [],
 	"whitelist": []
 }

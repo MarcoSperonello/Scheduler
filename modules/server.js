@@ -83,7 +83,7 @@ export default class WS {
           if (err) {
             req.log.info(err)
           }
-          req.log.debug(`DONE. Request metrics:`, JSON.stringify(metrics));
+          //req.log.debug(`DONE. Request metrics:`, JSON.stringify(metrics));
         }))
       }
 
