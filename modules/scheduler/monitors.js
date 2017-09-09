@@ -1,8 +1,7 @@
 import Logger from '../logger';
-import {Sec, sm} from './scheduler-manager';
+import {Sec, sessionManager} from './scheduler-manager';
 
 import {when, defer} from 'promised-io';
-import fs from 'fs';
 
 /**
  * Queries the SGE to monitor the status of submitted jobs. Jobs which have
@@ -14,7 +13,7 @@ export function pollJobs() {
   // There are no jobs in the job history.
   if (Sec.jobs_.length === 0) return;
 
-  when(sm.getSession('testSession'), (session) => {
+  when(sessionManager.getSession('testSession'), (session) => {
     // Checks the status of each job in the job history.
     for (let i = Sec.jobs_.length - 1; i >= 0; i--) {
       when(
@@ -88,7 +87,8 @@ export function pollJobs() {
 
 /**
  * Scans the users array and removes users which have been inactive (i.e. have
- * not made a request) for longer than the maximum alloted time (userLifespan_).
+ * not made a request) for longer than the maximum allotted time
+ * (userLifespan_).
  */
 export function pollUsers() {
   let currentTime = new Date().getTime();

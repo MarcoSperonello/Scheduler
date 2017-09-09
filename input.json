@@ -6,6 +6,6 @@
 	"maxConcurrentJobs": 1,
 	"maxJobRunningTime": 10000,
 	"maxJobQueuedTime": 5000,
-	"blacklist": [],
-	"whitelist": []
+	"localListsPath": "./input_files/local-lists.json",
+	"globalListsPath": "./input_files/global-lists.json"
 }

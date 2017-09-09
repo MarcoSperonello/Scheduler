@@ -9,8 +9,8 @@ import * as sgeClient from '../nDrmaa/sge/sge-cli';
 import * as monitors from './monitors';
 
 // Creates a Drmaa session.
-export const sm = new SessionManager();
-sm.createSession('testSession');
+export const sessionManager = new SessionManager();
+sessionManager.createSession('testSession');
 
 /**
  * Class that manages clients' requests to submit a job to the Sun Grid Engine
@@ -28,36 +28,40 @@ class SchedulerSecurity {
     this.jobs_ = [];            // Jobs list.
     this.users_ = [];           // Users list.
     this.globalRequests_ = [];  // Recent requests by all users.
+    this.blacklist_ = [];       // Requests from blacklisted users are rejected.
+    this.whitelist_ = [];       // Requests from blacklisted users are rejected.
     try {
       let inputParams = JSON.parse(fs.readFileSync(inputFile, 'utf8'));
       Logger.info('Successfully read input file ' + inputFile + '.');
 
       // Max number of requests per user per time unit (requestLifespan).
-      this.maxRequestsPerSecUser_ = inputParams.maxRequestsPerSecUser;
+      this.maxRequestsPerSecUser_ = inputParams.maxRequestsPerSecUser || 2;
       // Max number of requests per time unit for all users.
-      this.maxRequestsPerSecGlobal_ = inputParams.maxRequestsPerSecGlobal;
-      ;
+      this.maxRequestsPerSecGlobal_ = inputParams.maxRequestsPerSecGlobal || 4;
       // Maximum time allowed to pass after the most recent request of a user
       // before the user is removed from history.
-      this.userLifespan_ = inputParams.userLifespan;
+      this.userLifespan_ = inputParams.userLifespan || 1000000;
       // Time after which a request can be removed from history.
-      this.requestLifespan_ = inputParams.requestLifespan;
+      this.requestLifespan_ = inputParams.requestLifespan || 5000;
 
       // Not used yet. Might not be needed.
-      this.maxConcurrentJobs_ = inputParams.maxConcurrentJobs;
+      this.maxConcurrentJobs_ = inputParams.maxConcurrentJobs || 1;
       // Time after which a RUNNING job can be forcibly stopped.
-      this.maxJobRunningTime_ = inputParams.maxJobRunningTime;
+      this.maxJobRunningTime_ = inputParams.maxJobRunningTime || 10000;
       // Time after which a QUEUED job can be forcibly stopped.
-      this.maxJobQueuedTime_ = inputParams.maxJobQueuedTime;
-      // Requests from blacklisted users are always rejected.
-      this.blacklist_ = inputParams.blacklist;
-      // Requests from whitelisted users are always accepted.
-      this.whitelist_ = inputParams.whitelist;
+      this.maxJobQueuedTime_ = inputParams.maxJobQueuedTime || 10000;
+      // Path of the local black/whitelist file.
+      this.localListPath_ = inputParams.localListPath || '';
+      // Path of the global black/whitelist file.
+      this.globalListPath_ = inputParams.globalListPath || '';
 
+      // Checks if there are any users to be added to the black/whitelist.
+      this.updateLists();
     } catch (err) {
       Logger.info(
           'Error while reading input file ' + inputFile +
           '. Using default parameters.');
+      console.log(err);
 
       this.maxRequestsPerSecUser_ = 2;
       this.maxRequestsPerSecGlobal_ = 4;
@@ -66,14 +70,23 @@ class SchedulerSecurity {
       this.maxConcurrentJobs_ = 1;
       this.maxJobRunningTime_ = 10000;
       this.maxJobQueuedTime_ = 10000;
-      this.blacklist_ = [];
-      this.whitelist_ = [];
+      this.localListPath_ = '';
+      this.globalListPath_ = '';
     }
 
-    // Polls the job history once per second.
-    // setInterval(this.pollJobs.bind(this), 1000);
+    // Polls the job history as often as specified.
     setInterval(monitors.pollJobs.bind(this), 1000);
+    // Polls the job history as often as specified.
     setInterval(monitors.pollUsers.bind(this), 1000);
+    // Updates the black/whitelists as often as specified.
+    setInterval(this.updateLists.bind(this), 1000);
+
+    /*    setInterval( () => {
+          for (let user of this.blacklist_) {
+            console.log('blacklisted user ' + user);
+          }
+          console.log('\n');
+        }, 5000);*/
   }
 
   /**
@@ -108,8 +121,9 @@ class SchedulerSecurity {
         // Logs the request to database.
         this.registerRequestToDatabase(requestData);
         // Attempts to submit the job to the SGE.
-        // this.handleJobSubmission(requestData);
         this.handleJobSubmission(requestData);
+      } else {
+        Logger.info('Request denied.');
       }
     } else {  // User has already submitted one or more requests in the past.
       Logger.info('User ' + requestData.ip + ' found.');
@@ -121,7 +135,6 @@ class SchedulerSecurity {
         this.users_[userIndex].requestAmount++;
         this.globalRequests_.push(requestData.time);
         this.registerRequestToDatabase(requestData);
-        // this.handleJobSubmission(requestData);
         this.handleJobSubmission(requestData);
       }
     }
@@ -153,7 +166,7 @@ class SchedulerSecurity {
    * @returns {boolean} true if no constraints are violated.
    */
   checkUserRequests(requestData, user) {
-    // If the user is blacklisted, the request is accepted.
+    // If the user is whitelisted, the request is accepted.
     if (this.isWhitelisted(requestData)) return true;
 
     // If the user is blacklisted, the request is rejected.
@@ -221,7 +234,6 @@ class SchedulerSecurity {
           ' global requests currently present). Cannot service more requests.');
       return false;
     }
-
     return true;
   }
 
@@ -232,7 +244,8 @@ class SchedulerSecurity {
    * @returns {boolean} true if the user is blacklisted.
    */
   isBlacklisted(requestData) {
-    if (this.findUserIndex(this.blacklist_, requestData) !== -1) {
+    if (this.blacklist_.findIndex(
+            (elem) => { return elem === requestData.ip; }) !== -1) {
       Logger.info('User ' + requestData.ip + ' is blacklisted.');
       return true;
     }
@@ -246,7 +259,8 @@ class SchedulerSecurity {
    * @returns {boolean} true if the user is whitelisted.
    */
   isWhitelisted(requestData) {
-    if (this.findUserIndex(this.whitelist_, requestData) !== -1) {
+    if (this.whitelist_.findIndex(
+            (elem) => { return elem === requestData.ip; }) !== -1) {
       Logger.info('User ' + requestData.ip + ' is whitelisted.');
       return true;
     }
@@ -278,124 +292,41 @@ class SchedulerSecurity {
         (elem) => { return elem.ip === requestData.ip; });
   }
 
-  /*  /!**
-     * Submits a job to the SGE.
-     *
-     * @param requestData: object holding request information.
-     *!/
-    handleJobSubmission(requestData) {
-      try {
-        // Loads job specifications from file.
-        let jobInfo = JSON.parse(fs.readFileSync(requestData.jobPath, 'utf8'));
-        let jobData = new JobTemplate({
-          remoteCommand: jobInfo.remoteCommand,
-          args: jobInfo.args || [],
-          jobEnvironment: jobInfo.jobEnvironment || '',
-          workingDirectory: jobInfo.workingDirectory,
-          jobCategory: jobInfo.jobCategory || '',
-          nativeSpecification: jobInfo.nativeSpecification,
-          email: jobInfo.email,
-          blockEmail: jobInfo.blockEmail || true,
-          startTime: jobInfo.startTime || '',
-          jobName: jobInfo.jobName,
-          inputPath: jobInfo.inputPath || '',
-          outputPath: jobInfo.outputPath || '',
-          errorPath: jobInfo.errorPath || '',
-          joinFiles: jobInfo.joinFiles || '',
-        });
-
-        // Submits the job to the SGE.
-        when(sm.getSession('testSession'), (session) => {
-          when(
-              session.runJob(jobData),
-              (jobId) => {
-                // Fetches the date and time of submission of the job.
-                when(sgeClient.qstat(jobId), (job) => {
-                  // Converts the date to an ms-from-epoch format.
-                  let jobSubmitDate = new Date(job.submission_time).getTime();
-                  // Adds the job to the job history.
-                  this.jobs_.push({
-                    jobId: jobId,
-                    jobName: job.job_name,
-                    user: requestData.ip,
-                    submitDate: jobSubmitDate,
-                  });
-                });
-              },
-              () => {
-                Logger.info(
-                    'Error found in job specifications. Job not submitted to the
-    SGE.');
-              });
-        });
-      } catch (err) {
-        Logger.info(
-            'Error reading job specifications from file. Job not submitted to
-    the SGE.');
-      }
+  /**
+   * Attempts to read the local and global black/whitelist files and updates the
+   * arrays of the blacklisted and whitelisted users.
+   */
+  updateLists() {
+    try {
+      let localList = JSON.parse(fs.readFileSync(this.localListPath_, 'utf8'));
+      if (localList.hasOwnProperty('whitelist'))
+        this.whitelist_ = localList.whitelist;
+      if (localList.hasOwnProperty('whitelist'))
+        this.blacklist_ = localList.blacklist;
+      this.whitelist_ = Array.from(new Set(this.whitelist_));
+      this.blacklist_ = Array.from(new Set(this.blacklist_));
+    } catch (err) {
+      Logger.info(
+          'Error while reading local lists file ' + this.localListPath_ + '.');
     }
 
-    /!**
-     * Periodically queries the SGE to monitor the status of submitted jobs.
-    Jobs
-     * which have exceeded their maximum
-     * runtime and are still running are terminated and removed from history.
-     * Jobs which terminated in the allotted time are removed from history.
-     *!/
-    pollJobs() {
-      // There are no jobs in the job history.
-      if (this.jobs_.length === 0) return;
-
-      when(sm.getSession('testSession'), (session) => {
-        // Checks the status of each job in the job history.
-        for (let i = this.jobs_.length - 1; i >= 0; i--) {
-          when(
-              session.getJobProgramStatus(this.jobs_[i].jobId),
-              (jobStatus) => {
-                // console.log("JOBTIME for JOB " + this.jobs_[i].jobId + "
-    equal
-                // to " + (new Date().getTime() - this.jobs_[i].submitDate));
-                // Terminates and removes from history jobs which are still
-                // running after the maximum allotted runtime.
-                if (jobStatus.mainStatus !== 'COMPLETED' &&
-                    new Date().getTime() - this.jobs_[i].submitDate >
-                        this.maxJobRuntime_) {
-                  Logger.info(
-                      'Job ' + this.jobs_[i].jobId + ' (' +
-                      this.jobs_[i].jobName +
-                      ') has exceeded maximum runtime. Terminating.');
-                  when(
-                      session.control(this.jobs_[i].jobId, session.TERMINATE),
-                      (resp) => {
-                        Logger.info(
-                            'Removing job ' + this.jobs_[i].jobId + ' (' +
-                            this.jobs_[i].jobName + ') from job history.');
-                        this.jobs_.splice(i, 1);
-                      });
-                }
-                // Jobs whose execution ended within the maximum allotted
-    runtime
-                // are removed from history.
-                else if (jobStatus.mainStatus === 'COMPLETED') {
-                  Logger.info(
-                      'Job ' + this.jobs_[i].jobId + ' (' +
-                      this.jobs_[i].jobName + ') already terminated
-    execution.');
-                  Logger.info(
-                      'Removing job ' + this.jobs_[i].jobId + ' (' +
-                      this.jobs_[i].jobName + ') from job history.');
-                  this.jobs_.splice(i, 1);
-                }
-              },
-              () => {
-                Logger.info(
-                    'Error reading status for job ' + this.jobs_[i].jobId + ' ('
-    +
-                    this.jobs_[i].jobName + ').');
-              });
-        }
-      });
-    }*/
+    try {
+      let globalList =
+          JSON.parse(fs.readFileSync(this.globalListPath_, 'utf8'));
+      if (globalList.hasOwnProperty('whitelist')) {
+        this.whitelist_ =
+            Array.from(new Set(this.whitelist_.concat(globalList.whitelist)));
+      }
+      if (globalList.hasOwnProperty('blacklist')) {
+        this.blacklist_ =
+            Array.from(new Set(this.blacklist_.concat(globalList.blacklist)));
+      }
+    } catch (err) {
+      Logger.info(
+          'Error while reading global lists file ' + this.globalListPath_ +
+          '.');
+    }
+  }
 
   /**
    * Submits a job to the SGE.
@@ -424,7 +355,7 @@ class SchedulerSecurity {
       });
 
       // Submits the job to the SGE.
-      when(sm.getSession('testSession'), (session) => {
+      when(sessionManager.getSession('testSession'), (session) => {
         when(
             session.runJob(jobData),
             (jobId) => {
@@ -460,4 +391,4 @@ class SchedulerSecurity {
   }
 }
 
-export const Sec = new SchedulerSecurity('input.json');
+export const Sec = new SchedulerSecurity('./input_files/input.json');
