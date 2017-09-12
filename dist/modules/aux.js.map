@@ -1,1 +1,0 @@
-{"version":3,"sources":["../../modules/aux.js"],"names":["aux"],"mappings":";;;;;AAAO,IAAMA,oBAAM,EAAZ;;kBAEQA,G","file":"aux.js","sourcesContent":["export const aux = {};\n\nexport default aux;"]}
