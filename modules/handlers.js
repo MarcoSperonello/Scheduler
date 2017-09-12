@@ -80,6 +80,42 @@ export default {
     let sm = new SessionManager();
 
 
+    when(sm.createSession("ciao"), (session) => {
+      when(session.runJob(jobExample1), (jobId1) => {
+        when(session.runBulkJobs(jobExample1, 1,20), (jobId2) => {
+
+          when(session.synchronize(session.JOB_IDS_SESSION_ALL), (response) => {
+            console.log(response);
+            res.send(200, response);
+          }, (err) => {
+            res.send(500, err);
+          });
+
+
+          // when(session.wait(jobId2), (response) => {
+          //   res.send(200, response);
+          // }, (err) => {
+          //   res.send(500, err);
+          // });
+
+
+          // setTimeout(() => {
+          //   when(session.getJobProgramStatus([jobId2]), (resp) => {
+          //     res.send(200, resp);
+          //   })
+          // }, 5000);
+
+
+        }, (err) => {
+          res.send(500, err);
+        });
+      }, (err) => {
+        res.send(500, err);
+      });
+      sm.closeSession(session.sessionName);
+    });
+
+
     /**
      * Example showing how to create a session, run a job and control it.
      */
@@ -234,29 +270,30 @@ export default {
      * as well as how to submit multiple jobs at once.
      */
 
-    let sessionPromise = sm.createSession("pippo");
-
-    sessionPromise.then( (session)=>{
-      let jobArray = [];
-
-      for(let i = 0; i<50; i++){
-        jobArray.push(session.runJob(jobExample1));
-      }
-
-      let jobPromises = all(jobArray);
-
-      // jobIds is an array containing the ids of the submitted jobs.
-      jobPromises.then((jobIds) => {
-        when(session.wait(jobIds[0], session.TIMEOUT_WAIT_FOREVER), (response) => {
-          res.send(200, response);
-        }, (err) => {
-          res.send(500, err);
-        });
-      }, (err) => {
-        res.send(500,err);
-      });
-      sm.closeSession(session.sessionName);
-    });
+    // let sessionPromise = sm.createSession("pippo");
+    //
+    // sessionPromise.then( (session)=>{
+    //   let jobArray = [];
+    //
+    //   for(let i = 0; i<10; i++){
+    //     if(i === 5) jobArray.push(session.runJob(jobExample2));
+    //     else jobArray.push(session.runJob(jobExample1));
+    //   }
+    //
+    //   let jobPromises = all(jobArray);
+    //
+    //   // jobIds is an array containing the ids of the submitted jobs.
+    //   jobPromises.then((jobIds) => {
+    //     when(session.synchronize(session.JOB_IDS_SESSION_ALL, session.TIMEOUT_WAIT_FOREVER), (response) => {
+    //       res.send(200, response);
+    //     }, (err) => {
+    //       res.send(500, err);
+    //     });
+    //   }, (err) => {
+    //     res.send(500,err);
+    //   });
+    //   sm.closeSession(session.sessionName);
+    // });
 
 
 

@@ -54,12 +54,6 @@ export default class JobTemplate {
     this.workingDirectory = "";
 
     /**
-     * not used yet
-     * @type {string}
-     */
-    this.jobCategory = "";
-
-    /**
      * Specifies Sun Grid Engine native qsub options which  will
      * be  interpreted  as  part  of  the  DRMAA job template.
      * All options available to qsub command  may  be  used  in  the
@@ -142,13 +136,13 @@ export default class JobTemplate {
      */
     this.joinFiles = "";
 
-    // Parses the optional input params
+    // Parses the input params if the class is instantiated by passing an object with corresponding values
     if(params){
       for (let prop in params){
         if(this[prop]!==undefined)
           this[prop]=params[prop];
         else
-          console.log("Ignoring property '"+prop+"' as it is not part of JobTemplate.");
+          console.log("Ignoring property '"+prop+"' since it does not belong to JobTemplate.");
       }
     }
 

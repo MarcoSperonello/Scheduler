@@ -31,6 +31,8 @@ export default class SessionManager{
       console.log("Unable to load DRMAA Lib for " + drmsName);
     }
 
+    this.ready = new defer();
+
     return this;
   }
 
