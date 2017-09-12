@@ -17,21 +17,23 @@ export function pollJobs() {
     // Checks the status of each job in the job history.
     for (let i = Sec.jobs_.length - 1; i >= 0; i--) {
       when(
-          session.getJobProgramStatus(Sec.jobs_[i].jobId),
+          session.getJobProgramStatus([Sec.jobs_[i].jobId]),
           (jobStatus) => {
             // If the job has not yet been completed but its status changed from
-            // QUEUED to RUNNING, said status is updated to the current RUNNING
-            // value and the submitDate field now represents the approximate
-            // time at which the job switched from QUEUED to RUNNING. The
-            // accuracy of this measurement depends on the polling interval of
-            // this function.
-            if (jobStatus.mainStatus !== 'COMPLETED' &&
-                jobStatus.mainStatus !== 'QUEUED' === Sec.jobs_[i].jobStatus) {
+            // ON-HOLD/QUEUED to RUNNING, said status is updated to the current
+            // RUNNING value and the submitDate field is updated to represent
+            // approximate time at which the job switched from QUEUED to
+            // RUNNING.
+            // The accuracy of this measurement depends on the polling interval
+            // of this function.
+            if (jobStatus[Sec.jobs_[i].jobId].mainStatus !== 'COMPLETED' &&
+                jobStatus[Sec.jobs_[i].jobId].mainStatus === 'RUNNING' &&
+                Sec.jobs_[i].jobStatus !== 'RUNNING') {
               Logger.info(
-                  'Job ' + Sec.jobs_[i].jobId + '(' + Sec.jobs_[i].jobName +
+                  'Job ' + Sec.jobs_[i].jobId + ' (' + Sec.jobs_[i].jobName +
                   ') status changed from ' + Sec.jobs_[i].jobStatus + ' to ' +
-                  jobStatus.mainStatus);
-              Sec.jobs_[i].jobStatus = jobStatus.mainStatus;
+                  jobStatus[Sec.jobs_[i].jobId].mainStatus + '.');
+              Sec.jobs_[i].jobStatus = jobStatus[Sec.jobs_[i].jobId].mainStatus;
               Sec.jobs_[i].submitDate = new Date().getTime();
             }
             // console.log("JOBTIME for JOB " + Sec.jobs_[i].jobId + " equal
@@ -40,21 +42,21 @@ export function pollJobs() {
             // job era pending ed è ancora pending
             // Terminates and removes from history jobs which are still
             // queued or running after the maximum allotted runtimes.
-            else if (jobStatus.mainStatus !== 'COMPLETED') {
+            else if (jobStatus[Sec.jobs_[i].jobId].mainStatus !== 'COMPLETED') {
               let currentTime = new Date().getTime();
-              if (jobStatus.mainStatus === 'QUEUED' &&
+              if (jobStatus[Sec.jobs_[i].jobId].mainStatus !== 'RUNNING' &&
                       currentTime - Sec.jobs_[i].submitDate >
                           this.maxJobQueuedTime_ ||
-                  jobStatus.mainStatus === 'RUNNING' &&
+                  jobStatus[Sec.jobs_[i].jobId].mainStatus === 'RUNNING' &&
                       currentTime - Sec.jobs_[i].submitDate >
                           this.maxJobRunningTime_) {
                 Logger.info(
                     'Job ' + Sec.jobs_[i].jobId + ' (' + Sec.jobs_[i].jobName +
-                    ') has exceeded maximum ' + jobStatus.mainStatus +
+                    ') has exceeded maximum ' + jobStatus[Sec.jobs_[i].jobId].mainStatus +
                     ' runtime. Terminating.');
                 when(
                     session.control(Sec.jobs_[i].jobId, session.TERMINATE),
-                    (resp) => {
+                    () => {
                       Logger.info(
                           'Removing job ' + Sec.jobs_[i].jobId + ' (' +
                           Sec.jobs_[i].jobName + ') from job history.');
@@ -64,7 +66,7 @@ export function pollJobs() {
             }
             // Jobs whose execution ended within the maximum allotted runtimes
             // are removed from history.
-            else if (jobStatus.mainStatus === 'COMPLETED') {
+            else if (jobStatus[Sec.jobs_[i].jobId].mainStatus === 'COMPLETED') {
               Logger.info(
                   'Job ' + Sec.jobs_[i].jobId + ' (' + Sec.jobs_[i].jobName +
                   ') already terminated execution.');

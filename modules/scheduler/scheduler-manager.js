@@ -8,6 +8,12 @@ import SessionManager from '../nDrmaa/sge/SessionManager';
 import * as sgeClient from '../nDrmaa/sge/sge-cli';
 import * as monitors from './monitors';
 
+
+const JOBTYPE = {
+  SINGLE: 'SINGLE',
+  ARRAY: 'ARRAY'
+};
+
 // Creates a Drmaa session.
 export const sessionManager = new SessionManager();
 sessionManager.createSession('testSession');
@@ -25,7 +31,8 @@ sessionManager.createSession('testSession');
  */
 class SchedulerSecurity {
   constructor(inputFile) {
-    this.jobs_ = [];            // Jobs list.
+    this.jobs_ = [];  // Jobs list.
+    this.heldJobs_ = [];
     this.users_ = [];           // Users list.
     this.globalRequests_ = [];  // Recent requests by all users.
     this.blacklist_ = [];       // Requests from blacklisted users are rejected.
@@ -293,6 +300,24 @@ class SchedulerSecurity {
   }
 
   /**
+   * Verifies if the start, end and increment parameters for an array job are
+   * valid.
+   *
+   * @param start: index of the first task.
+   * @param end: index of the last task.
+   * @param increment: index increment.
+   * @returns {string} JOBTYPE.SINGLE if the check fails, JOBTYPE.ARRAY
+   * otherwise.
+   */
+  checkArrayParams(start, end, increment) {
+    return (!Number.isInteger(start) || !Number.isInteger(end) ||
+            !Number.isInteger(increment) || start <= 0 || end < start ||
+            increment > end || increment < start) ?
+        JOBTYPE.SINGLE :
+        JOBTYPE.ARRAY;
+  }
+
+  /**
    * Attempts to read the local and global black/whitelist files and updates the
    * arrays of the blacklisted and whitelisted users.
    */
@@ -340,27 +365,38 @@ class SchedulerSecurity {
       let jobData = new JobTemplate({
         remoteCommand: jobInfo.remoteCommand,
         args: jobInfo.args || [],
+        submitAsHold: jobInfo.submitAsHold || false,
         jobEnvironment: jobInfo.jobEnvironment || '',
-        workingDirectory: jobInfo.workingDirectory,
+        workingDirectory: jobInfo.workingDirectory || '',
         jobCategory: jobInfo.jobCategory || '',
-        nativeSpecification: jobInfo.nativeSpecification,
-        email: jobInfo.email,
+        nativeSpecification: jobInfo.nativeSpecification || '',
+        email: jobInfo.email || '',
         blockEmail: jobInfo.blockEmail || true,
         startTime: jobInfo.startTime || '',
-        jobName: jobInfo.jobName,
+        jobName: jobInfo.jobName || '',
         inputPath: jobInfo.inputPath || '',
         outputPath: jobInfo.outputPath || '',
         errorPath: jobInfo.errorPath || '',
         joinFiles: jobInfo.joinFiles || '',
       });
 
+      let start = jobInfo.start || null;
+      let end = jobInfo.end || null;
+      let increment = jobInfo.incr || null;
+
+      // Determines if the job consists of a single task or multiple ones.
+      let jobType = this.checkArrayParams(start, end, increment);
+      console.log('jobType: ' + jobType);
+
       // Submits the job to the SGE.
       when(sessionManager.getSession('testSession'), (session) => {
         when(
-            session.runJob(jobData),
+            jobType === JOBTYPE.SINGLE ?
+                session.runJob(jobData) :
+                session.runBulkJobs(jobData, start, end, increment),
             (jobId) => {
               // Fetches the date and time of submission of the job.
-              when(session.getJobProgramStatus(jobId), (jobStatus) => {
+              when(session.getJobProgramStatus([jobId]), (jobStatus) => {
                 when(sgeClient.qstat(jobId), (job) => {
                   // Converts the date to an ms-from-epoch format.
                   let jobSubmitDate = new Date(job.submission_time).getTime();
@@ -368,10 +404,12 @@ class SchedulerSecurity {
                   this.jobs_.push({
                     jobId: jobId,
                     jobName: job.job_name,
-                    jobStatus: jobStatus.mainStatus,
+                    jobStatus: jobStatus[jobId].mainStatus,
                     user: requestData.ip,
                     submitDate: jobSubmitDate,
                   });
+                  // console.log('jobstatus ' + jobStatus.mainStatus);
+                  // console.log('submitdate ' + new
                   Logger.info(
                       'Added job ' + jobId + ' (' + job.job_name +
                       ') to job history. Current job history size: ' +
