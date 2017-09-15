@@ -9,7 +9,7 @@ import * as sgeClient from '../nDrmaa/sge/sge-cli';
 import * as monitors from './monitors';
 
 
-const JOBTYPE = {
+export const JOBTYPE = {
   SINGLE: 'SINGLE',
   ARRAY: 'ARRAY'
 };
@@ -31,62 +31,58 @@ sessionManager.createSession('testSession');
  */
 class SchedulerSecurity {
   constructor(inputFile) {
-    this.jobs_ = [];  // Jobs list.
-    this.heldJobs_ = [];
+    this.inputFile_ = inputFile;
+    this.jobs_ = [];            // Jobs list.
     this.users_ = [];           // Users list.
     this.globalRequests_ = [];  // Recent requests by all users.
     this.blacklist_ = [];       // Requests from blacklisted users are rejected.
     this.whitelist_ = [];       // Requests from blacklisted users are rejected.
-    try {
-      let inputParams = JSON.parse(fs.readFileSync(inputFile, 'utf8'));
-      Logger.info('Successfully read input file ' + inputFile + '.');
+    this.lastInputFileUpdate_ = 0;
+    this.inputParams_ = {
+      maxRequestsPerSecUser: 2,
+      maxRequestsPerSecGlobal: 4,
+      userLifespan: 1000000,
+      requestLifespan: 5000,
+      maxConcurrentJobs: 1,
+      maxJobRunningTime: 10000,
+      maxJobQueuedTime: 10000,
+      maxArrayJobRunningTime: 10000,
+      maxArrayJobQueuedTime: 10000,
+      minimumTimeBetweenFileUpdates: 5000,
+      lastInputFileUpdate: 0,
+      localListPath: '',
+      globalListPath: '',
+      jobPollingInterval: 1000,
+      userPollingInterval: 1000,
+      listUpdateInterval: 1000,
+    };
 
-      // Max number of requests per user per time unit (requestLifespan).
-      this.maxRequestsPerSecUser_ = inputParams.maxRequestsPerSecUser || 2;
-      // Max number of requests per time unit for all users.
-      this.maxRequestsPerSecGlobal_ = inputParams.maxRequestsPerSecGlobal || 4;
-      // Maximum time allowed to pass after the most recent request of a user
-      // before the user is removed from history.
-      this.userLifespan_ = inputParams.userLifespan || 1000000;
-      // Time after which a request can be removed from history.
-      this.requestLifespan_ = inputParams.requestLifespan || 5000;
-
-      // Not used yet. Might not be needed.
-      this.maxConcurrentJobs_ = inputParams.maxConcurrentJobs || 1;
-      // Time after which a RUNNING job can be forcibly stopped.
-      this.maxJobRunningTime_ = inputParams.maxJobRunningTime || 10000;
-      // Time after which a QUEUED job can be forcibly stopped.
-      this.maxJobQueuedTime_ = inputParams.maxJobQueuedTime || 10000;
-      // Path of the local black/whitelist file.
-      this.localListPath_ = inputParams.localListPath || '';
-      // Path of the global black/whitelist file.
-      this.globalListPath_ = inputParams.globalListPath || '';
-
-      // Checks if there are any users to be added to the black/whitelist.
-      this.updateLists();
-    } catch (err) {
-      Logger.info(
-          'Error while reading input file ' + inputFile +
-          '. Using default parameters.');
-      console.log(err);
-
-      this.maxRequestsPerSecUser_ = 2;
-      this.maxRequestsPerSecGlobal_ = 4;
-      this.userLifespan_ = 1000000;
-      this.requestLifespan_ = 5000;
-      this.maxConcurrentJobs_ = 1;
-      this.maxJobRunningTime_ = 10000;
-      this.maxJobQueuedTime_ = 10000;
-      this.localListPath_ = '';
-      this.globalListPath_ = '';
-    }
+    // Sets input parameters as specified in the input file. If there is an
+    // error
+    // reading the input file, default parameters are set.
+    this.updateInputParameters();
+    // Checks if there are any users to be added to the black/whitelist.
+    this.updateLists();
 
     // Polls the job history as often as specified.
-    setInterval(monitors.pollJobs.bind(this), 1000);
+    setInterval(monitors.pollJobs.bind(this), this.jobPollingInterval_);
     // Polls the job history as often as specified.
-    setInterval(monitors.pollUsers.bind(this), 1000);
+    setInterval(monitors.pollUsers.bind(this), this.userPollingInterval_);
+    // Updates the input parameters as often as specified.
+    // setInterval(this.updateInputParameters.bind(this, inputFile), 1000);
     // Updates the black/whitelists as often as specified.
-    setInterval(this.updateLists.bind(this), 1000);
+    setInterval(this.updateLists.bind(this), this.listUpdateInterval_);
+
+    /*
+        setInterval(function() {
+          console.log("this.maxRequestsPerSecUser_ " +
+       this.maxRequestsPerSecUser_);
+          console.log("this.maxRequestsPerSecGlobal_ " +
+       this.maxRequestsPerSecGlobal_);
+          console.log("userLifeSpan_ " + this.userLifespan_);
+          console.log('localListPath_ ' + this.localListPath_);
+        }.bind(this), 1000);
+    */
 
     /*    setInterval( () => {
           for (let user of this.blacklist_) {
@@ -104,10 +100,17 @@ class SchedulerSecurity {
    * @param requestData: object holding request information.
    */
   handleRequest(requestData) {
+    requestData.ip = requestData.ip.replace(/^.*:/, '');
     let userIndex = this.findUserIndex(this.users_, requestData);
     Logger.info(
         'Request received by ' + requestData.ip + ' at ' +
         new Date(requestData.time).toUTCString() + '.');
+
+    if (new Date().getTime() - this.lastInputFileUpdate_ >
+        this.minimumTimeBetweenFileUpdates_) {
+      this.updateInputParameters();
+    }
+
     if (userIndex === -1) {  // User is submitting a request for the first time.
       // Proceeds only if the max number of requests per time unit by all users
       // has not been exceeded.
@@ -129,6 +132,7 @@ class SchedulerSecurity {
         this.registerRequestToDatabase(requestData);
         // Attempts to submit the job to the SGE.
         this.handleJobSubmission(requestData);
+
       } else {
         Logger.info('Request denied.');
       }
@@ -251,7 +255,8 @@ class SchedulerSecurity {
    * @returns {boolean} true if the user is blacklisted.
    */
   isBlacklisted(requestData) {
-    if (this.blacklist_.findIndex(
+    if (this.blacklist_.findIndex((elem) => { return elem === '*'; }) !== -1 ||
+        this.blacklist_.findIndex(
             (elem) => { return elem === requestData.ip; }) !== -1) {
       Logger.info('User ' + requestData.ip + ' is blacklisted.');
       return true;
@@ -266,7 +271,8 @@ class SchedulerSecurity {
    * @returns {boolean} true if the user is whitelisted.
    */
   isWhitelisted(requestData) {
-    if (this.whitelist_.findIndex(
+    if (this.whitelist_.findIndex((elem) => { return elem === '*'; }) !== -1 ||
+        this.whitelist_.findIndex(
             (elem) => { return elem === requestData.ip; }) !== -1) {
       Logger.info('User ' + requestData.ip + ' is whitelisted.');
       return true;
@@ -322,35 +328,91 @@ class SchedulerSecurity {
    * arrays of the blacklisted and whitelisted users.
    */
   updateLists() {
-    try {
-      let localList = JSON.parse(fs.readFileSync(this.localListPath_, 'utf8'));
-      if (localList.hasOwnProperty('whitelist'))
-        this.whitelist_ = localList.whitelist;
-      if (localList.hasOwnProperty('whitelist'))
-        this.blacklist_ = localList.blacklist;
-      this.whitelist_ = Array.from(new Set(this.whitelist_));
-      this.blacklist_ = Array.from(new Set(this.blacklist_));
-    } catch (err) {
-      Logger.info(
-          'Error while reading local lists file ' + this.localListPath_ + '.');
+    if (this.localListPath_ !== '') {
+      try {
+        let localList =
+            JSON.parse(fs.readFileSync(this.localListPath_, 'utf8'));
+        if (localList.hasOwnProperty('whitelist'))
+          this.whitelist_ = localList.whitelist;
+        if (localList.hasOwnProperty('whitelist'))
+          this.blacklist_ = localList.blacklist;
+        this.whitelist_ = Array.from(new Set(this.whitelist_));
+        this.blacklist_ = Array.from(new Set(this.blacklist_));
+      } catch (err) {
+        Logger.info(
+            'Error while reading local lists file ' + this.localListPath_ +
+            '.');
+      }
     }
 
+    if (this.globalListPath_ !== '') {
+      try {
+        let globalList =
+            JSON.parse(fs.readFileSync(this.globalListPath_, 'utf8'));
+        if (globalList.hasOwnProperty('whitelist')) {
+          this.whitelist_ =
+              Array.from(new Set(this.whitelist_.concat(globalList.whitelist)));
+        }
+        if (globalList.hasOwnProperty('blacklist')) {
+          this.blacklist_ =
+              Array.from(new Set(this.blacklist_.concat(globalList.blacklist)));
+        }
+      } catch (err) {
+        Logger.info(
+            'Error while reading global lists file ' + this.globalListPath_ +
+            '.');
+      }
+    }
+  }
+
+  updateInputParameters() {
     try {
-      let globalList =
-          JSON.parse(fs.readFileSync(this.globalListPath_, 'utf8'));
-      if (globalList.hasOwnProperty('whitelist')) {
-        this.whitelist_ =
-            Array.from(new Set(this.whitelist_.concat(globalList.whitelist)));
-      }
-      if (globalList.hasOwnProperty('blacklist')) {
-        this.blacklist_ =
-            Array.from(new Set(this.blacklist_.concat(globalList.blacklist)));
-      }
+      this.inputParams_ = JSON.parse(fs.readFileSync(this.inputFile_, 'utf8'));
+      Logger.info('Successfully read input file ' + this.inputFile_ + '.');
     } catch (err) {
       Logger.info(
-          'Error while reading global lists file ' + this.globalListPath_ +
-          '.');
+          'Error while reading input file ' + this.inputFile_ +
+          '. Using default parameters.');
     }
+
+    // Max number of requests per user per time unit (requestLifespan).
+    this.maxRequestsPerSecUser_ = this.inputParams_.maxRequestsPerSecUser || 2;
+    // Max number of requests per time unit for all users.
+    this.maxRequestsPerSecGlobal_ =
+        this.inputParams_.maxRequestsPerSecGlobal || 4;
+    // Maximum time allowed to pass after the most recent request of a user
+    // before the user is removed from history.
+    this.userLifespan_ = this.inputParams_.userLifespan || 1000000;
+    // Time after which a request can be removed from history.
+    this.requestLifespan_ = this.inputParams_.requestLifespan || 5000;
+
+    // Not used yet. Might not be needed.
+    this.maxConcurrentJobs_ = this.inputParams_.maxConcurrentJobs || 1;
+    // Time after which a RUNNING job can be forcibly stopped.
+    this.maxJobRunningTime_ = this.inputParams_.maxJobRunningTime || 10000;
+    // Time after which a QUEUED job can be forcibly stopped.
+    this.maxJobQueuedTime_ = this.inputParams_.maxJobQueuedTime || 10000;
+    // Time after which an array job whose first task is RUNNING can be forcibly
+    // stopped.
+    this.maxArrayJobRunningTime_ =
+        this.inputParams_.maxArrayJobRunningTime || 10000;
+    // Time after which an array job whose first task is QUEUED can be forcibly
+    // stopped.
+    this.maxArrayJobQueuedTime_ =
+        this.inputParams_.maxArrayJobQueuedTime || 10000;
+
+    // Path of the local black/whitelist file.
+    this.localListPath_ = this.inputParams_.localListPath || '';
+    // Path of the global black/whitelist file.
+    this.globalListPath_ = this.inputParams_.globalListPath || '';
+
+    this.minimumTimeBetweenFileUpdates_ =
+        this.inputParams_.minimumTimeBetweenFileUpdates || 10000;
+    this.lastInputFileUpdate_ = new Date().getTime();
+
+    this.jobPollingInterval_ = this.inputParams_.jobPollingInterval || 1000;
+    this.userPollingInterval_ = this.inputParams_.userPollingInterval || 1000;
+    this.listUpdateInterval_ = this.inputParams_.listUpdateInterval || 1000;
   }
 
   /**
@@ -359,6 +421,11 @@ class SchedulerSecurity {
    * @param requestData: object holding request information.
    */
   handleJobSubmission(requestData) {
+    if (this.jobs_.length >= this.maxConcurrentJobs_) {
+      Logger.info(
+          'Server is working at capacity. Cannot submit any more jobs at the moment.');
+      return;
+    }
     try {
       // Loads job specifications from file.
       let jobInfo = JSON.parse(fs.readFileSync(requestData.jobPath, 'utf8'));
@@ -400,16 +467,52 @@ class SchedulerSecurity {
                 when(sgeClient.qstat(jobId), (job) => {
                   // Converts the date to an ms-from-epoch format.
                   let jobSubmitDate = new Date(job.submission_time).getTime();
+                  let taskStatuses = [];
+                  let taskRunningTime = [];
+                  let taskInfo = [];
+                  if (jobType === JOBTYPE.ARRAY) {
+                    for (let taskId = start; taskId <= end;
+                         taskId += increment) {
+                      console.log(
+                          'task ' + taskId + ' status: ' +
+                          jobStatus[jobId][taskId].mainStatus);
+                      /*taskStatuses.push({
+                        taskId: taskId,
+                        status: jobStatus[jobId][taskId].mainStatus,
+                      });
+                      taskRunningTime.push({
+                        taskId: taskId,
+                        runningTime: 0,
+                        runningStart: 0,
+                      });*/
+                      taskInfo.push({
+                        taskId: taskId,
+                        status: jobStatus[jobId][taskId].mainStatus,
+                        runningTime: 0,
+                        runningStart: 0,
+                      })
+                    }
+                  }
                   // Adds the job to the job history.
                   this.jobs_.push({
                     jobId: jobId,
                     jobName: job.job_name,
                     jobStatus: jobStatus[jobId].mainStatus,
+                    firstTaskId: jobType === JOBTYPE.SINGLE ? null : start,
+                    lastTaskId: jobType === JOBTYPE.SINGLE ? null : end,
+                    increment: jobType === JOBTYPE.SINGLE ? null : increment,
+                    taskInfo: taskInfo,
+                    startedAsRunning: false,
                     user: requestData.ip,
                     submitDate: jobSubmitDate,
+                    totalExecutionTime: 0,
+                    jobType: jobType,
                   });
                   // console.log('jobstatus ' + jobStatus.mainStatus);
                   // console.log('submitdate ' + new
+                  Logger.info(
+                      'Added job ' + jobId + ' (' + job.job_name + ') on ' +
+                      new Date(jobSubmitDate).toUTCString());
                   Logger.info(
                       'Added job ' + jobId + ' (' + job.job_name +
                       ') to job history. Current job history size: ' +

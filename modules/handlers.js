@@ -40,6 +40,16 @@ export default {
 
     // Fetches the IP of the client who made the request.
     var requestIp = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+
+    let jobData = {
+      remoteCommand: "\"/home/marco/Uni/Tesi/Projects/node-ws-template/sge-tests/simple.sh\"",
+      workingDirectory: "/home/marco/Uni/Tesi/Projects/node-ws-template/sge-tests/",
+      jobName: 'testJob',
+      start: 1,
+      end: 3,
+      incr: 1
+    };
+
     // Loads request information.
     var requestData = {
       ip: requestIp,
