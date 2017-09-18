@@ -10,7 +10,7 @@ export default class JobInfo{
     this.jobId = null;      // Job id
     this.exitStatus = null; // exit code
     this.failed = null;     // Failure code
-    this.rawInfo = {};      // Contains all the information obtained from qacct
+    this.rawInfo = {};      // Contains all the information obtained about the job's completion.
   }
 
 }

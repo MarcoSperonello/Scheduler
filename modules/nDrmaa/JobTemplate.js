@@ -145,8 +145,6 @@ export default class JobTemplate {
           console.log("Ignoring property '"+prop+"' since it does not belong to JobTemplate.");
       }
     }
-
-    console.log("Created a job template: " + this.remoteCommand);
   }
 
 };

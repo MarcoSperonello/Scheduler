@@ -8,11 +8,11 @@ import {getRoutes,isMonitoring,setMonitor} from './server';
 import {Sec} from "./scheduler/scheduler-manager";
 import * as monitors from "./scheduler/monitors";
 
-import * as sge from "./nDrmaa/sge/sge-cli";
 import {when,defer,all} from "promised-io";
 import JobTemplate from "./nDrmaa/JobTemplate";
 import SessionManager from "./nDrmaa/sge/SessionManager";
-import Job from "./nDrmaa/Job";
+
+let sm = new SessionManager();
 
 export default {
 
@@ -141,43 +141,79 @@ export default {
       // nativeSpecification: '-now y'
     });
 
-    let sm = new SessionManager();
 
+    // for(let i = 0; i < 50; i++) {
+    //   let sessionName = "ciao" + i;
+    //
+    //   when(sm.createSession(sessionName), (session) => {
+    //
+    //     let jobsToRun = [];
+    //
+    //     // jobsToRun.push(session.runJob(jobExample2));
+    //     // jobsToRun.push(session.runJob(jobExample1));
+    //     jobsToRun.push(session.runBulkJobs(jobExample1, 1, 30));
+    //     // jobsToRun.push(session.runBulkJobs(jobExample1, 40, -20, 11));
+    //     // jobsToRun.push(session.runBulkJobs(jobExample1, 40, 20, -11));
+    //
+    //     let jobPromises = all(jobsToRun);
+    //
+    //     jobPromises.then((jobIds) => {
+    //
+    //       setTimeout(() => {
+    //         when(session.synchronize([jobIds[0]]), (response) => {
+    //           console.log(response);
+    //         });
+    //       }, Math.random()*(12000 - 10000)+10000);
+    //     }, (err) => {
+    //       console.log("Error runJob: " + err);
+    //       res.send(500, err);
+    //     });
+    //
+    //     sm.closeSession(session.sessionName);
+    //   });
+    // }
 
-    when(sm.createSession("ciao"), (session) => {
-      when(session.runJob(jobExample1), (jobId1) => {
-        when(session.runBulkJobs(jobExample1, 1,20), (jobId2) => {
+    for(let i = 0; i < 1; i++) {
+      let sessionName = "ciao" + i;
+      when(sm.createSession(sessionName), (session) => {
+        let jobsToRun = [];
+        jobsToRun.push(session.runBulkJobs(jobExample1, 1, 6));
+        jobsToRun.push(session.runJob(jobExample2));
+        // jobsToRun.push(session.runJob(jobExample2));
+        let jobPromises = all(jobsToRun);
 
-          when(session.synchronize(session.JOB_IDS_SESSION_ALL), (response) => {
-            console.log(response);
-            res.send(200, response);
+        jobPromises.then((jobIds) => {
+          session.control(jobIds[0], session.TERMINATE);
+          when(session.getJobProgramStatus([jobIds[0]]), (res) => {
+            console.log(res);
           }, (err) => {
-            res.send(500, err);
-          });
-
-
-          // when(session.wait(jobId2), (response) => {
-          //   res.send(200, response);
+            console.log(err);
+          })
+          // when(session.synchronize(session.JOB_IDS_SESSION_ALL), (response) => {
+          //   console.log(response);
+          //   jobsToRun.push(session.runBulkJobs(jobExample1, 1, 6));
+          //   jobsToRun.push(session.runJob(jobExample2));
+          //   jobPromises = all(jobsToRun);
+          //
+          //   jobPromises.then((jobIds) => {
+          //     when(session.synchronize(session.JOB_IDS_SESSION_ALL), (response) => {
+          //       console.log(response);
+          //     });
+          //   });
+          //
           // }, (err) => {
-          //   res.send(500, err);
+          //   console.log("Error synchronize: " + err);
           // });
 
-
-          // setTimeout(() => {
-          //   when(session.getJobProgramStatus([jobId2]), (resp) => {
-          //     res.send(200, resp);
-          //   })
-          // }, 5000);
-
-
         }, (err) => {
+          console.log("Error runJob: " + err);
           res.send(500, err);
         });
-      }, (err) => {
-        res.send(500, err);
+
+        sm.closeSession(session.sessionName);
       });
-      sm.closeSession(session.sessionName);
-    });
+    }
+
 
 
     /**

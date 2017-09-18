@@ -48,7 +48,7 @@ export default class Session{
     this.jobs = [];
     this.sessionName = "";
     this.contact = "";
-    this.jobCategories = [];
+    this.jobsMonitor = null;
   }
 
   // -- Methods for retrieving the values of the constants -- //
@@ -69,10 +69,22 @@ export default class Session{
 
 
   /**
-   * Get the program status of the job identified by jobId. The returned object describing the status of the job has
-   * two properties: mainStatus and subStatus. The subStatus property is used to better distinguish a job that has
-   * finished its execution. These are possible values for mainStatus, also listing the possible subStatus values for
-   * the "COMPLETED" mainStatus:
+   * Submit a set of parametric jobs, dependent on the implied loop index, each with attributes defined in the jobTemplate.
+   * @param jobTemplate: attributes of each job belonging to the array job to be run.
+   * @param start: the starting value for the loop index
+   * @param end: the terminating value for the loop index
+   * @param incr: the value by which to increment the loop index each iteration
+   * @return promise: the promise is resolved either with the id of the array job that was successfully submitted, or
+   *                  it is rejected with the occurred error.
+   */
+  runBulkJobs(jobTemplate, start, end, incr){ }
+
+
+  /**
+   * Get the program status of the job(s) specified by job id inside the argument jobIds (which is an array of ids).
+   * The returned object describing the status of the job has two properties: mainStatus and subStatus.
+   * The subStatus property is used to better distinguish a job that has finished its execution. These are possible
+   * values for mainStatus, also listing the possible subStatus values for the "COMPLETED" mainStatus:
    *
    * - QUEUED: job is queued
    * - ON_HOLD: job is queued and on hold
@@ -85,7 +97,7 @@ export default class Session{
    *  	+ FAILED: job execution finished, but failed.
    * @param jobId: the id of the job whose status is to be retrieved
    */
-  getJobProgramStatus(jobId){ }
+  getJobProgramStatus(jobIds){ }
 
 
   /**
@@ -97,13 +109,10 @@ export default class Session{
    * for this call to complete before timing out. The special value TIMEOUT_WAIT_FOREVER can be used to wait
    * indefinitely for a result.
    *
-   * The promise resolves a with an object indicating different information for each job.
-   * It rejects with ExitTimeoutException if the timeout expires before all jobs finish.
-   *
    * @param jobIds: the ids of the jobs to synchronize
    * @param timeout: the maximum number of milliseconds to wait
    */
-  synchronize(jobsId, timeout){ }
+  synchronize(jobIds, timeout){ }
 
 
   /**

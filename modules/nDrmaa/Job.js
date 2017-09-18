@@ -1,5 +1,5 @@
 import {EventEmitter} from "events";
-import {UnsupportedOperationException} from "./Exceptions";
+// import {UnsupportedOperationException} from "./Exceptions";
 
 /**
  * Class representing a Job

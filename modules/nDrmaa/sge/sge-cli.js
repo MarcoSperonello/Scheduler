@@ -11,17 +11,26 @@ import * as Exception from "../Exceptions";
 export function getDrmsInfo() {
   let def = new defer();
 
-  exec("qstat -help", (error, stdout, stderr) => {
-    if (error) {
+  // First, check if SGE is up and running
+  exec("qstat", (err, stdout, stderr) => {
+    if (err) {
       def.reject(err);
       return;
     }
-    let data = stdout.split("\n")[0].split(" ");    // The first line is the one containing the SGE version.
-    let res = {drmsName: data[0]};                  // DRM name (SGE in this case)
-    let vparts = data[1].split(".");                // Split into major and minor version number
-    res.version = new Version(vparts[0],vparts[1]);
-    def.resolve(res);
+    // If it's good, retrieve the version of the DRMS
+    exec("qstat -help", (err, stdout, stderr) => {
+      if (err) {
+        def.reject(err);
+        return;
+      }
+      let data = stdout.split("\n")[0].split(" ");    // The first line is the one containing the SGE version.
+      let res = {drmsName: data[0]};                  // DRM name (SGE in this case)
+      let vparts = data[1].split(".");                // Split into major and minor version number
+      res.version = new Version(vparts[0],vparts[1]);
+      def.resolve(res);
+    });
   });
+
 
   return def.promise;
 }
@@ -33,20 +42,34 @@ export function getDrmsInfo() {
  */
 export function qstat(jobId){
   let def = new defer();
-  let args = "";
+  let args = [];
 
   if(jobId)
-    args += "-j "+jobId;
+    args.push("-j", jobId);
 
   // With "-g d", array jobs are displayed verbosely in a one
   // line per job task fashion.
-  let command = "qstat -g d " + args;
+  args.push("-g", "d");
 
-  console.log("Executing command: " + command);
+  // console.log("Executing command: " + command);
 
-  exec(command, (err, stdout, stderr) => {
-    if (err) { def.reject(err) ; return; }
+  let qstat = spawn("qstat", args);
 
+  let stdout = "", stderr = "";
+
+  qstat.stdout.on('data', (data) => {
+    stdout += data;
+  });
+
+  qstat.stderr.on('data', (data) => {
+    stderr += data;
+  });
+
+  qstat.on('error', (err) => {
+    def.reject(err);
+  });
+
+  qstat.on('close', () => {
     let isSingleJobResult = !!jobId; // If qstat() is called with no parameters, equals to false
 
     let res = _parseQstatResult(stdout, isSingleJobResult);
@@ -80,7 +103,7 @@ export function qsub(jobTemplate, start, end, incr){
 
   let command = "qsub " + args + " " + jobTemplate.remoteCommand + " " + jobTemplate.args.join(" ");
 
-  console.log("Executing command: " + command);
+  // console.log("Executing command: " + command);
 
   exec(command, opts, (err, stdout, stderr) => {
     if (err) { def.reject(err) ; return; }
@@ -99,16 +122,16 @@ export function qsub(jobTemplate, start, end, incr){
 export function qacct(jobId, taskId){
   let def = new defer();
 
-  let args = "-j " + jobId;
+  let args = ["-j",jobId];
 
   if(taskId)
-    args += " -t " + taskId;
+    args.push("-t",taskId);
 
   let command = "qacct";
 
-  console.log("Executing command: " + command);
+  // console.log("Executing command: " + command);
 
-  let qacct = spawn(command, ["-j",jobId]);
+  let qacct = spawn(command, args);
 
   let stdout = "", stderr = "";
 

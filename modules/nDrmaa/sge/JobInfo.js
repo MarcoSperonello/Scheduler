@@ -7,15 +7,19 @@ export default class JobInfo extends JobInfoBase{
   constructor(info) {
     super();
 
-    let isJobArrayResult = !info.jobnumber;
+    let isJobArrayResult = !info.jobnumber; // Whether we are dealing with the info of an array job
 
     if(!isJobArrayResult){
+      // If we are dealing with a single job (or an array job with a single task)
+      // just copy the resulting information in the corresponding fields
       this.jobId = info.jobnumber;
       this.exitStatus = info.exit_status;
       this.failed = info.failed;
     }
 
     else{
+      // Otherwise, the properties "exitStatus" and "failed" become arrays where we push
+      // the resulting exit statuses of each task belonging to the array job.
       this.exitStatus = [];
       this.failed = [];
       for(let taskId in info){
