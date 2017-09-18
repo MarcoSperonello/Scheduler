@@ -1,0 +1,18 @@
+{
+	"maxRequestsPerSecUser": 20,
+	"maxRequestsPerSecGlobal": 40,
+	"userLifespan": 10,
+	"requestLifespan": 5,
+	"maxConcurrentJobs": 3,
+	"maxJobRunningTime": 20,
+	"maxJobQueuedTime": 20,
+	"maxArrayJobRunningTime": 100,
+	"maxArrayJobQueuedTime": 50,
+	"localListPath": "./input_files/local-lists.json",
+	"globalListPath": "./input_files/global-lists.json",
+	"minimumTimeBetweenFileUpdates": 5,
+	"jobPollingInterval": 1,
+	"userPollingInterval": 1,
+	"listPollingInterval": 1,
+	"sessionName": "exampleSession"
+}

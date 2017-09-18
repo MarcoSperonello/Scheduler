@@ -8,15 +8,15 @@ import SessionManager from '../nDrmaa/sge/SessionManager';
 import * as sgeClient from '../nDrmaa/sge/sge-cli';
 import * as monitors from './monitors';
 
-
+// Possible job types. A SINGLE job consists of a single task, while an ARRAY
+// job is made up of several tasks.
 export const JOBTYPE = {
   SINGLE: 'SINGLE',
   ARRAY: 'ARRAY'
 };
 
-// Creates a Drmaa session.
+// Handles creation of Drmaa sessions.
 export const sessionManager = new SessionManager();
-sessionManager.createSession('testSession');
 
 /**
  * Class that manages clients' requests to submit a job to the Sun Grid Engine
@@ -31,47 +31,69 @@ sessionManager.createSession('testSession');
  */
 class SchedulerSecurity {
   constructor(inputFile) {
-    this.inputFile_ = inputFile;
-    this.jobs_ = [];            // Jobs list.
-    this.users_ = [];           // Users list.
-    this.globalRequests_ = [];  // Recent requests by all users.
-    this.blacklist_ = [];       // Requests from blacklisted users are rejected.
-    this.whitelist_ = [];       // Requests from blacklisted users are rejected.
-    this.lastInputFileUpdate_ = 0;
+    this.inputFile_ = inputFile;  // File from which to read input parameters.
+    this.jobs_ = [];              // Jobs list.
+    this.users_ = [];             // Users list.
+    this.globalRequests_ = [];    // Recent requests by all users.
+    this.blacklist_ = [];  // Requests from blacklisted users are rejected.
+    this.whitelist_ = [];  // Requests from blacklisted users are rejected.
+    this.userPollingIntervalID_ = null;
+    this.listPollingIntervalID_ = null;
     this.inputParams_ = {
+      // Max number of requests per user per time unit (requestLifespan).
       maxRequestsPerSecUser: 2,
+      // Max number of requests per time unit for all users.
       maxRequestsPerSecGlobal: 4,
+      // Maximum time allowed to pass after the most recent request of a user
+      // before the user is removed from history.
       userLifespan: 1000000,
+      // Time after which a request can be removed from history.
       requestLifespan: 5000,
+      // Maximum number of concurrent jobs (either RUNNING, QUEUED, ON_HOLD...).
       maxConcurrentJobs: 1,
+      // Time after which a RUNNING job can be forcibly stopped.
       maxJobRunningTime: 10000,
+      // Time after which a QUEUED job can be forcibly stopped.
       maxJobQueuedTime: 10000,
+      // Time after which an array job whose first task is RUNNING can be
+      // forcibly
+      // stopped.
       maxArrayJobRunningTime: 10000,
+      // Time after which an array job whose first task is QUEUED can be
+      // forcibly
+      // stopped.
       maxArrayJobQueuedTime: 10000,
-      minimumTimeBetweenFileUpdates: 5000,
-      lastInputFileUpdate: 0,
+      // Path of the local black/whitelist file.
       localListPath: '',
+      // Path of the global black/whitelist file.
       globalListPath: '',
+      // Minimum time between two consecutive input file reads.
+      minimumTimeBetweenFileUpdates: 5000,
+      // Time of the last input file read.
+      lastInputFileUpdate: 0,
+      // Time interval between two consecutive job history polls.
       jobPollingInterval: 1000,
+      // Time interval between two consecutive user history polls.
       userPollingInterval: 1000,
-      listUpdateInterval: 1000,
+      // Time interval between two consecutive black/whitelist file reads.
+      listPollingInterval: 1000,
+      // Name of the Drmaa session.
+      sessionName: 'session',
     };
 
     // Sets input parameters as specified in the input file. If there is an
-    // error
-    // reading the input file, default parameters are set.
+    // error reading the input file, default parameters are set.
     this.updateInputParameters();
     // Checks if there are any users to be added to the black/whitelist.
     this.updateLists();
 
-    // Polls the job history as often as specified.
-    setInterval(monitors.pollJobs.bind(this), this.jobPollingInterval_);
-    // Polls the job history as often as specified.
-    setInterval(monitors.pollUsers.bind(this), this.userPollingInterval_);
-    // Updates the input parameters as often as specified.
-    // setInterval(this.updateInputParameters.bind(this, inputFile), 1000);
+    // Creates a Drmaa session using the specified session name.
+    sessionManager.createSession(this.sessionName_);
+
+    /*// Polls the user history as often as specified.
+    setInterval(monitors.monitorUsers.bind(this), this.userPollingInterval_);
     // Updates the black/whitelists as often as specified.
-    setInterval(this.updateLists.bind(this), this.listUpdateInterval_);
+    setInterval(this.updateLists.bind(this), this.listPollingInterval_);*/
 
     /*
         setInterval(function() {
@@ -84,12 +106,12 @@ class SchedulerSecurity {
         }.bind(this), 1000);
     */
 
-    /*    setInterval( () => {
-          for (let user of this.blacklist_) {
-            console.log('blacklisted user ' + user);
-          }
-          console.log('\n');
-        }, 5000);*/
+    /*        setInterval( () => {
+              for (let user of this.blacklist_) {
+                console.log('blacklisted user ' + user);
+              }
+              console.log('\n');
+            }, 5000);*/
   }
 
   /**
@@ -100,6 +122,8 @@ class SchedulerSecurity {
    * @param requestData: object holding request information.
    */
   handleRequest(requestData) {
+    let def = new defer();
+
     requestData.ip = requestData.ip.replace(/^.*:/, '');
     let userIndex = this.findUserIndex(this.users_, requestData);
     Logger.info(
@@ -107,16 +131,21 @@ class SchedulerSecurity {
         new Date(requestData.time).toUTCString() + '.');
 
     if (new Date().getTime() - this.lastInputFileUpdate_ >
-        this.minimumTimeBetweenFileUpdates_) {
+        this.minimumInputUpdateInterval_) {
       this.updateInputParameters();
     }
 
-    if (userIndex === -1) {  // User is submitting a request for the first time.
-      // Proceeds only if the max number of requests per time unit by all users
-      // has not been exceeded.
-      if (this.isWhitelisted(requestData) ||
-          (!this.isBlacklisted(requestData) &&
-           this.checkGlobalRequests(requestData))) {
+    let information = {
+      ip: requestData.ip,
+      time: requestData.time,
+      jobData: null,
+      description: '',
+    };
+
+    let verifyOutcome = this.verifyRequest(requestData, userIndex);
+
+    if (verifyOutcome.status) {
+      if (userIndex === -1) {
         Logger.info('Creating user ' + requestData.ip + '.');
         // The new user is added to the user list along with the request
         // timestamp.
@@ -125,47 +154,158 @@ class SchedulerSecurity {
           requests: [requestData.time],
           requestAmount: 1,
         });
-        // The new request is added to the global requests list.
-        this.globalRequests_.push(requestData.time);
-        Logger.info('Request accepted.');
-        // Logs the request to database.
-        this.registerRequestToDatabase(requestData);
-        // Attempts to submit the job to the SGE.
-        this.handleJobSubmission(requestData);
-
       } else {
-        Logger.info('Request denied.');
-      }
-    } else {  // User has already submitted one or more requests in the past.
-      Logger.info('User ' + requestData.ip + ' found.');
-      // Proceeds only if the max number of requests per time unit for all users
-      // AND for this user have not been exceeded.
-      if (this.verifyRequest(requestData)) {
-        // The request is added to the user's request history.
+        Logger.info('User ' + requestData.ip + ' found.');
         this.users_[userIndex].requests.push(requestData.time);
         this.users_[userIndex].requestAmount++;
-        this.globalRequests_.push(requestData.time);
-        this.registerRequestToDatabase(requestData);
-        this.handleJobSubmission(requestData);
       }
+      this.globalRequests_.push(requestData.time);
+      this.registerRequestToDatabase(requestData);
+      // Attempts to submit the job to the SGE.
+      when(
+          this.handleJobSubmission(requestData),
+          (jobData) => {
+            information.jobData = jobData;
+            information.description =
+                'Request accepted: job ' + jobData.jobId + ' submitted.';
+            def.resolve(information);
+          },
+          (error) => {
+            information.description = error;
+            def.reject(information);
+          });
+    } else {
+      // Logger.info('Request denied.');
+      information.description = 'Request denied: ' + verifyOutcome.description;
+      def.reject(information);
     }
+
+    return def.promise;
+  }
+
+  /**
+   * Submits a job to the SGE.
+   *
+   * @param requestData: object holding request information.
+   */
+  handleJobSubmission(requestData) {
+    let def = new defer();
+
+    try {
+      // Loads job specifications from file.
+      let jobInfo = JSON.parse(fs.readFileSync(requestData.jobPath, 'utf8'));
+      let jobData = new JobTemplate({
+        remoteCommand: jobInfo.remoteCommand,
+        args: jobInfo.args || [],
+        submitAsHold: jobInfo.submitAsHold || false,
+        jobEnvironment: jobInfo.jobEnvironment || '',
+        workingDirectory: jobInfo.workingDirectory || '',
+        jobCategory: jobInfo.jobCategory || '',
+        nativeSpecification: jobInfo.nativeSpecification || '',
+        email: jobInfo.email || '',
+        blockEmail: jobInfo.blockEmail || true,
+        startTime: jobInfo.startTime || '',
+        jobName: jobInfo.jobName || '',
+        inputPath: jobInfo.inputPath || '',
+        outputPath: jobInfo.outputPath || '',
+        errorPath: jobInfo.errorPath || '',
+        joinFiles: jobInfo.joinFiles || '',
+      });
+
+      let start = jobInfo.start || null;
+      let end = jobInfo.end || null;
+      let increment = jobInfo.incr || null;
+
+      // Determines if the job consists of a single task or multiple ones.
+      let jobType = this.checkArrayParams(start, end, increment);
+      console.log('jobType: ' + jobType);
+
+      // Submits the job to the SGE.
+      when(sessionManager.getSession(this.sessionName_), (session) => {
+        when(
+            jobType === JOBTYPE.SINGLE ?
+                session.runJob(jobData) :
+                session.runBulkJobs(jobData, start, end, increment),
+            (jobId) => {
+              // Fetches the date and time of submission of the job.
+              when(session.getJobProgramStatus([jobId]), (jobStatus) => {
+                when(sgeClient.qstat(jobId), (job) => {
+                  // Converts the date to an ms-from-epoch format.
+                  let jobSubmitDate = new Date(job.submission_time).getTime();
+                  let taskInfo = [];
+                  if (jobType === JOBTYPE.ARRAY) {
+                    for (let taskId = start; taskId <= end;
+                         taskId += increment) {
+                      console.log(
+                          'task ' + taskId + ' status: ' +
+                          jobStatus[jobId][taskId].mainStatus);
+                      taskInfo.push({
+                        taskId: taskId,
+                        status: jobStatus[jobId][taskId].mainStatus,
+                        runningTime: 0,
+                        runningStart: 0,
+                      })
+                    }
+                  }
+                  // Adds the job to the job history.
+                  let jobDescription = {
+                    jobId: jobId,
+                    jobName: job.job_name,
+                    jobStatus: jobStatus[jobId].mainStatus,
+                    firstTaskId: jobType === JOBTYPE.SINGLE ? null : start,
+                    lastTaskId: jobType === JOBTYPE.SINGLE ? null : end,
+                    increment: jobType === JOBTYPE.SINGLE ? null : increment,
+                    taskInfo: taskInfo,
+                    user: requestData.ip,
+                    submitDate: jobSubmitDate,
+                    totalExecutionTime: 0,
+                    jobType: jobType,
+                  };
+                  this.jobs_.push(jobDescription);
+                  Logger.info(
+                      'Added job ' + jobId + ' (' + job.job_name + ') on ' +
+                      new Date(jobSubmitDate).toUTCString());
+                  Logger.info(
+                      'Added job ' + jobId + ' (' + job.job_name +
+                      ') to job history. Current job history size: ' +
+                      this.jobs_.length + '.');
+                  def.resolve(jobDescription);
+                });
+              });
+            },
+            () => {
+              Logger.info(
+                  'Error found in job specifications. Job not submitted to the SGE.');
+              def.reject(
+                  'Error found in job specifications. Job not submitted to the SGE.');
+            });
+      });
+    } catch (err) {
+      Logger.info(
+          'Error reading job specifications from file. Job not submitted to the SGE.');
+      def.reject(
+          'Error reading job specifications from file. Job not submitted to the SGE.');
+    }
+    return def.promise;
   }
 
   /**
    * Returns true if the request can be serviced.
    *
    * @param requestData: object holding request information.
-   * @returns {boolean} true if the request is accepted.
+   * @returns {object} status: true if the request is accepted.
    */
-  verifyRequest(requestData) {
-    if (!this.checkUserRequests(
-            requestData,
-            this.users_[this.findUserIndex(this.users_, requestData)])) {
-      Logger.info('Request denied.');
-      return false;
-    }
-    Logger.info('Request accepted.');
-    return true;
+  verifyRequest(requestData, userIndex) {
+    let checkResult = this.checkUserRequests(requestData, userIndex);
+    if (!checkResult.status)
+      return {status: false, description: checkResult.description};
+    if (this.jobs_.length >= this.maxConcurrentJobs_)
+      return {
+        status: false,
+        description: 'Maximum number (' + this.maxConcurrentJobs_ +
+            ') of concurrent jobs already reached. Cannot submit any more jobs at the moment.'
+      };
+    return {status: true, description: 'All checks passed.'};
   }
 
   /**
@@ -173,22 +313,37 @@ class SchedulerSecurity {
    * the input request.
    *
    * @param requestData: object holding request information.
-   * @param user: the user which submitted the request.
-   * @returns {boolean} true if no constraints are violated.
+   * @param userIndex: the user which submitted the request.
+   * @returns {object} true if no constraints are violated.
    */
-  checkUserRequests(requestData, user) {
-    // If the user is whitelisted, the request is accepted.
-    if (this.isWhitelisted(requestData)) return true;
-
+  checkUserRequests(requestData, userIndex) {
     // If the user is blacklisted, the request is rejected.
-    if (this.isBlacklisted(requestData)) return false;
+    if (this.isBlacklisted(requestData))
+      return {
+        status: false,
+        description: 'User ' + requestData.ip + ' is blacklisted'
+      };
+
+    // If the user is whitelisted, the request is accepted.
+    if (this.isWhitelisted(requestData)) return {status: true, description: ''};
 
     // If the server is already at capacity, additional requests cannot be
     // serviced.
-    if (!this.checkGlobalRequests(requestData)) return false;
+    if (!this.checkGlobalRequests(requestData))
+      return {
+        status: false,
+        description: 'Server currently at capacity (' +
+            this.globalRequests_.length +
+            ' global requests currently present). Cannot service more requests.'
+      };
+
+    if (userIndex === -1) return {status: true, description: ''};
+
+    let user = this.users_[userIndex];
 
     // If the user's request history is not full, the request can be serviced.
-    if (user.requestAmount < this.maxRequestsPerSecUser_) return true;
+    if (user.requestAmount < this.maxRequestsPerSecUser_)
+      return {status: true, description: ''};
 
     // If there are expired user requests, they are pruned and the current
     // request can be serviced.
@@ -200,17 +355,22 @@ class SchedulerSecurity {
         // + " request history. "
         //    + "There are currently " + user.requests.length + " request(s) in
         //    the user's history.");
-        return true;
+        return {status: true, description: ''};
       }
     }
 
     // If no user requests were pruned, the user is already at capacity.
     // Additional requests cannot be serviced.
-    Logger.info(
-        'User ' + user.ip +
-        ' cannot submit more requests right now: there are currently ' +
-        user.requests.length + ' request(s) in the user\'s history.');
-    return false;
+    /*    Logger.info(
+            'User ' + user.ip +
+            ' cannot submit more requests right now: there are currently ' +
+            user.requests.length + ' request(s) in the user\'s history.');*/
+    return {
+      status: false,
+      description: 'User ' + user.ip +
+          ' cannot submit more requests right now: there are currently ' +
+          user.requests.length + ' request(s) in the user\'s history.'
+    };
   }
 
   /**
@@ -255,9 +415,14 @@ class SchedulerSecurity {
    * @returns {boolean} true if the user is blacklisted.
    */
   isBlacklisted(requestData) {
-    if (this.blacklist_.findIndex((elem) => { return elem === '*'; }) !== -1 ||
-        this.blacklist_.findIndex(
-            (elem) => { return elem === requestData.ip; }) !== -1) {
+    /* if (this.blacklist_.findIndex((elem) => { return elem === '*'; }) !== -1
+       ||
+         this.blacklist_.findIndex(
+             (elem) => { return elem === requestData.ip; }) !== -1) {*/
+    if (this.blacklist_.findIndex((elem) => {
+          let regexp = new RegExp(elem);
+          if (regexp.test(requestData.ip)) return elem;
+        }) !== -1) {
       Logger.info('User ' + requestData.ip + ' is blacklisted.');
       return true;
     }
@@ -271,9 +436,14 @@ class SchedulerSecurity {
    * @returns {boolean} true if the user is whitelisted.
    */
   isWhitelisted(requestData) {
-    if (this.whitelist_.findIndex((elem) => { return elem === '*'; }) !== -1 ||
-        this.whitelist_.findIndex(
-            (elem) => { return elem === requestData.ip; }) !== -1) {
+    /*    if (this.whitelist_.findIndex((elem) => { return elem === '*'; }) !==
+       -1 ||
+            this.whitelist_.findIndex(
+                (elem) => { return elem === requestData.ip; }) !== -1) {*/
+    if (this.whitelist_.findIndex((elem) => {
+          let regexp = new RegExp(elem);
+          if (regexp.test(requestData.ip)) return elem;
+        }) !== -1) {
       Logger.info('User ' + requestData.ip + ' is whitelisted.');
       return true;
     }
@@ -324,10 +494,30 @@ class SchedulerSecurity {
   }
 
   /**
+   * Updates the local monitors to check the user history and the local and
+   * global black/whitelist files periodically.
+   * The frequencies of these checks are specified in the input file.
+   */
+  updateMonitors() {
+    // Clears pre-existing intervals.
+    if (this.userPollingIntervalID_ !== null)
+      clearInterval(this.userPollingIntervalID_);
+    if (this.listPollingIntervalID_ !== null)
+      clearInterval(this.listPollingIntervalID_);
+
+    // Polls the user history as often as specified.
+    this.userPollingIntervalID_ = setInterval(
+        monitors.monitorUsers.bind(this), this.userPollingInterval_);
+    // Updates the black/whitelists as often as specified.
+    this.listPollingIntervalID_ =
+        setInterval(this.updateLists.bind(this), this.listPollingInterval_);
+  }
+  /**
    * Attempts to read the local and global black/whitelist files and updates the
    * arrays of the blacklisted and whitelisted users.
    */
   updateLists() {
+    console.log('TIME TIME TIME ' + new Date().toUTCString());
     if (this.localListPath_ !== '') {
       try {
         let localList =
@@ -375,160 +565,34 @@ class SchedulerSecurity {
           '. Using default parameters.');
     }
 
-    // Max number of requests per user per time unit (requestLifespan).
     this.maxRequestsPerSecUser_ = this.inputParams_.maxRequestsPerSecUser || 2;
-    // Max number of requests per time unit for all users.
     this.maxRequestsPerSecGlobal_ =
         this.inputParams_.maxRequestsPerSecGlobal || 4;
-    // Maximum time allowed to pass after the most recent request of a user
-    // before the user is removed from history.
-    this.userLifespan_ = this.inputParams_.userLifespan || 1000000;
-    // Time after which a request can be removed from history.
-    this.requestLifespan_ = this.inputParams_.requestLifespan || 5000;
-
-    // Not used yet. Might not be needed.
+    this.userLifespan_ = this.inputParams_.userLifespan * 1000 || 1000000;
+    this.requestLifespan_ = this.inputParams_.requestLifespan * 1000 || 5000;
     this.maxConcurrentJobs_ = this.inputParams_.maxConcurrentJobs || 1;
-    // Time after which a RUNNING job can be forcibly stopped.
-    this.maxJobRunningTime_ = this.inputParams_.maxJobRunningTime || 10000;
-    // Time after which a QUEUED job can be forcibly stopped.
-    this.maxJobQueuedTime_ = this.inputParams_.maxJobQueuedTime || 10000;
-    // Time after which an array job whose first task is RUNNING can be forcibly
-    // stopped.
+    this.maxJobRunningTime_ =
+        this.inputParams_.maxJobRunningTime * 1000 || 10000;
+    this.maxJobQueuedTime_ = this.inputParams_.maxJobQueuedTime * 1000 || 10000;
     this.maxArrayJobRunningTime_ =
-        this.inputParams_.maxArrayJobRunningTime || 10000;
-    // Time after which an array job whose first task is QUEUED can be forcibly
-    // stopped.
+        this.inputParams_.maxArrayJobRunningTime * 1000 || 10000;
     this.maxArrayJobQueuedTime_ =
-        this.inputParams_.maxArrayJobQueuedTime || 10000;
-
-    // Path of the local black/whitelist file.
+        this.inputParams_.maxArrayJobQueuedTime * 1000 || 10000;
     this.localListPath_ = this.inputParams_.localListPath || '';
-    // Path of the global black/whitelist file.
     this.globalListPath_ = this.inputParams_.globalListPath || '';
-
-    this.minimumTimeBetweenFileUpdates_ =
-        this.inputParams_.minimumTimeBetweenFileUpdates || 10000;
+    this.minimumInputUpdateInterval_ =
+        this.inputParams_.minimumTimeBetweenFileUpdates * 1000 || 10000;
     this.lastInputFileUpdate_ = new Date().getTime();
 
-    this.jobPollingInterval_ = this.inputParams_.jobPollingInterval || 1000;
-    this.userPollingInterval_ = this.inputParams_.userPollingInterval || 1000;
-    this.listUpdateInterval_ = this.inputParams_.listUpdateInterval || 1000;
-  }
+    this.jobPollingInterval_ =
+        this.inputParams_.jobPollingInterval * 1000 || 1000;
+    this.userPollingInterval_ =
+        this.inputParams_.userPollingInterval * 1000 || 1000;
+    this.listPollingInterval_ =
+        this.inputParams_.listPollingInterval * 1000 || 1000;
+    this.updateMonitors();
 
-  /**
-   * Submits a job to the SGE.
-   *
-   * @param requestData: object holding request information.
-   */
-  handleJobSubmission(requestData) {
-    if (this.jobs_.length >= this.maxConcurrentJobs_) {
-      Logger.info(
-          'Server is working at capacity. Cannot submit any more jobs at the moment.');
-      return;
-    }
-    try {
-      // Loads job specifications from file.
-      let jobInfo = JSON.parse(fs.readFileSync(requestData.jobPath, 'utf8'));
-      let jobData = new JobTemplate({
-        remoteCommand: jobInfo.remoteCommand,
-        args: jobInfo.args || [],
-        submitAsHold: jobInfo.submitAsHold || false,
-        jobEnvironment: jobInfo.jobEnvironment || '',
-        workingDirectory: jobInfo.workingDirectory || '',
-        jobCategory: jobInfo.jobCategory || '',
-        nativeSpecification: jobInfo.nativeSpecification || '',
-        email: jobInfo.email || '',
-        blockEmail: jobInfo.blockEmail || true,
-        startTime: jobInfo.startTime || '',
-        jobName: jobInfo.jobName || '',
-        inputPath: jobInfo.inputPath || '',
-        outputPath: jobInfo.outputPath || '',
-        errorPath: jobInfo.errorPath || '',
-        joinFiles: jobInfo.joinFiles || '',
-      });
-
-      let start = jobInfo.start || null;
-      let end = jobInfo.end || null;
-      let increment = jobInfo.incr || null;
-
-      // Determines if the job consists of a single task or multiple ones.
-      let jobType = this.checkArrayParams(start, end, increment);
-      console.log('jobType: ' + jobType);
-
-      // Submits the job to the SGE.
-      when(sessionManager.getSession('testSession'), (session) => {
-        when(
-            jobType === JOBTYPE.SINGLE ?
-                session.runJob(jobData) :
-                session.runBulkJobs(jobData, start, end, increment),
-            (jobId) => {
-              // Fetches the date and time of submission of the job.
-              when(session.getJobProgramStatus([jobId]), (jobStatus) => {
-                when(sgeClient.qstat(jobId), (job) => {
-                  // Converts the date to an ms-from-epoch format.
-                  let jobSubmitDate = new Date(job.submission_time).getTime();
-                  let taskStatuses = [];
-                  let taskRunningTime = [];
-                  let taskInfo = [];
-                  if (jobType === JOBTYPE.ARRAY) {
-                    for (let taskId = start; taskId <= end;
-                         taskId += increment) {
-                      console.log(
-                          'task ' + taskId + ' status: ' +
-                          jobStatus[jobId][taskId].mainStatus);
-                      /*taskStatuses.push({
-                        taskId: taskId,
-                        status: jobStatus[jobId][taskId].mainStatus,
-                      });
-                      taskRunningTime.push({
-                        taskId: taskId,
-                        runningTime: 0,
-                        runningStart: 0,
-                      });*/
-                      taskInfo.push({
-                        taskId: taskId,
-                        status: jobStatus[jobId][taskId].mainStatus,
-                        runningTime: 0,
-                        runningStart: 0,
-                      })
-                    }
-                  }
-                  // Adds the job to the job history.
-                  this.jobs_.push({
-                    jobId: jobId,
-                    jobName: job.job_name,
-                    jobStatus: jobStatus[jobId].mainStatus,
-                    firstTaskId: jobType === JOBTYPE.SINGLE ? null : start,
-                    lastTaskId: jobType === JOBTYPE.SINGLE ? null : end,
-                    increment: jobType === JOBTYPE.SINGLE ? null : increment,
-                    taskInfo: taskInfo,
-                    startedAsRunning: false,
-                    user: requestData.ip,
-                    submitDate: jobSubmitDate,
-                    totalExecutionTime: 0,
-                    jobType: jobType,
-                  });
-                  // console.log('jobstatus ' + jobStatus.mainStatus);
-                  // console.log('submitdate ' + new
-                  Logger.info(
-                      'Added job ' + jobId + ' (' + job.job_name + ') on ' +
-                      new Date(jobSubmitDate).toUTCString());
-                  Logger.info(
-                      'Added job ' + jobId + ' (' + job.job_name +
-                      ') to job history. Current job history size: ' +
-                      this.jobs_.length + '.');
-                });
-              });
-            },
-            () => {
-              Logger.info(
-                  'Error found in job specifications. Job not submitted to the SGE.');
-            });
-      });
-    } catch (err) {
-      Logger.info(
-          'Error reading job specifications from file. Job not submitted to the SGE.');
-    }
+    this.sessionName_ = this.inputParams_.sessionName || 'session';
   }
 }
 

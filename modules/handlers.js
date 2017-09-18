@@ -3,8 +3,10 @@ import * as errors from 'restify-errors';
 import aux from './aux';
 
 // import Db from './database';
+import Logger from './logger';
 import {getRoutes,isMonitoring,setMonitor} from './server';
 import {Sec} from "./scheduler/scheduler-manager";
+import * as monitors from "./scheduler/monitors";
 
 import * as sge from "./nDrmaa/sge/sge-cli";
 import {when,defer,all} from "promised-io";
@@ -57,13 +59,65 @@ export default {
       jobPath: req.query["jobPath"]
     };
 
+
+    //192.168.0.0 ([0-9])+(\.?([0-9])+)*
+    //192.*
+
+    //let regexp = new RegExp('([0-9])+(\\.?([0-9])+)*');
+    //let str = '192.';
+/*    let pattern = '192*';
+    let regexp = new RegExp(pattern);
+    let str = '192.168.0.1';
+    console.log("test:" + regexp.test(str));*/
+
+
     // Calls the request handler.
-    Sec.handleRequest(requestData);
+    /*when(Sec.handleRequest(requestData), (status) => {
+      console.log('jobStatus: ' + status.jobStatus);
+      when(monitors.pollJobs(status.jobId), (jobStatus) => {
+        console.log('jobStatus after pollJobs ' + jobStatus);
+        res.send(200, "Done");
+      });
+    });*/
+    /*function retry(operation, jobId) {
+      when(operation(jobId), (resolve) => {
+        return resolve;
+      }, (reject) => {
+        console.log('current job status ' + reject);
+        setTimeout(retry.bind(null, operation, jobId), 1000);
+      })
+    }
+*/
+/*    function retry(jobId) {
+      try{
+        monitors.pollJobs(jobId).then( (status) => {
+          if(status.mainStatus !== 'COMPLETED') {
+            //console.log('not yet completed ' + status.description);
+            setTimeout(retry.bind(null,jobId), Sec.jobPollingInterval_);
+          }
+          else console.log('Job ' + status.jobId + ': ' + status.mainStatus + ', ' + status.description);
+        });
+      } catch(err) {
+        console.log(err);
+        console.log('Job already erased')
+      }
+    }*/
+
+    when(Sec.handleRequest(requestData), (status) => {
+      let def = new defer();
+      when(monitors.monitorJob(status.jobData.jobId, def), (status) => {
+        console.log('DAGHE GAS Job ' + status.jobId + ': ' + status.mainStatus + ', ' + status.description);
+      }, (error) => {
+        console.log(error);
+      })
+    }, (error) => {
+      Logger.info(error.description);
+    });
+
+    res.send(200, "Done");
     //Sec.addJob(req.query["jobfile"]);
     //Sec.pollJobs("simple.sh");
     //Sec.handleJobSubmission(requestData);
-
-    res.send(200, "Done");
 
     return next()
   },

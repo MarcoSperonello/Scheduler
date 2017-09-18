@@ -4,43 +4,11 @@ import {Sec, sessionManager, JOBTYPE} from './scheduler-manager';
 import {when, defer} from 'promised-io';
 
 /**
- * Queries the SGE to monitor the status of submitted jobs. Jobs which have
- * exceeded their maximum runtime and are still queued/running are terminated
- * and removed from history. Jobs which terminated in the allotted time are
- * removed from history.
- */
-
-export function pollJobs() {
-  // There are no jobs in the job history.
-  if (Sec.jobs_.length === 0) return;
-
-  when(sessionManager.getSession('testSession'), (session) => {
-    // Checks the status of each job in the job history.
-    for (let i = Sec.jobs_.length - 1; i >= 0; i--) {
-      when(
-          session.getJobProgramStatus([Sec.jobs_[i].jobId]),
-          (jobStatus) => {
-            if (Sec.jobs_[i].jobType === JOBTYPE.SINGLE) {
-              monitorSingleJob(session, jobStatus, i);
-            } else {
-              monitorArrayJob(session, jobStatus, i);
-            }
-          },
-          () => {
-            Logger.info(
-                'Error reading status for job ' + Sec.jobs_[i].jobId + ' (' +
-                Sec.jobs_[i].jobName + ').');
-          });
-    }
-  });
-}
-
-/**
  * Scans the users array and removes users which have been inactive (i.e. have
  * not made a request) for longer than the maximum allotted time
  * (userLifespan_).
  */
-export function pollUsers() {
+export function monitorUsers() {
   let currentTime = new Date().getTime();
   for (let i = Sec.users_.length - 1; i >= 0; i--) {
     if (currentTime -
@@ -54,7 +22,91 @@ export function pollUsers() {
   }
 }
 
+/*export function monitorJob(jobId) {
+  try{
+    pollJob(jobId).then( (status) => {
+      if(status.mainStatus !== 'COMPLETED') {
+        //console.log('not yet completed ' + status.description);
+        setTimeout(monitorJob.bind(null,jobId), Sec.jobPollingInterval_);
+      }
+      else console.log('Job ' + status.jobId + ': ' + status.mainStatus + ', ' +
+status.description);
+    }, (error) => {
+      console.log('Error reading status for job ' + Sec.jobs_[index].jobId + '
+(' +
+      Sec.jobs_[index].jobName + '): ' + error);
+    });
+  } catch(err) {
+    console.log(err);
+    console.log('Job ' + jobId + ' already removed from history.');
+  }
+}*/
+
+export function monitorJob(jobId, def) {
+  try {
+    pollJob(jobId).then(
+        (status) => {
+          if (status.mainStatus !== 'COMPLETED') {
+            // console.log('not yet completed ' + status.description);
+            setTimeout(
+                monitorJob.bind(null, jobId, def), Sec.jobPollingInterval_);
+          } else {
+            def.resolve(status);
+          }
+        },
+        (error) => {
+          console.log(
+              'Error reading status for job ' + Sec.jobs_[index].jobId + ' (' +
+              Sec.jobs_[index].jobName + '): ' + error);
+          def.reject(error);
+        });
+  } catch (error) {
+    console.log(error);
+    def.reject('Job ' + jobId + ' already removed from history.');
+  }
+  return def.promise;
+}
+
+/**
+ * Queries the SGE to monitor the status of submitted jobs. Jobs which have
+ * exceeded their maximum runtime and are still queued/running are terminated
+ * and removed from history. Jobs which terminated in the allotted time are
+ * removed from history.
+ */
+function pollJob(jobId) {
+  let def = new defer();
+
+  let index = Sec.jobs_.findIndex((elem) => { return elem.jobId === jobId; });
+
+  if (index === -1) return;
+
+  when(sessionManager.getSession(Sec.sessionName_), (session) => {
+    // Checks the status of each job in the job history.
+    when(
+        session.getJobProgramStatus([Sec.jobs_[index].jobId]),
+        (jobStatus) => {
+          if (Sec.jobs_[index].jobType === JOBTYPE.SINGLE) {
+            when(monitorSingleJob(session, jobStatus, index), (result) => {
+              def.resolve(result);
+            });
+          } else {
+            when(monitorArrayJob(session, jobStatus, index), (result) => {
+              def.resolve(result);
+            });
+          }
+        },
+        (error) => {
+          Logger.info(
+              'Error reading status for job ' + Sec.jobs_[index].jobId + ' (' +
+              Sec.jobs_[index].jobName + ').');
+          def.reject(error);
+        });
+  });
+  return def.promise;
+}
+
 function monitorSingleJob(session, jobStatus, index) {
+  let def = new defer();
   // If the job has not yet been completed but its status changed from
   // ON-HOLD/QUEUED to RUNNING, said status is updated to the current
   // RUNNING value and the submitDate field is updated to represent
@@ -69,6 +121,14 @@ function monitorSingleJob(session, jobStatus, index) {
         'Job ' + Sec.jobs_[index].jobId + ' (' + Sec.jobs_[index].jobName +
         ') status changed from ' + Sec.jobs_[index].jobStatus + ' to ' +
         jobStatus[Sec.jobs_[index].jobId].mainStatus + '.');
+    def.resolve({
+      jobId: Sec.jobs_[index].jobId,
+      jobName: Sec.jobs_[index].jobName,
+      mainStatus: jobStatus[Sec.jobs_[index].jobId].mainStatus,
+      subStatus: jobStatus[Sec.jobs_[index].jobId].subStatus,
+      description: 'Job switched from ' + Sec.jobs_[index].jobStatus + ' to ' +
+          jobStatus[Sec.jobs_[index].jobId].mainStatus + '.'
+    });
     Sec.jobs_[index].jobStatus = jobStatus[Sec.jobs_[index].jobId].mainStatus;
     Sec.jobs_[index].submitDate = new Date().getTime();
   }
@@ -88,10 +148,24 @@ function monitorSingleJob(session, jobStatus, index) {
       Logger.info(
           'Job ' + Sec.jobs_[index].jobId + ' (' + Sec.jobs_[index].jobName +
           ') has exceeded maximum ' +
-          jobStatus[Sec.jobs_[index].jobId].mainStatus +
-          ' runtime. Terminating.');
+          jobStatus[Sec.jobs_[index].jobId].mainStatus + ' runtime.');
+      def.resolve({
+        jobId: Sec.jobs_[index].jobId,
+        jobName: Sec.jobs_[index].jobName,
+        mainStatus: 'COMPLETED',
+        subStatus: 'FAILED',
+        description: 'Maximum ' + jobStatus[Sec.jobs_[index].jobId].mainStatus +
+            ' runtime exceeded.'
+      });
       deleteJob(session, index);
-    }
+    } else
+      def.resolve({
+        jobId: Sec.jobs_[index].jobId,
+        jobName: Sec.jobs_[index].jobName,
+        mainStatus: jobStatus[Sec.jobs_[index].jobId].mainStatus,
+        subStatus: jobStatus[Sec.jobs_[index].jobId].subStatus,
+        description: 'Job still running.'
+      });
   }
   // Jobs whose execution ended within the maximum allotted runtimes
   // are removed from history.
@@ -102,13 +176,23 @@ function monitorSingleJob(session, jobStatus, index) {
     Logger.info(
         'Removing job ' + Sec.jobs_[index].jobId + ' (' +
         Sec.jobs_[index].jobName +
-        ') from job history. Current job history size: ' + Sec.jobs_.length +
-        '.');
+        ') from job history. Current job history size: ' +
+        (Sec.jobs_.length - 1) + '.');
+    def.resolve({
+      jobId: Sec.jobs_[index].jobId,
+      jobName: Sec.jobs_[index].jobName,
+      mainStatus: jobStatus[Sec.jobs_[index].jobId].mainStatus,
+      subStatus: jobStatus[Sec.jobs_[index].jobId].subStatus,
+      description: 'Job completed within allotted runtimes.'
+    });
     Sec.jobs_.splice(index, 1);
   }
+  return def.promise;
 }
 
 function monitorArrayJob(session, jobStatus, index) {
+  let def = new defer();
+
   if (jobStatus[Sec.jobs_[index].jobId].mainStatus !== 'COMPLETED') {
     let currentTime = new Date().getTime();
     // task iniziale ancora in coda dopo troppo tempo
@@ -124,6 +208,16 @@ function monitorArrayJob(session, jobStatus, index) {
           jobStatus[Sec.jobs_[index].jobId][Sec.jobs_[index].firstTaskId]
               .mainStatus +
           ' runtime. Terminating.');
+      def.resolve({
+        jobId: Sec.jobs_[index].jobId,
+        jobName: Sec.jobs_[index].jobName,
+        mainStatus: 'COMPLETED',
+        subStatus: 'FAILED',
+        description: 'Maximum ' +
+            jobStatus[Sec.jobs_[index].jobId][Sec.jobs_[index].firstTaskId]
+                .mainStatus +
+            ' runtime exceeded.'
+      });
       deleteJob(session, index);
     } else {
       for (let taskId = Sec.jobs_[index].firstTaskId;
@@ -162,16 +256,19 @@ function monitorArrayJob(session, jobStatus, index) {
                 Sec.jobs_[index].taskInfo[taskIndex].runningStart === 0 ?
                 currentTime :
                 Sec.jobs_[index].taskInfo[taskIndex].runningStart;
-            if (Sec.jobs_[index].taskInfo[taskIndex].runningStart ===
-                currentTime) {
-              Sec.jobs_[index].startedAsRunning = true;
-            }
+            /*            if (Sec.jobs_[index].taskInfo[taskIndex].runningStart
+               ===
+                            currentTime) {
+                          Sec.jobs_[index].startedAsRunning = true;
+                        }*/
 
+            /* Sec.jobs_[index].taskInfo[taskIndex].runningTime =
+                 Sec.jobs_[index].startedAsRunning ?
+                     currentTime -
+                     Sec.jobs_[index].taskInfo[taskIndex].runningStart :
+                     currentTime -
+               Sec.jobs_[index].taskInfo[taskIndex].runningStart;*/
             Sec.jobs_[index].taskInfo[taskIndex].runningTime =
-                Sec.jobs_[index].startedAsRunning ?
-                currentTime -
-                    Sec.jobs_[index].taskInfo[taskIndex].runningStart +
-                    Sec.jobPollingInterval_ :
                 currentTime - Sec.jobs_[index].taskInfo[taskIndex].runningStart;
             Sec.jobs_[index].totalExecutionTime +=
                 Sec.jobs_[index].taskInfo[taskIndex].runningTime -
@@ -224,17 +321,27 @@ function monitorArrayJob(session, jobStatus, index) {
               jobStatus[Sec.jobs_[index].jobId][Sec.jobs_[index].firstTaskId]
                   .mainStatus +
               ' runtime. Terminating.');
-          when(
-              session.control(Sec.jobs_[index].jobId, session.TERMINATE),
-              () => {
-                Logger.info(
-                    'Removing job ' + Sec.jobs_[index].jobId + ' (' +
-                    Sec.jobs_[index].jobName + ') from job history.');
-                Sec.jobs_.splice(index, 1);
-              });
+          def.resolve({
+            jobId: Sec.jobs_[index].jobId,
+            jobName: Sec.jobs_[index].jobName,
+            mainStatus: 'COMPLETED',
+            subStatus: 'FAILED',
+            description: 'Maximum ' +
+                jobStatus[Sec.jobs_[index].jobId][Sec.jobs_[index].firstTaskId]
+                    .mainStatus +
+                ' runtime exceeded.'
+          });
+          deleteJob(session, index);
           break;
         }
       }
+      def.resolve({
+        jobId: Sec.jobs_[index].jobId,
+        jobName: Sec.jobs_[index].jobName,
+        mainStatus: jobStatus[Sec.jobs_[index].jobId].mainStatus,
+        subStatus: jobStatus[Sec.jobs_[index].jobId].subStatus,
+        description: 'Job still running.'
+      });
     }
   } else if (jobStatus[Sec.jobs_[index].jobId].mainStatus === 'COMPLETED') {
     Logger.info(
@@ -243,17 +350,28 @@ function monitorArrayJob(session, jobStatus, index) {
     Logger.info(
         'Removing job ' + Sec.jobs_[index].jobId + ' (' +
         Sec.jobs_[index].jobName +
-        ') from job history. Current job history size: ' + Sec.jobs_.length +
-        '.');
+        ') from job history. Current job history size: ' +
+        (Sec.jobs_.length - 1) + '.');
+    def.resolve({
+      jobId: Sec.jobs_[index].jobId,
+      jobName: Sec.jobs_[index].jobName,
+      mainStatus: jobStatus[Sec.jobs_[index].jobId].mainStatus,
+      subStatus: jobStatus[Sec.jobs_[index].jobId].subStatus,
+      description: 'Job completed within allotted runtimes.'
+    });
     Sec.jobs_.splice(index, 1);
   }
+
+  return def.promise;
 }
 
 function deleteJob(session, index) {
   when(session.control(Sec.jobs_[index].jobId, session.TERMINATE), () => {
     Logger.info(
         'Removing job ' + Sec.jobs_[index].jobId + ' (' +
-        Sec.jobs_[index].jobName + ') from job history.');
+        Sec.jobs_[index].jobName +
+        ') from job history. Current job history size: ' +
+        (Sec.jobs_.length - 1) + '.');
     Sec.jobs_.splice(index, 1);
   });
 }
