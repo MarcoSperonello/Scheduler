@@ -250,7 +250,7 @@ export default class Session extends SessionBase{
 
             // The task appears on the list returned by qstat (hence not finished yet)
             if(jobs[jobId] && jobs[jobId][taskId]){
-              taskStatus.mainStatus = this._parseJobStatus(jobs[jobId][taskId].jobState);
+              taskStatus.mainStatus = _parseJobStatus(jobs[jobId][taskId].jobState);
 
             }
             else{

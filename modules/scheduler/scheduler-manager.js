@@ -19,15 +19,59 @@ export const JOBTYPE = {
 export const sessionManager = new SessionManager();
 
 /**
- * Class that manages clients' requests to submit a job to the Sun Grid Engine
+ * Class that manages client requests to submit a job to the Sun Grid Engine
  * (SGE).
+ *
+ * Job can either be SINGLE or ARRAY. SINGLE jobs consist of a single task,
+ * while ARRAY jobs feature multiple ones.
  * Job submission and handling is bound by the following constraints:
  *  - maximum number of requests per user per time unit
  *  - maximum number of requests per time unit for all users
  *  - blacklisted and whitelisted users
- *  - maximum allotted runtime, after which the job is forcibly terminated
+ *  - maximum number of concurrent jobs (in any state)
+ *  - maximum allotted runtime, after which the job is forcibly terminated.
+ *
+ * There are two kinds of time limits: the "queued" time limit, which dictates
+ * how long a job can be in a non-RUNNING state, and the "running" time limit,
+ * used to restrict the time spent in a RUNNING state by a job. SINGLE and ARRAY
+ * jobs time limit pairs are different (i.e. the 'queued' and/or 'running' time
+ * limit of a SINGLE job can be different than those of a RUNNING job).
  * These constraints are configured in the input.json file, to be placed in the
  * root of the project directory (temporary arrangement).
+ *
+ * INSTANTIATION:
+ * The class constructor is called automatically and the input file, whose path
+ * is passed to the constructor, is read in order to configure the class
+ * parameters. Said file is then read every time a request is received by the
+ * server (provided the last read happened a long enough time ago), so dynamic
+ * configuration of input parameters is supported. Refer to the sample file and
+ * the constructor comments for further details regarding the input parameters.
+ *
+ * USAGE:
+ * This class is meant to be accessed by the outside via the handleRequest
+ * method, which returns a promise. This method accepts a requestData object
+ * with the following structure:
+ *
+ * {
+ *       ip: {string}
+ *       time: {Date}
+ *       jobPath: {JSON object}
+ * }
+ * where:
+ * - "ip" is the IP address of the user who submitted the request (or, more
+ * generally, their name);
+ * - "time" is the time at which the request was received;
+ * - "jobPath" is a JSON with all or some fields of a JobTemplate object (see
+ * ../nDrmaa/JobTemplate.js) plus three additional parameters: (1) start, (2)
+ * end, (3) incr, which represent the numbers of the first task, the last task,
+ * and the step size of an ARRAY job respectively (see the qsub -t manual).
+ *
+ * The handleRequest method proceeds to verify whether any of the aforementioned
+ * constraints are violated. If they are not, handleRequest calls the
+ * handleJobSubmission method which attempts to submit the job to the SGE. The
+ * handleRequest method eventually returns a promise object, containing several
+ * information regarding the outcome of the request (see handleRequest
+ * documentation).
  */
 class SchedulerSecurity {
   constructor(inputFile) {
@@ -56,19 +100,17 @@ class SchedulerSecurity {
       // Time after which a QUEUED job can be forcibly stopped.
       maxJobQueuedTime: 10000,
       // Time after which an array job whose first task is RUNNING can be
-      // forcibly
-      // stopped.
+      // forcibly stopped.
       maxArrayJobRunningTime: 10000,
       // Time after which an array job whose first task is QUEUED can be
-      // forcibly
-      // stopped.
+      // forcibly stopped.
       maxArrayJobQueuedTime: 10000,
       // Path of the local black/whitelist file.
       localListPath: '',
       // Path of the global black/whitelist file.
       globalListPath: '',
       // Minimum time between two consecutive input file reads.
-      minimumTimeBetweenFileUpdates: 5000,
+      minimumInputUpdateInterval: 5000,
       // Time of the last input file read.
       lastInputFileUpdate: 0,
       // Time interval between two consecutive job history polls.
@@ -96,45 +138,72 @@ class SchedulerSecurity {
     setInterval(this.updateLists.bind(this), this.listPollingInterval_);*/
 
     /*
-        setInterval(function() {
-          console.log("this.maxRequestsPerSecUser_ " +
-       this.maxRequestsPerSecUser_);
-          console.log("this.maxRequestsPerSecGlobal_ " +
-       this.maxRequestsPerSecGlobal_);
-          console.log("userLifeSpan_ " + this.userLifespan_);
-          console.log('localListPath_ ' + this.localListPath_);
-        }.bind(this), 1000);
+    setInterval(function() {
+      console.log("this.maxRequestsPerSecUser_ " +
+   this.maxRequestsPerSecUser_);
+      console.log("this.maxRequestsPerSecGlobal_ " +
+   this.maxRequestsPerSecGlobal_);
+      console.log("userLifeSpan_ " + this.userLifespan_);
+      console.log('localListPath_ ' + this.localListPath_);
+    }.bind(this), 1000);
     */
 
-    /*        setInterval( () => {
-              for (let user of this.blacklist_) {
-                console.log('blacklisted user ' + user);
-              }
-              console.log('\n');
-            }, 5000);*/
+    /*    setInterval( () => {
+          for (let user of this.blacklist_) {
+            Logger.info('blacklisted user ' + user);
+          }
+          console.log('\n');
+        }, 5000);*/
   }
 
   /**
    * Handles a job submission request by a user. If no constraints are violated,
-   * the request is accepted and forwarded
-   * to the SGE.
+   * the request is accepted and forwarded to the SGE.
    *
-   * @param requestData: object holding request information.
+   * The promise, either resolved (if the job is successfully submitted) or
+   * rejected (if it is not), consists of a JSON object with the following
+   * fields:
+   *
+   * {
+   *       ip {string}
+   *       time {Date}
+   *       jobData {JSON object}
+   *       description {string}
+   * }
+   * where:
+   * - "ip" is the IP address of the user who submitted the request (or, more
+   * generally, their name);
+   * - "time" is the time at which the request was received;
+   * - "jobData" is comprised of several useful information of the submitted job
+   * (see handleJobSubmission documentation). If the job could not be submitted,
+   * this field is null;
+   * - "description" a brief description of the outcome of the request (whether
+   * it succeeded or the reason it failed).
+   *
+   * @param requestData: object holding request information (user, ip, jobPath)
+   * @returns {defer} promise
    */
   handleRequest(requestData) {
     let def = new defer();
 
+    // Removes the :ffff: prefix from the ip address, if present.
     requestData.ip = requestData.ip.replace(/^.*:/, '');
+
+    // Fetches the index in the users array corresponding to that of the user
+    // who submitted the request
     let userIndex = this.findUserIndex(this.users_, requestData);
     Logger.info(
         'Request received by ' + requestData.ip + ' at ' +
         new Date(requestData.time).toUTCString() + '.');
 
+    // If a long enough time has passed since the last read of the input file,
+    // it is read again and the input parameters are updated.
     if (new Date().getTime() - this.lastInputFileUpdate_ >
         this.minimumInputUpdateInterval_) {
       this.updateInputParameters();
     }
 
+    // Object to resolve or reject the promise with.
     let information = {
       ip: requestData.ip,
       time: requestData.time,
@@ -142,9 +211,15 @@ class SchedulerSecurity {
       description: '',
     };
 
+    // Checks whether any constraints are violated.
     let verifyOutcome = this.verifyRequest(requestData, userIndex);
 
+    // If no constraints are violated, the job can be submitted to the SGE.
     if (verifyOutcome.status) {
+      // Adds the user to the users array if it was not already present (first
+      // time user) or updates its properties (time at which the request was
+      // received, and total number of requests still in the user history)
+      // otherwise.
       if (userIndex === -1) {
         Logger.info('Creating user ' + requestData.ip + '.');
         // The new user is added to the user list along with the request
@@ -159,6 +234,7 @@ class SchedulerSecurity {
         this.users_[userIndex].requests.push(requestData.time);
         this.users_[userIndex].requestAmount++;
       }
+      // Adds the request to the global requests array.
       this.globalRequests_.push(requestData.time);
       this.registerRequestToDatabase(requestData);
       // Attempts to submit the job to the SGE.
@@ -174,7 +250,9 @@ class SchedulerSecurity {
             information.description = error;
             def.reject(information);
           });
-    } else {
+    }
+    // One or more constraints were violated. The job cannot be submitted.
+    else {
       // Logger.info('Request denied.');
       information.description = 'Request denied: ' + verifyOutcome.description;
       def.reject(information);
@@ -184,9 +262,49 @@ class SchedulerSecurity {
   }
 
   /**
-   * Submits a job to the SGE.
+   * Attempts to submit a job to the SGE.
    *
-   * @param requestData: object holding request information.
+   * If the job is successfully submitted, the promise is resolved to a JSON
+   * object with the following structure:
+   *
+   * {
+   *      jobId {integer}
+   *      jobName {string}
+   *      firstTaskId {integer}
+   *      lastTaskId {integer}
+   *      increment {integer}
+   *      taskInfo {array}
+   *      user {string}
+   *      submitDate {Date}
+   *      totalExecutionTime {integer}
+   *      jobType {const String}
+   * }
+   * where:
+   * - jobId is the numeric identified of the job, determined by the SGE;
+   * - jobName is the name of the job;
+   * - firstTaskId is the number of the first task of the ARRAY job;
+   * - lastTaskId is the number of the last task of the ARRAY job;
+   * - increment is the step size of the ARRAY job;
+   * - taskInfo is an array containing the following parameters for each task of
+   * an ARRAY job: the task id (taskId), status, time spent in RUNNING state
+   * (runningTime), time at which the task started running (runningStart);
+   * - user is the ip address of the user who submitted the request;
+   * - submitDate is the date at which the job was submitted to the SGE;
+   * - totalExecutionTime is the sum of the time spent in the RUNNING state by
+   * each task of an ARRAY job;
+   * - jobType specifies whether the job is of the SINGLE or ARRAY type.
+   *
+   * Note: the parameters specific to ARRAY jobs are irrelevant and should be
+   * ignored if the jobType is SINGLE.
+   * Note: if the jobType is ARRAY, the runningTime and runningStart fields of
+   * each task as well as the totalExecutionTime of the job are initially all
+   * set to zero.
+   *
+   * If the job could not be submitted, the promise is rejected with a brief
+   * description explaining why the operation failed.
+   *
+   * @param requestData: object holding request information (user, ip, jobPath)
+   * @returns {defer} promise
    */
   handleJobSubmission(requestData) {
     let def = new defer();
@@ -212,16 +330,20 @@ class SchedulerSecurity {
         joinFiles: jobInfo.joinFiles || '',
       });
 
+      // Number of the first task of the job array.
       let start = jobInfo.start || null;
+      // Number of the last task of the job array.
       let end = jobInfo.end || null;
+      // Step size (size of the increments to go from "start" to "end").
       let increment = jobInfo.incr || null;
 
       // Determines if the job consists of a single task or multiple ones.
       let jobType = this.checkArrayParams(start, end, increment);
-      console.log('jobType: ' + jobType);
 
       // Submits the job to the SGE.
       when(sessionManager.getSession(this.sessionName_), (session) => {
+        // A different submission function is called, according to the JOBTYPE
+        // of the job.
         when(
             jobType === JOBTYPE.SINGLE ?
                 session.runJob(jobData) :
@@ -233,6 +355,8 @@ class SchedulerSecurity {
                   // Converts the date to an ms-from-epoch format.
                   let jobSubmitDate = new Date(job.submission_time).getTime();
                   let taskInfo = [];
+                  // If the job is of the ARRAY type, all of its task are added
+                  // to the taskInfo array.
                   if (jobType === JOBTYPE.ARRAY) {
                     for (let taskId = start; taskId <= end;
                          taskId += increment) {
@@ -240,9 +364,13 @@ class SchedulerSecurity {
                           'task ' + taskId + ' status: ' +
                           jobStatus[jobId][taskId].mainStatus);
                       taskInfo.push({
+                        // The ID of the task.
                         taskId: taskId,
+                        // The status of the task.
                         status: jobStatus[jobId][taskId].mainStatus,
+                        // Time the task has spent in the RUNNING state.
                         runningTime: 0,
+                        // Time at which the task switched to the RUNNING state.
                         runningStart: 0,
                       })
                     }
@@ -258,9 +386,12 @@ class SchedulerSecurity {
                     taskInfo: taskInfo,
                     user: requestData.ip,
                     submitDate: jobSubmitDate,
+                    // Total execution time of a job array (the sum of the
+                    // runningTimes of all tasks).
                     totalExecutionTime: 0,
                     jobType: jobType,
                   };
+                  // Adds the job to the job array.
                   this.jobs_.push(jobDescription);
                   Logger.info(
                       'Added job ' + jobId + ' (' + job.job_name + ') on ' +
@@ -290,10 +421,14 @@ class SchedulerSecurity {
   }
 
   /**
-   * Returns true if the request can be serviced.
+   * Returns true if the request can be serviced, along with a brief description
+   * of the reason why (or why not).
    *
    * @param requestData: object holding request information.
-   * @returns {object} status: true if the request is accepted.
+   * @param userIndex: the corresponding index of the users_ array of the user
+   * submitting the request.
+   * @returns {object} status: true if the request is accepted, description:
+   * brief description of the outcome of the checks.
    */
   verifyRequest(requestData, userIndex) {
     let checkResult = this.checkUserRequests(requestData, userIndex);
@@ -314,7 +449,9 @@ class SchedulerSecurity {
    *
    * @param requestData: object holding request information.
    * @param userIndex: the user which submitted the request.
-   * @returns {object} true if no constraints are violated.
+   * @returns {object} status: true if no constraints are violated, description:
+   * empty string if status is set to "true", otherwise it is a brief
+   * description of what constraint was violated.
    */
   checkUserRequests(requestData, userIndex) {
     // If the user is blacklisted, the request is rejected.
@@ -334,7 +471,7 @@ class SchedulerSecurity {
         status: false,
         description: 'Server currently at capacity (' +
             this.globalRequests_.length +
-            ' global requests currently present). Cannot service more requests.'
+            ' global requests present). Cannot service more requests.'
       };
 
     if (userIndex === -1) return {status: true, description: ''};
@@ -377,7 +514,7 @@ class SchedulerSecurity {
    * Verifies whether the global request-per-time-unit constraint would be
    * violated by the input request.
    *
-   * @param requestData: object holding request information.
+   * @param requestData: object holding request information (user, ip, jobPath).
    * @returns {boolean} true if no constraints are violated.
    */
   checkGlobalRequests(requestData) {
@@ -411,7 +548,7 @@ class SchedulerSecurity {
   /**
    * Checks if the user is blacklisted.
    *
-   * @param requestData: object holding request information.
+   * @param requestData: object holding request information (user, ip, jobPath).
    * @returns {boolean} true if the user is blacklisted.
    */
   isBlacklisted(requestData) {
@@ -432,7 +569,7 @@ class SchedulerSecurity {
   /**
    * Checks if the user is whitelisted.
    *
-   * @param requestData: object holding request information.
+   * @param requestData: object holding request information (user, ip, jobPath).
    * @returns {boolean} true if the user is whitelisted.
    */
   isWhitelisted(requestData) {
@@ -453,7 +590,7 @@ class SchedulerSecurity {
   /**
    * Logs a request (ip and timestamp) to database.
    *
-   * @param requestData: object holding request information.
+   * @param requestData: object holding request information (user, ip, jobPath).
    */
   registerRequestToDatabase(requestData) {
     Logger.info('Logging request to database.');
@@ -465,7 +602,7 @@ class SchedulerSecurity {
    * submitted the input request.
    *
    * @param userArray: the array the user who submitted the request belongs to.
-   * @param requestData: object holding request information.
+   * @param requestData: object holding request information (user, ip, jobPath).
    * @returns {number} the index of the element corresponding to the user who
    * submitted the request.
    *    Returns -1 if the user is not found.
@@ -513,19 +650,19 @@ class SchedulerSecurity {
         setInterval(this.updateLists.bind(this), this.listPollingInterval_);
   }
   /**
-   * Attempts to read the local and global black/whitelist files and updates the
+   * Attempts to read the local and global black/whitelist files and update the
    * arrays of the blacklisted and whitelisted users.
    */
   updateLists() {
-    console.log('TIME TIME TIME ' + new Date().toUTCString());
     if (this.localListPath_ !== '') {
       try {
         let localList =
             JSON.parse(fs.readFileSync(this.localListPath_, 'utf8'));
         if (localList.hasOwnProperty('whitelist'))
           this.whitelist_ = localList.whitelist;
-        if (localList.hasOwnProperty('whitelist'))
+        if (localList.hasOwnProperty('blacklist'))
           this.blacklist_ = localList.blacklist;
+        // Removes duplicates.
         this.whitelist_ = Array.from(new Set(this.whitelist_));
         this.blacklist_ = Array.from(new Set(this.blacklist_));
       } catch (err) {
@@ -540,10 +677,12 @@ class SchedulerSecurity {
         let globalList =
             JSON.parse(fs.readFileSync(this.globalListPath_, 'utf8'));
         if (globalList.hasOwnProperty('whitelist')) {
+          // Joins the global whitelist with the local one, removing duplicates.
           this.whitelist_ =
               Array.from(new Set(this.whitelist_.concat(globalList.whitelist)));
         }
         if (globalList.hasOwnProperty('blacklist')) {
+          // Joins the global blacklist with the local one, removing duplicates.
           this.blacklist_ =
               Array.from(new Set(this.blacklist_.concat(globalList.blacklist)));
         }
@@ -555,6 +694,11 @@ class SchedulerSecurity {
     }
   }
 
+  /**
+   * Attempts to read the input file and update the input parameters.
+   * Time related parameters are multiplied by 1000 in order to convert seconds
+   * to milliseconds.
+   */
   updateInputParameters() {
     try {
       this.inputParams_ = JSON.parse(fs.readFileSync(this.inputFile_, 'utf8'));
@@ -581,7 +725,7 @@ class SchedulerSecurity {
     this.localListPath_ = this.inputParams_.localListPath || '';
     this.globalListPath_ = this.inputParams_.globalListPath || '';
     this.minimumInputUpdateInterval_ =
-        this.inputParams_.minimumTimeBetweenFileUpdates * 1000 || 10000;
+        this.inputParams_.minimumInputUpdateInterval * 1000 || 10000;
     this.lastInputFileUpdate_ = new Date().getTime();
 
     this.jobPollingInterval_ =

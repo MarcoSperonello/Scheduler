@@ -22,32 +22,43 @@ export function monitorUsers() {
   }
 }
 
-/*export function monitorJob(jobId) {
-  try{
-    pollJob(jobId).then( (status) => {
-      if(status.mainStatus !== 'COMPLETED') {
-        //console.log('not yet completed ' + status.description);
-        setTimeout(monitorJob.bind(null,jobId), Sec.jobPollingInterval_);
-      }
-      else console.log('Job ' + status.jobId + ': ' + status.mainStatus + ', ' +
-status.description);
-    }, (error) => {
-      console.log('Error reading status for job ' + Sec.jobs_[index].jobId + '
-(' +
-      Sec.jobs_[index].jobName + '): ' + error);
-    });
-  } catch(err) {
-    console.log(err);
-    console.log('Job ' + jobId + ' already removed from history.');
-  }
-}*/
-
-export function monitorJob(jobId, def) {
+/**
+ * Monitors the status of the job whose index is specified by the jobId
+ * parameter. The status is checked as often as specified by the
+ * jobPollingInterval_ parameter. The function returns the promise passed as the
+ * def parameter once said promise is resolved (when the job is COMPLETED) or
+ * rejected (when an error occurs).
+ * The resolved promise consists of a JSON object with the following structure:
+ *
+ * {
+ *       jobId: {integer} the id of the job
+ *       jobName: {string} the name of the job
+ *       mainStatus: {string} the main status of the job as specified in
+ * ../nDrmaa/Session.js
+ *       subStatus: {string} the sub status of the job as specified in
+ * ../nDrmaa/Session.js
+ *       description: {string} a brief description of what is happening/happened
+ * to the job
+ * }
+ *
+ * The rejected promise is the dump of the error if the status of the job could
+ * not be read, or a simple message if a jobId of a job already removed from
+ * history was passed to the function.
+ *
+ * @param jobId: the id of the job to monitor
+ * @param def: the promise to resolve or reject
+ * @returns {defer} promise
+ */
+function monitorJob(jobId, def) {
   try {
+    // Keeps checking the status of the job until it is completed or an error
+    // occurs.
     pollJob(jobId).then(
         (status) => {
           if (status.mainStatus !== 'COMPLETED') {
             // console.log('not yet completed ' + status.description);
+            // The job is not completed, the function is called again after the
+            // specified time.
             setTimeout(
                 monitorJob.bind(null, jobId, def), Sec.jobPollingInterval_);
           } else {
@@ -68,20 +79,46 @@ export function monitorJob(jobId, def) {
 }
 
 /**
- * Queries the SGE to monitor the status of submitted jobs. Jobs which have
- * exceeded their maximum runtime and are still queued/running are terminated
- * and removed from history. Jobs which terminated in the allotted time are
- * removed from history.
+ * Wrapper for the monitorJob function to hide implementation details.
+ *
+ * @param jobId: the id of the job to monitor
+ * @returns {defer}
+ */
+export function getJobResult(jobId) {
+  return monitorJob(jobId, new defer());
+}
+
+/**
+ * Queries the SGE to monitor the status of the specified job. The promise
+ * returned is resolved if the status of the job is read successfully, otherwise
+ * it is rejected.
+ *
+ * The resolved promise consists of a JSON whose structure is described in the
+ * monitorJob function documentation.
+ * The rejected promise is the dump of the error if the status of the job could
+ * not be read.
+ *
+ * @param jobId: the id of the job to monitor
+ * @returns {defer} promise
  */
 function pollJob(jobId) {
   let def = new defer();
 
+  // Attempts to find the job with the id corresponding to the one passed to the
+  // function.
   let index = Sec.jobs_.findIndex((elem) => { return elem.jobId === jobId; });
 
+  // If no such job is present in the job history, the function simply returns.
+  // The resulting error will be caught and handled by monitorJob.
   if (index === -1) return;
 
   when(sessionManager.getSession(Sec.sessionName_), (session) => {
-    // Checks the status of each job in the job history.
+    // Fetches the status of the specified job and verifies if any meaningful
+    // changes to the status of the job took place or any timeouts have been
+    // violated since the previous check. The function used to do so depends on
+    // whether the JOBTYPE of the job is SINGLE or ARRAY.
+    // The JSON object containing several job information is used to resolve the
+    // promise.
     when(
         session.getJobProgramStatus([Sec.jobs_[index].jobId]),
         (jobStatus) => {
@@ -105,15 +142,50 @@ function pollJob(jobId) {
   return def.promise;
 }
 
+/**
+ * Compares the current status of the job (of JOBTYPE equal to SINGLE) specified
+ * by the index parameter to the one stored in the job history (hence memorized
+ * during the previous call of this function or, if the function has not been
+ * called before, after the job was submitted) for this job and takes
+ * appropriate action if necessary.
+ * The events which are checked and the resulting actions are the following:
+ *
+ * (1) the job went from !RUNNING to RUNNING since the previous check --> the
+ * submitDate field of the job is updated to the current time to to represent
+ * the approximate time at which the job switched from to RUNNING;
+ * (2) the job was !RUNNING, is still !RUNNING and the time limit for !RUNNING
+ * jobs (maxJobQueuedTime_) has been exceeded --> the job is forcibly terminated
+ * and deleted from history;
+ * (3) the job was RUNNING, is still RUNNING and the time limit for RUNNING jobs
+ * (maxJobRunningTime_) has been exceeded --> the job is forcibly terminated and
+ * deleted from history;
+ * (4) the job was !COMPLETED and is now COMPLETED --> the job is deleted from
+ * history.
+ *
+ * Note: the submitDate field of the job is used to verify whether any timeouts
+ * were hit (points (2) and (3)).
+ * Note: given the asynchronicity of this function and the ones which call it,
+ * the updated submitDate field (point (1)) is subjected to unavoidable
+ * approximations, whose precision is inversely proportional to the time
+ * interval between two subsequent calls of this function (regulated by the
+ * jobPollingInterval_ parameter).
+ *
+ * The resolved promise consists of a JSON whose structure is described in the
+ * monitorJob function documentation.
+ *
+ * @param session: the name of the session the job belongs to
+ * @param jobStatus: the current status of the job as returned from
+ * getJobProgramStatus
+ * @param index: the index of the job in the job history (jobs_)
+ * @returns {defer} promise
+ */
 function monitorSingleJob(session, jobStatus, index) {
   let def = new defer();
   // If the job has not yet been completed but its status changed from
   // ON-HOLD/QUEUED to RUNNING, said status is updated to the current
   // RUNNING value and the submitDate field is updated to represent
-  // approximate time at which the job switched from QUEUED to
+  // the approximate time at which the job switched from QUEUED to
   // RUNNING.
-  // The accuracy of this measurement depends on the polling interval
-  // of this function.
   if (jobStatus[Sec.jobs_[index].jobId].mainStatus !== 'COMPLETED' &&
       jobStatus[Sec.jobs_[index].jobId].mainStatus === 'RUNNING' &&
       Sec.jobs_[index].jobStatus !== 'RUNNING') {
@@ -135,7 +207,6 @@ function monitorSingleJob(session, jobStatus, index) {
   // console.log("JOBTIME for JOB " + Sec.jobs_[i].jobId + " equal
   // to " + (new Date().getTime() - Sec.jobs_[i].submitDate));
 
-  // job era pending ed è ancora pending
   // Terminates and removes from history jobs which are still
   // queued or running after the maximum allotted runtimes.
   else if (jobStatus[Sec.jobs_[index].jobId].mainStatus !== 'COMPLETED') {
@@ -158,7 +229,8 @@ function monitorSingleJob(session, jobStatus, index) {
             ' runtime exceeded.'
       });
       deleteJob(session, index);
-    } else
+    } else {
+      // The job was running during the previous check and it still is.
       def.resolve({
         jobId: Sec.jobs_[index].jobId,
         jobName: Sec.jobs_[index].jobName,
@@ -166,6 +238,7 @@ function monitorSingleJob(session, jobStatus, index) {
         subStatus: jobStatus[Sec.jobs_[index].jobId].subStatus,
         description: 'Job still running.'
       });
+    }
   }
   // Jobs whose execution ended within the maximum allotted runtimes
   // are removed from history.
@@ -190,12 +263,53 @@ function monitorSingleJob(session, jobStatus, index) {
   return def.promise;
 }
 
+/**
+ * Compares the current status of the job (of JOBTYPE equal to ARRAY) specified
+ * by the index parameter to the one stored in the job history (hence memorized
+ * during the previous call of this function or, if the function has not been
+ * called before, after the job was submitted) for this job and takes
+ * appropriate action if necessary. The job is comprised of several tasks which
+ * need to be examined since they determine the status of the job itself.
+ * Since the status of an array job is UNDETERMINED if at least one of its tasks
+ * is not completed,
+ * The events which are checked and the resulting actions are the following:
+ *
+ * (1) the first task of the job was !RUNNING, is still !RUNNING and the time
+ * limit for !RUNNING array jobs (maxArrayJobQueuedTime_) has been exceeded -->
+ * the job is forcibly terminated and deleted from history;
+ * (2) at least the first task of the job started RUNNING and total execution
+ * time of the job has exeeced the time limit for RUNNING array jobs
+ * (maxArrayJobRunningTime_) --> the job is forcibly terminated and deleted from
+ * history;
+ * (3) the job was !COMPLETED and is now COMPLETED --> the job is deleted from
+ * history.
+ *
+ * Note: the total running time of the job (point (2)) is calculated by summing
+ * the RUNNING time of each task.
+ * Note: the runningStart and runningTime fields of each task are used in the
+ * computation of the total running time of the job (point (2)).
+ * Note: given the asynchronicity of this function and the ones which call it,
+ * the runningStart and runningTime fields of each task are subjected to
+ * unavoidable approximations, whose precision is inversely proportional to the
+ * time interval between two subsequent calls of this function (regulated by the
+ * jobPollingInterval_ parameter).
+ *
+ * The resolved promise consists of a JSON whose structure is described in the
+ * monitorJob function documentation.
+ *
+ * @param session: the name of the Drmaa session the job belongs to
+ * @param jobStatus: the current status of the job as returned from
+ * getJobProgramStatus
+ * @param index: the index of the job in the job history (jobs_)
+ * @returns {defer} promise
+ */
 function monitorArrayJob(session, jobStatus, index) {
   let def = new defer();
 
   if (jobStatus[Sec.jobs_[index].jobId].mainStatus !== 'COMPLETED') {
     let currentTime = new Date().getTime();
-    // task iniziale ancora in coda dopo troppo tempo
+    // If the first task is still not running after the maximum allotted queued
+    // time, the job is deleted and removed from history.
     if (jobStatus[Sec.jobs_[index].jobId][Sec.jobs_[index].firstTaskId]
                 .mainStatus !== 'COMPLETED' &&
         jobStatus[Sec.jobs_[index].jobId][Sec.jobs_[index].firstTaskId]
@@ -220,20 +334,22 @@ function monitorArrayJob(session, jobStatus, index) {
       });
       deleteJob(session, index);
     } else {
+      // Scans the array of tasks.
       for (let taskId = Sec.jobs_[index].firstTaskId;
            taskId <= Sec.jobs_[index].lastTaskId;
            taskId += Sec.jobs_[index].increment) {
         let taskIndex = Sec.jobs_[index].taskInfo.findIndex(
             (elem) => { return elem.taskId === taskId; });
 
-        // task completato e quindi ignorabile, si può passare al task
-        // successivo
+        // If the task has already been completed, no further analysis for this
+        // task is needed.
         if (Sec.jobs_[index].taskInfo[taskIndex].status === 'COMPLETED')
           continue;
 
         if (jobStatus[Sec.jobs_[index].jobId][taskId].mainStatus ===
             'RUNNING') {
-          // task è passato da non running a running
+          // If the task went from not running to running, the runningStart
+          // field and status field of the task are updated.
           if (Sec.jobs_[index].taskInfo[taskIndex].status !== 'RUNNING') {
             Sec.jobs_[index].taskInfo[taskIndex].runningStart = currentTime;
             Logger.info(
@@ -249,27 +365,26 @@ function monitorArrayJob(session, jobStatus, index) {
                 '.');
             Sec.jobs_[index].taskInfo[taskIndex].status =
                 jobStatus[Sec.jobs_[index].jobId][taskId].mainStatus;
-          } else {  // task era running al controllo precedente e lo è ancora
+          }
+          // If the task was running during the previous check and it still is,
+          // the total execution time of the job is updated accordingly.
+          else {
+            // Running time as of the previous check.
             let previousRunningTime =
                 Sec.jobs_[index].taskInfo[taskIndex].runningTime;
+            // If the runningStart parameter is equal to 0 then the task started
+            // directly as RUNNING and the task can be considered to have
+            // approximately started running at the current time. The
+            // runningStart parameter is updated to reflect this assumption.
             Sec.jobs_[index].taskInfo[taskIndex].runningStart =
                 Sec.jobs_[index].taskInfo[taskIndex].runningStart === 0 ?
                 currentTime :
                 Sec.jobs_[index].taskInfo[taskIndex].runningStart;
-            /*            if (Sec.jobs_[index].taskInfo[taskIndex].runningStart
-               ===
-                            currentTime) {
-                          Sec.jobs_[index].startedAsRunning = true;
-                        }*/
-
-            /* Sec.jobs_[index].taskInfo[taskIndex].runningTime =
-                 Sec.jobs_[index].startedAsRunning ?
-                     currentTime -
-                     Sec.jobs_[index].taskInfo[taskIndex].runningStart :
-                     currentTime -
-               Sec.jobs_[index].taskInfo[taskIndex].runningStart;*/
+            // The running time of the task is calculated using the current time
+            // and the time at which the task switched to RUNNING.
             Sec.jobs_[index].taskInfo[taskIndex].runningTime =
                 currentTime - Sec.jobs_[index].taskInfo[taskIndex].runningStart;
+            // The total execution time of the job is updated.
             Sec.jobs_[index].totalExecutionTime +=
                 Sec.jobs_[index].taskInfo[taskIndex].runningTime -
                 previousRunningTime;
@@ -284,12 +399,13 @@ function monitorArrayJob(session, jobStatus, index) {
                 Sec.jobs_[index].jobName + '): ' +
                 Sec.jobs_[index].totalExecutionTime + '.');
           }
-          // task è passato da running a completed (la parte dopo && può andare
-          // esclusa)
-        } else if (
+        }
+        // The task is now COMPLETED and it was not during the previous check.
+        // The total execution time of the job and the status of the task are
+        // updated accordingly.
+        else if (
             jobStatus[Sec.jobs_[index].jobId][taskId].mainStatus ===
-                'COMPLETED' &&
-            Sec.jobs_[index].taskInfo[taskIndex] !== 'COMPLETED') {
+            'COMPLETED') {
           let previousRunningTime =
               Sec.jobs_[index].taskInfo[taskIndex].runningTime;
           Sec.jobs_[index].taskInfo[taskIndex].runningTime =
@@ -314,6 +430,8 @@ function monitorArrayJob(session, jobStatus, index) {
           Sec.jobs_[index].taskInfo[taskIndex].status =
               jobStatus[Sec.jobs_[index].jobId][taskId].mainStatus;
         }
+        // If the job total execution time has exceeded the maximum value, the
+        // job is terminated and removed from history.
         if (Sec.jobs_[index].totalExecutionTime > Sec.maxArrayJobRunningTime_) {
           Logger.info(
               'Job ' + Sec.jobs_[index].jobId + ' (' +
@@ -332,18 +450,22 @@ function monitorArrayJob(session, jobStatus, index) {
                 ' runtime exceeded.'
           });
           deleteJob(session, index);
-          break;
+          return def.promise;
         }
       }
+      // The job is still running.
       def.resolve({
         jobId: Sec.jobs_[index].jobId,
         jobName: Sec.jobs_[index].jobName,
         mainStatus: jobStatus[Sec.jobs_[index].jobId].mainStatus,
         subStatus: jobStatus[Sec.jobs_[index].jobId].subStatus,
-        description: 'Job still running.'
+        description:
+            'Job still ' + jobStatus[Sec.jobs_[index].jobId].mainStatus,
       });
     }
-  } else if (jobStatus[Sec.jobs_[index].jobId].mainStatus === 'COMPLETED') {
+  }
+  // The job as a whole is now COMPLETED. The job is removed from history.
+  else if (jobStatus[Sec.jobs_[index].jobId].mainStatus === 'COMPLETED') {
     Logger.info(
         'Job ' + Sec.jobs_[index].jobId + ' (' + Sec.jobs_[index].jobName +
         ') already terminated execution.');
@@ -361,10 +483,16 @@ function monitorArrayJob(session, jobStatus, index) {
     });
     Sec.jobs_.splice(index, 1);
   }
-
   return def.promise;
 }
 
+/**
+ * Deletes the job specified by the index parameter and removes it from the job
+ * history.
+ *
+ * @param session: the name of the Drmaa session the job belongs to
+ * @param index: the index of the job in the job history (jobs_)
+ */
 function deleteJob(session, index) {
   when(session.control(Sec.jobs_[index].jobId, session.TERMINATE), () => {
     Logger.info(

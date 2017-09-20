@@ -103,10 +103,19 @@ export default {
       }
     }*/
 
-    when(Sec.handleRequest(requestData), (status) => {
+/*    when(Sec.handleRequest(requestData), (status) => {
       let def = new defer();
       when(monitors.monitorJob(status.jobData.jobId, def), (status) => {
-        console.log('DAGHE GAS Job ' + status.jobId + ': ' + status.mainStatus + ', ' + status.description);
+        console.log('Job ' + status.jobId + ': ' + status.mainStatus + ', ' + status.description);
+      }, (error) => {
+        console.log(error);
+      })
+    }, (error) => {
+      Logger.info(error.description);
+    });*/
+    when(Sec.handleRequest(requestData), (status) => {
+      when(monitors.getJobResult(status.jobData.jobId), (status) => {
+        console.log('Job ' + status.jobId + ': ' + status.mainStatus + ', ' + status.description);
       }, (error) => {
         console.log(error);
       })
