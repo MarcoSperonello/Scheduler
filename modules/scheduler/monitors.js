@@ -34,11 +34,11 @@ export function monitorUsers() {
  *       jobId: {integer} the id of the job
  *       jobName: {string} the name of the job
  *       mainStatus: {string} the main status of the job as specified in
- * ../nDrmaa/Session.js
+ *        ../nDrmaa/Session.js
  *       subStatus: {string} the sub status of the job as specified in
- * ../nDrmaa/Session.js
+ *        ../nDrmaa/Session.js
  *       description: {string} a brief description of what is happening/happened
- * to the job
+ *        to the job
  * }
  *
  * The rejected promise is the dump of the error if the status of the job could
@@ -55,10 +55,11 @@ function monitorJob(jobId, def) {
     // occurs.
     pollJob(jobId).then(
         (status) => {
-          if (status.mainStatus !== 'COMPLETED') {
+          // The job is not COMPLETED or in ERROR, the function is called again
+          // after the specified time.
+          if (status.mainStatus !== 'COMPLETED' &&
+              status.mainStatus !== 'ERROR') {
             // console.log('not yet completed ' + status.description);
-            // The job is not completed, the function is called again after the
-            // specified time.
             setTimeout(
                 monitorJob.bind(null, jobId, def), Sec.jobPollingInterval_);
           } else {
@@ -153,17 +154,19 @@ function pollJob(jobId) {
  * (1) the job went from !RUNNING to RUNNING since the previous check --> the
  * submitDate field of the job is updated to the current time to to represent
  * the approximate time at which the job switched from to RUNNING;
- * (2) the job was !RUNNING, is still !RUNNING and the time limit for !RUNNING
+ * (2) the job is in ERROR state --> the job is forcibly terminated and deleted
+ * from history;
+ * (3) the job was !RUNNING, is still !RUNNING and the time limit for !RUNNING
  * jobs (maxJobQueuedTime_) has been exceeded --> the job is forcibly terminated
  * and deleted from history;
- * (3) the job was RUNNING, is still RUNNING and the time limit for RUNNING jobs
+ * (4) the job was RUNNING, is still RUNNING and the time limit for RUNNING jobs
  * (maxJobRunningTime_) has been exceeded --> the job is forcibly terminated and
  * deleted from history;
- * (4) the job was !COMPLETED and is now COMPLETED --> the job is deleted from
+ * (5) the job was !COMPLETED and is now COMPLETED --> the job is deleted from
  * history.
  *
  * Note: the submitDate field of the job is used to verify whether any timeouts
- * were hit (points (2) and (3)).
+ * were hit (points (3) and (4)).
  * Note: given the asynchronicity of this function and the ones which call it,
  * the updated submitDate field (point (1)) is subjected to unavoidable
  * approximations, whose precision is inversely proportional to the time
@@ -181,13 +184,13 @@ function pollJob(jobId) {
  */
 function monitorSingleJob(session, jobStatus, index) {
   let def = new defer();
+
   // If the job has not yet been completed but its status changed from
   // ON-HOLD/QUEUED to RUNNING, said status is updated to the current
   // RUNNING value and the submitDate field is updated to represent
   // the approximate time at which the job switched from QUEUED to
   // RUNNING.
-  if (jobStatus[Sec.jobs_[index].jobId].mainStatus !== 'COMPLETED' &&
-      jobStatus[Sec.jobs_[index].jobId].mainStatus === 'RUNNING' &&
+  if (jobStatus[Sec.jobs_[index].jobId].mainStatus === 'RUNNING' &&
       Sec.jobs_[index].jobStatus !== 'RUNNING') {
     Logger.info(
         'Job ' + Sec.jobs_[index].jobId + ' (' + Sec.jobs_[index].jobName +
@@ -207,11 +210,29 @@ function monitorSingleJob(session, jobStatus, index) {
   // console.log("JOBTIME for JOB " + Sec.jobs_[i].jobId + " equal
   // to " + (new Date().getTime() - Sec.jobs_[i].submitDate));
 
-  // Terminates and removes from history jobs which are still
+  // Terminates and removes from history jobs which are in ERROR state or  still
   // queued or running after the maximum allotted runtimes.
   else if (jobStatus[Sec.jobs_[index].jobId].mainStatus !== 'COMPLETED') {
     let currentTime = new Date().getTime();
-    if (jobStatus[Sec.jobs_[index].jobId].mainStatus !== 'RUNNING' &&
+
+    // The job is in ERROR state and is deleted.
+    if (jobStatus[Sec.jobs_[index].jobId].mainStatus === 'ERROR') {
+      Logger.info(
+          'Job ' + Sec.jobs_[index].jobId + ' (' + Sec.jobs_[index].jobName +
+          ') is in ' + jobStatus[Sec.jobs_[index].jobId].mainStatus +
+          ' state.');
+      def.resolve({
+        jobId: Sec.jobs_[index].jobId,
+        jobName: Sec.jobs_[index].jobName,
+        mainStatus: jobStatus[Sec.jobs_[index].jobId].mainStatus,
+        subStatus: jobStatus[Sec.jobs_[index].jobId].subStatus,
+        description: 'An error occurred.'
+      });
+      deleteJob(session, index);
+    }
+    // The job exceeded one of the timeouts and is deleted.
+    else if (
+        jobStatus[Sec.jobs_[index].jobId].mainStatus !== 'RUNNING' &&
             currentTime - Sec.jobs_[index].submitDate > Sec.maxJobQueuedTime_ ||
         jobStatus[Sec.jobs_[index].jobId].mainStatus === 'RUNNING' &&
             currentTime - Sec.jobs_[index].submitDate >
@@ -274,20 +295,22 @@ function monitorSingleJob(session, jobStatus, index) {
  * is not completed,
  * The events which are checked and the resulting actions are the following:
  *
- * (1) the first task of the job was !RUNNING, is still !RUNNING and the time
+ * (1) the job is in ERROR state (one or more of its tasks is in ERROR) -->
+ * the job is forcibly terminated and deleted from history;
+ * (2) the first task of the job was !RUNNING, is still !RUNNING and the time
  * limit for !RUNNING array jobs (maxArrayJobQueuedTime_) has been exceeded -->
  * the job is forcibly terminated and deleted from history;
- * (2) at least the first task of the job started RUNNING and total execution
- * time of the job has exeeced the time limit for RUNNING array jobs
+ * (3) at least the first task of the job started RUNNING and total execution
+ * time of the job has exceeded the time limit for RUNNING array jobs
  * (maxArrayJobRunningTime_) --> the job is forcibly terminated and deleted from
  * history;
- * (3) the job was !COMPLETED and is now COMPLETED --> the job is deleted from
+ * (4) the job was !COMPLETED and is now COMPLETED --> the job is deleted from
  * history.
  *
- * Note: the total running time of the job (point (2)) is calculated by summing
+ * Note: the total running time of the job (point (3)) is calculated by summing
  * the RUNNING time of each task.
  * Note: the runningStart and runningTime fields of each task are used in the
- * computation of the total running time of the job (point (2)).
+ * computation of the total running time of the job (point (3)).
  * Note: given the asynchronicity of this function and the ones which call it,
  * the runningStart and runningTime fields of each task are subjected to
  * unavoidable approximations, whose precision is inversely proportional to the
@@ -306,7 +329,22 @@ function monitorSingleJob(session, jobStatus, index) {
 function monitorArrayJob(session, jobStatus, index) {
   let def = new defer();
 
-  if (jobStatus[Sec.jobs_[index].jobId].mainStatus !== 'COMPLETED') {
+  // One or more of the job's tasks are in ERROR. The whole job is deleted.
+  if (jobStatus[Sec.jobs_[index].jobId].mainStatus === 'ERROR') {
+    Logger.info(
+        'Job ' + Sec.jobs_[index].jobId + ' (' + Sec.jobs_[index].jobName +
+        ') is in ' + jobStatus[Sec.jobs_[index].jobId].mainStatus + ' state.');
+    def.resolve({
+      jobId: Sec.jobs_[index].jobId,
+      jobName: Sec.jobs_[index].jobName,
+      mainStatus: jobStatus[Sec.jobs_[index].jobId].mainStatus,
+      subStatus: jobStatus[Sec.jobs_[index].jobId].subStatus,
+      description: 'An error occurred.'
+    });
+    deleteJob(session, index);
+  }
+
+  else if (jobStatus[Sec.jobs_[index].jobId].mainStatus !== 'COMPLETED') {
     let currentTime = new Date().getTime();
     // If the first task is still not running after the maximum allotted queued
     // time, the job is deleted and removed from history.
