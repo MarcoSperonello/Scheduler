@@ -1,12 +1,12 @@
 import {when,defer} from "promised-io/promise";
-import * as Exceptions from "./Exceptions";
-import Version from "./Version";
-
-let _Sessions = {};
+import * as Exception from "./Exceptions";
 
 /**
- * Class used to retrieve a Session object tailored to the DRM in use.
+ * Class used to manage objects of class Session, tailored to the DRMS in use.
  */
+
+let _Sessions = {};                       // List of active sessions created by the SessionManager
+
 export default class SessionManager{
 
   constructor(){
@@ -22,28 +22,22 @@ export default class SessionManager{
     this.jobsMonitor = null;              // Job's monitor
     this.SessionConstructor = null;       // Reference to the implementation of the DRMS-specific Session class
 
-    // try {
-    //   if (drmsName && typeof drmsName==='string') {
-    //     console.log("Loading DRMS Libs for "+drmsName);
-    //
-    //     // importing the old way cause ES6 doesn't allow dynamic imports
-    //     let DRMSSessionManager = require("./" + drmsName + "/SessionManager");
-    //   }
-    //
-    // }catch(err){
-    //   console.log("Unable to load DRMAA Lib for " + drmsName);
-    // }
-
     return this;
   }
 
+  /**
+   * Creates a new Session with name sessionName
+   * @param sessionName: name of the session to create
+   * @param contact: contact info.
+   * @returns {Session}: the session created
+   */
   createSession(sessionName, contact){
     return when(this.ready, () => {
       if (!sessionName) {
-        throw new Exceptions.InvalidArgumentException("Session Name is a required parameter for 'createJobSession'");
+        throw new Exception.InvalidArgumentException("Session Name is a required parameter for 'createJobSession'");
       }
       if (_Sessions[sessionName]){
-        throw new Exceptions.InvalidSessionArgument("A Session named '" + sessionName + "' already exists");
+        throw new Exception.InvalidSessionArgument("A Session named '" + sessionName + "' already exists");
       }
       _Sessions[sessionName] = new this.SessionConstructor(sessionName, this.jobsMonitor, contact);
 
@@ -51,27 +45,40 @@ export default class SessionManager{
     });
   }
 
+  /**
+   * Retrieve the session identified by sessionName
+   * @param sessionName: the name of the session to retrieve
+   * @returns {Session}: the session retrieved
+   */
   getSession(sessionName){
     return when(this.ready, () => {
       if (!sessionName) {
-        throw new Exceptions.InvalidArgumentException("Session Name is a required parameter for 'openJobSession'");
+        throw new Exception.InvalidArgumentException("Session Name is a required parameter for 'openJobSession'");
       }
       if (!_Sessions[sessionName]){
-        throw new Exceptions.InvalidSessionException("Session with name '" + sessionName + "' not found.");
+        throw new Exception.InvalidSessionException("Session with name '" + sessionName + "' not found.");
       }
       return _Sessions[sessionName];
     });
   }
 
+  /**
+   * Closes the session identified by sessionName
+   * @param sessionName: the name of the session to close
+   */
   closeSession(sessionName){
     return when(this.ready, () => {
       if (!_Sessions[sessionName]) {
-        throw new Exceptions.InvalidSessionException("Job Session with the name '" + sessionName + "' not found.");
+        throw new Exception.InvalidSessionException("Job Session with the name '" + sessionName + "' not found.");
       }
       delete _Sessions[sessionName];
     });
   };
 
+  /**
+   * Returns the version of the DRMS in use
+   * @returns {Version}: an object of class Version that contains the version of the DRMS
+   */
   getVersion(){
     return when(this.ready, () => {
       return this.drmsVersion;

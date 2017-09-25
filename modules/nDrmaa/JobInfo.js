@@ -1,4 +1,7 @@
-
+/**
+ * The JobInfo class represents the status for a finished job. It contains the job's id, the job's
+ * exit and failed status, and an object with all the raw information collected from the DRMS about the job.
+ */
 export default class JobInfo{
   constructor()
   {

@@ -1,11 +1,10 @@
-import {EventEmitter} from "events";
-// import {UnsupportedOperationException} from "./Exceptions";
-
 /**
- * Class representing a Job
+ * The Job class represents a job submitted to the DRMS. It contains various information such as the job's id,
+ * the session it belongs to, the job template that with the option used for its creation, and other info if the job
+ * is an array job.
  */
 export default class Job{
-  constructor(jobId, sessionName, jobTemplate, isJobArray, jobArrayStart, jobArrayEnd, jobArrayIncr){
+  constructor(jobId, sessionName, jobTemplate, isJobArray = false, jobArrayStart = null, jobArrayEnd = null, jobArrayIncr = null){
     this.jobId = jobId;
     // this.jobStatus="UNDETERMINED";
     this.sessionName = sessionName;
@@ -14,7 +13,9 @@ export default class Job{
     this.jobArrayStart = parseInt(jobArrayStart) || null;
     this.jobArrayEnd = parseInt(jobArrayEnd) || null;
     this.jobArrayIncr = parseInt(jobArrayIncr) || null;
-    console.log("Created job:" + this.jobId + ", "+this.sessionName+", "+this.jobTemplate);
-    if(this.isJobArray) console.log("Array job params: start " + jobArrayStart + ", end " + jobArrayEnd + ", incr " + jobArrayIncr);
+
+    console.log("Created"+ (this.isJobArray ? " array " :" ") + "job: " + this.jobId + ", "+this.sessionName +
+      (this.isJobArray ? ( ", " + this.jobArrayStart + "-" + this.jobArrayEnd + ":" +this.jobArrayIncr) : ""));
+
   }
 }

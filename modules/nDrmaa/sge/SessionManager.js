@@ -3,6 +3,7 @@ import SessionManagerBase from "../SessionManager";
 import JobMonitor from "./JobMonitor";
 import * as sge from "./sge-cli";
 import Session from "./Session";
+import * as Exception from "../Exceptions";
 
 export default class SessionManager extends SessionManagerBase{
 
@@ -20,8 +21,7 @@ export default class SessionManager extends SessionManagerBase{
       this.drmsVersion = drmsInfo.version;
       this.ready.resolve(true);
     }, (err) => {
-      console.log("Error loading SGE: check running status");
-      this.ready.reject(err);
+      this.ready.reject(new Exception.DrmsInitException("Could not initialize SGE: check running status."));
     });
   }
 

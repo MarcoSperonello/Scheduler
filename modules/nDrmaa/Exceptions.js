@@ -1,16 +1,10 @@
 let exceptions = [
-  "DeniedByDrmsException",
-  "DrmCommunicationException",
-  "TryLaterException",
+  "DrmsInitException",
   "ExitTimeoutException",
-  "InternalException",
   "InvalidArgumentException",
   "InvalidSessionArgument",
-  "InvalidStateException",
-  "OutOfResourceException",
-  "UnsupportedAttributeException",
-  "UnsupportedOperationException",
-  "ImplementationSpecificException"
+  "InvalidSessionException",
+  "UnsupportedAttributeException"
 ];
 
 

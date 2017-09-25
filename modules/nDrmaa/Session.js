@@ -62,7 +62,7 @@ export default class Session{
 
 
   /**
-   * Submits a Grid Engine job with attributes defined in the JobTemplate jobTemplate parameter.
+   * Submits a job with attributes defined in the JobTemplate jobTemplate parameter.
    * @param jobTemplate: attributes of the job to be run.
    */
   runJob(jobTemplate){ }
@@ -95,7 +95,7 @@ export default class Session{
    * 	  + UNDETERMINED: job execution finished but status cannot be determined
    * 	  + DONE: job execution finished normally
    *  	+ FAILED: job execution finished, but failed.
-   * @param jobId: the id of the job whose status is to be retrieved
+   * @param jobIds: the id(s) of the job(s) whose status is to be retrieved
    */
   getJobProgramStatus(jobIds){ }
 
@@ -117,16 +117,12 @@ export default class Session{
 
   /**
    * Wait until a job is complete and the information regarding the job's execution are available.
-   * Whether the job completes successfully or with a failure status, returns the job information using the command "qacct";
-   * otherwise if there's an error preventing the job from completing, returns the job information retrieved with the
-   * command "qstat" in order to be able to access the error reasons.
+   * Whether the job completes successfully or with a failure status, returns the job information, otherwise if
+   * there's an error preventing the job from completing, returns the job error reasons.
    *
    * To prevent blocking indefinitely in this call, the caller may use timeout, specifying how many milliseconds to wait
    * for this call to complete before timing out. The special value TIMEOUT_WAIT_FOREVER can be uesd to wait
    * indefinitely for a result.
-   *
-   * The promise is resolved with an object of class JobInfo containing the information of the completed/failed job, or
-   * a JSON with the error reasons for a job that is in ERROR status.
    *
    * @param jobId: the id of the job for which to wait
    * @param timeout: amount of time in milliseconds to wait for the job to terminate its execution.
@@ -148,13 +144,6 @@ export default class Session{
    *
    * This routine returns once the action has been acknowledged by the DRM system, but does not wait
    * until the action has been completed.
-   *
-   * Returns an array of objects, one for each jobs on which the action is performed, with the following properties:
-   * {
-   *   jobId: the id of the job
-   *   response: the response given by a successful call to the function performing the desired action
-   *   error: the error given by a unsuccessful call to the function performing the desired function
-   * }
    *
    * @param jobId: The id of the job to control
    * @param action: The control action to be taken

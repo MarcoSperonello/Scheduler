@@ -8,6 +8,8 @@ import JobInfo from "./JobInfo";
 
 let _refreshInterval = 1000;                    // Refresh interval for the jobs' status monitoring
 let _deletedJobs = [];                          // List of jobs that have been deleted using the control(..) API
+let _jobs = {};                                 // Object containing the jobs submitted in this session, indexed by id
+
 
 /**
  * The Session class provides a DRMAA interface to Grid Engine.
@@ -15,9 +17,8 @@ let _deletedJobs = [];                          // List of jobs that have been d
 export default class Session extends SessionBase{
   constructor(sessionName, monitor, contact){
     super();
-    this.jobs = {};                             // Object containing the jobs submitted in this session, indexed by id
     this.sessionName = sessionName;             // Session name
-    this.jobsMonitor = monitor;
+    this.jobsMonitor = monitor;                 // Session monitor
     this.contact = contact;
   }
 
@@ -36,7 +37,7 @@ export default class Session extends SessionBase{
 
     when(sge.qsub(jobTemplate), (res) => {
       let id = res.stdout.split(" ")[2];
-      this.jobs[id] = new Job(id, this.sessionName, jobTemplate);
+      _jobs[id] = new Job(id, this.sessionName, jobTemplate);
       def.resolve(id);
     }, (err) => {
       def.reject(err);
@@ -91,7 +92,7 @@ export default class Session extends SessionBase{
         incr: res.stdout.split(" ")[2].split(".")[1].split("-")[1].split(":")[1]
       };
 
-      this.jobs[id] = new Job(id, this.sessionName, jobTemplate, true, jobArrInfo.start, jobArrInfo.end, jobArrInfo.incr);
+      _jobs[id] = new Job(id, this.sessionName, jobTemplate, true, jobArrInfo.start, jobArrInfo.end, jobArrInfo.incr);
 
       def.resolve(id);
     }, (err) => {
@@ -182,7 +183,7 @@ export default class Session extends SessionBase{
 
     // Otherwise, if the Session.JOB_IDS_SESSION_ALL constant has been passed as an argument
     else if(jobIds === this.JOB_IDS_SESSION_ALL)
-      jobsToQuery = Object.keys(this.jobs);  // Assign all the jobs of this session to jobsToQuery
+      jobsToQuery = Object.keys(_jobs);  // Assign all the jobs of this session to jobsToQuery
 
     // Lastly, the argument is invalid, hence throw an exception.
     else
@@ -195,7 +196,7 @@ export default class Session extends SessionBase{
 
     // Assert that each job id passed as argument belongs to this session
     jobsToQuery.forEach((jobId) => {
-      if (!this.jobs[jobId])
+      if (!_jobs[jobId])
         def.reject(new Exception.InvalidArgumentException("No jobs with id " + jobId + " were found in session "
           + this.sessionName));
     });
@@ -230,11 +231,11 @@ export default class Session extends SessionBase{
             def.resolve(response);
         }
 
-        // We are dealing with a job array
-        else if(this.jobs[jobId]["isJobArray"])
+        // If the job was not deleted, check if we are dealing with a job array
+        else if(_jobs[jobId]["isJobArray"])
         {
           let completedTasks = [];
-          let jobArray = this.jobs[jobId];
+          let jobArray = _jobs[jobId];
           let start = jobArray.jobArrayStart, end = jobArray.jobArrayEnd, incr = jobArray.jobArrayIncr;
 
           response[jobId] = {};
@@ -298,7 +299,7 @@ export default class Session extends SessionBase{
           });
         }
 
-        // We are dealing with a single job
+        // If all previous checks failed, it means we are dealing with a single job
         else{
 
           // The job appears on the list returned by qstat (hence not finished successfully/failed)
@@ -398,27 +399,27 @@ export default class Session extends SessionBase{
     let hasTimeout = timeout !== this.TIMEOUT_WAIT_FOREVER; // Whether the caller specified a timeout
     let jobsToSync = [];                                    // List of jobs (of class Job) to synchronize
     let completedJobs = [];                                 // Array containing the response data of each job
-    let totalJobs = 0;                                      // Number of jobs to synchronize
+    let numJobs = 0;                                      // Number of jobs to synchronize
 
     // ------- Arguments validation ------ //
     // If the argument passed is an array containing the jobs ids
     if(Array.isArray(jobIds)){
       // Add to jobsToSync the elements of class Job corresponding to the ids passed as argument.
       jobIds.forEach((jobId) => {
-        if(this.jobs.hasOwnProperty(jobId))
-          jobsToSync.push(this.jobs[jobId]);
+        if(_jobs.hasOwnProperty(jobId))
+          jobsToSync.push(_jobs[jobId]);
       });
     }
     // Otherwise, if the Session.JOB_IDS_SESSION_ALL constant has been passed as an argument
     else if(jobIds === this.JOB_IDS_SESSION_ALL){
       // Assign all the jobs of this session to jobsToSync
-      for(let jobId in this.jobs)
+      for(let jobId in _jobs)
       {
-        if(this.jobs.hasOwnProperty(jobId))
-          jobsToSync.push(this.jobs[jobId]);
+        if(_jobs.hasOwnProperty(jobId))
+          jobsToSync.push(_jobs[jobId]);
       }
       // We assign all the ids of the current session's job, since this is used in the event listener callbacks.
-      jobIds = Object.keys(this.jobs);
+      jobIds = Object.keys(_jobs);
     }
     // Lastly, the argument is invalid, hence throw an exception.
     else
@@ -430,8 +431,8 @@ export default class Session extends SessionBase{
       throw new Exception.InvalidArgumentException("Empty jobs list: there must be at least one job in the list!");
     // -------------------------------- //
 
+    numJobs = jobsToSync.length;
 
-    totalJobs = jobsToSync.length;
     let _self = this;
 
     // Listener callback function for the JobCompleted event.
@@ -453,7 +454,7 @@ export default class Session extends SessionBase{
         completedJobs.push(response);
 
         // If all jobs have terminated their execution, resolve the promise and stop the monitor
-        if (completedJobs.length === totalJobs){
+        if (completedJobs.length === numJobs){
           _removeListeners(_self.jobsMonitor, completedJobListener, errorJobListener);
           def.resolve(completedJobs);
         }
@@ -478,7 +479,7 @@ export default class Session extends SessionBase{
 
           completedJobs.push(response);
 
-          if (completedJobs.length === totalJobs){
+          if (completedJobs.length === numJobs){
             _removeListeners(_self.jobsMonitor, completedJobListener, errorJobListener);
             def.resolve(completedJobs);
           }
@@ -509,11 +510,8 @@ export default class Session extends SessionBase{
 
     if(hasTimeout)
     {
-      // Rejects the promise after timeout has expired.
+      // Rejects the promise after timeout has expired and remove registered listeners.
       setTimeout(() => {
-        // Since there's one monitor for each job, reject will be called once for each monitor if the timeout expires,
-        // causing an exception due to the fact that a deferred has to be resolved only once. We can thus safely
-        // ignore this exception.
         try{
           _removeListeners(_self.jobsMonitor, completedJobListener, errorJobListener);
           def.reject(new Exception.ExitTimeoutException("Timeout expired before job completion"));
@@ -548,15 +546,19 @@ export default class Session extends SessionBase{
     let def = new defer();
     let hasTimeout = timeout !== this.TIMEOUT_WAIT_FOREVER;
 
-    if(!this.jobs[jobId])
+    // ------- ARGUMENTS VALIDATION ------ //
+    if(!_jobs[jobId])
       def.reject(new Exception.InvalidArgumentException("No jobs with id " + jobId + " were found in session "
         + this.sessionName));
 
     if(hasTimeout && timeout < _refreshInterval)
       throw new Exception.InvalidArgumentException("Timeout must be greater than refresh interval (" + _refreshInterval + ")");
+    // ----------------------------------- //
 
-    let job = this.jobs[jobId];
+
+    let job = _jobs[jobId];
     let isArrayJob = job["isJobArray"];
+    // If we are dealing with an array job, calculate the number of tasks that the job is composed of.
     let numTasksAJ = isArrayJob ? Math.ceil((job["jobArrayEnd"] - job["jobArrayStart"] + 1)/ job["jobArrayIncr"]) : null;
 
     when(this.synchronize([jobId], timeout), (response) => {
@@ -579,7 +581,7 @@ export default class Session extends SessionBase{
           def.resolve(response);
         }
 
-        // Job has completed its execution but its info are NOT available on qacct
+        // Job has completed its execution but its info are NOT yet available on qacct
         // (i.e. jobState.subStatus === "UNDETERMINED")
         else{
           let monitor = setInterval(() => {
@@ -605,7 +607,7 @@ export default class Session extends SessionBase{
 
           if(hasTimeout)
           {
-            // Clear the monitor after timeout has expired.
+            // Stop the monitor and reject the promise if timeout expires.
             setTimeout(() => {
               clearInterval(monitor);
 
@@ -617,7 +619,7 @@ export default class Session extends SessionBase{
           }
         }
       }
-      // Just resolve with the information passed over by synchronize()
+      // Job is in ERROR status, hence resolve with the information passed over by synchronize()
       else if(jobState.mainStatus === "ERROR"){
         def.resolve(response[0]);
       }
@@ -660,7 +662,7 @@ export default class Session extends SessionBase{
 
     // Array with the ids of the jobs to control: if JOB_IDS_SESSION_ALL is passed then it will contain all the jobs
     // submitted during this session.
-    let jobsList = jobId===this.JOB_IDS_SESSION_ALL ? Object.keys(this.jobs) : [jobId];
+    let jobsList = jobId===this.JOB_IDS_SESSION_ALL ? Object.keys(_jobs) : [jobId];
 
     // Container for the response objects of each job that will be used to resolve the promise.
     let response = [];
@@ -685,7 +687,7 @@ export default class Session extends SessionBase{
     for(let i=0; i<jobsList.length; i++){
       let jobId = jobsList[i];
 
-      if(!this.jobs[jobId]) {
+      if(!_jobs[jobId]) {
         def.reject(new Exception.InvalidArgumentException("No jobs with id " + jobId + " were found in session "
           + this.sessionName));
         break;
@@ -726,6 +728,7 @@ export default class Session extends SessionBase{
 }
 
 
+// --------- HELPER METHODS --------- //
 
 /**
  * Helper method for parsing a job's status starting from the letters displayed in "qstat" result.
@@ -840,7 +843,14 @@ function _getArrayJobStatus(jobTasks){
   return globalStatus;
 }
 
-function _removeListeners(jobMonitor, completeListener, errorListener){
-  jobMonitor.removeListener("JobCompleted", completeListener);
+/**
+ * Wrapper function for removing the listeners from the jobMonitor.
+ * @param jobMonitor
+ * @param completedListener
+ * @param errorListener
+ * @private
+ */
+function _removeListeners(jobMonitor, completedListener, errorListener){
+  jobMonitor.removeListener("JobCompleted", completedListener);
   jobMonitor.removeListener("JobError", errorListener);
 }

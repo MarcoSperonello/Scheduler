@@ -12,7 +12,7 @@ export function getDrmsInfo() {
   let def = new defer();
 
   // First, check if SGE is up and running
-  exec("qstat", (err, stdout, stderr) => {
+  exec("qhost", (err, stdout, stderr) => {
     if (err) {
       def.reject(err);
       return;
@@ -319,7 +319,7 @@ function _parseQsubOptions(jobTemplate){
 /**
  * Parses the result of a qstat function invocation.
  * @param result: the result of the qstat command
- * @param isSingleJobResult: whether the result refers to a single job
+ * @param isSingleJobResult: whether the qacct command was called with the flag -j specifying a job id
  * @returns jobs: object containing the parsed result
  * @private
  */
