@@ -1,4 +1,4 @@
-import {when,defer} from "promised-io/promise";
+import {when,Deferred} from "promised-io/promise";
 import * as Exception from "./Exceptions";
 
 /**
@@ -15,7 +15,6 @@ export default class SessionManager{
       throw new TypeError("Cannot construct SessionManager instances from its abstract class.");
     }
 
-    this.ready = new defer();
     this.drmsName = "";                   // DRMS name
     this.drmsVersion = "";                // DRMS version
     this.drmaaName = "nDrmaa";            // DRMAA name
@@ -32,12 +31,12 @@ export default class SessionManager{
    * @returns {Session}: the session created
    */
   createSession(sessionName, contact){
-    return when(this.ready, () => {
+    return this.ready.then(() => {
       if (!sessionName) {
-        throw new Exception.InvalidArgumentException("Session Name is a required parameter for 'createJobSession'");
+        throw new Exception.InvalidArgumentException("Must provide a session's name for method 'createSession'");
       }
       if (_Sessions[sessionName]){
-        throw new Exception.InvalidSessionArgument("A Session named '" + sessionName + "' already exists");
+        throw new Exception.AlreadyActiveSessionException("A Session named '" + sessionName + "' already exists");
       }
       _Sessions[sessionName] = new this.SessionConstructor(sessionName, this.jobsMonitor, contact);
 
@@ -51,12 +50,12 @@ export default class SessionManager{
    * @returns {Session}: the session retrieved
    */
   getSession(sessionName){
-    return when(this.ready, () => {
+    return this.ready.then(() => {
       if (!sessionName) {
-        throw new Exception.InvalidArgumentException("Session Name is a required parameter for 'openJobSession'");
+        throw new Exception.InvalidArgumentException("Must provide a session's name for method 'getSession'");
       }
       if (!_Sessions[sessionName]){
-        throw new Exception.InvalidSessionException("Session with name '" + sessionName + "' not found.");
+        throw new Exception.NoActiveSessionException("Session with name '" + sessionName + "' not found.");
       }
       return _Sessions[sessionName];
     });
@@ -67,9 +66,9 @@ export default class SessionManager{
    * @param sessionName: the name of the session to close
    */
   closeSession(sessionName){
-    return when(this.ready, () => {
+    return this.ready.then(() => {
       if (!_Sessions[sessionName]) {
-        throw new Exception.InvalidSessionException("Job Session with the name '" + sessionName + "' not found.");
+        throw new Exception.NoActiveSessionException("Session with name '" + sessionName + "' not found.");
       }
       delete _Sessions[sessionName];
     });
@@ -80,7 +79,7 @@ export default class SessionManager{
    * @returns {Version}: an object of class Version that contains the version of the DRMS
    */
   getVersion(){
-    return when(this.ready, () => {
+    return this.ready.then(() => {
       return this.drmsVersion;
     });
   }

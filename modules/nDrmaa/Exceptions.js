@@ -1,17 +1,19 @@
 let exceptions = [
+  "AlreadyActiveSessionException",
   "DrmsInitException",
   "ExitTimeoutException",
   "InvalidArgumentException",
   "InvalidSessionArgument",
   "InvalidSessionException",
+  "NoActiveSessionException",
   "UnsupportedAttributeException"
 ];
 
 
-exceptions.forEach(function(exception){
-  exports[exception]=function(msg){
+exceptions.forEach((exception) => {
+  exports[exception] = (msg) => {
     let err = new Error(msg);
-    err.name=exception;
+    err.name = exception;
     return err;
   }
 });

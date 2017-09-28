@@ -1,6 +1,5 @@
 import * as sge from "./sge-cli";
 import * as Exception from "../Exceptions";
-import {when,defer} from "promised-io/promise";
 import Job from "../Job";
 import {EventEmitter} from "events";
 
@@ -45,7 +44,7 @@ export default class JobMonitor extends EventEmitter{
    */
   getJobs(){
     if(this.JobsQueue.length>0) {
-      when(sge.qstat(), (qstatJobs) => {
+      sge.qstat().then((qstatJobs) => {
         this.JobsQueue.forEach((job) => {
 
           let jobId = job.jobId;

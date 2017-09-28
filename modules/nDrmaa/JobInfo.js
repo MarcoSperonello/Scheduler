@@ -13,6 +13,7 @@ export default class JobInfo{
     this.jobId = null;      // Job id
     this.exitStatus = null; // exit code
     this.failed = null;     // Failure code
+    this.errors = null;     // Error reasons, if any
     this.rawInfo = {};      // Contains all the information obtained about the job's completion.
   }
 

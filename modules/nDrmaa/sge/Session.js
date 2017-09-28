@@ -1,6 +1,5 @@
 import * as Exception from "../Exceptions";
 import * as sge from "./sge-cli";
-import {when, defer, all} from "promised-io";
 import SessionBase from "../Session";
 import JobTemplate from "../JobTemplate";
 import Job from "../Job";
@@ -25,25 +24,25 @@ export default class Session extends SessionBase{
   /**
    * Submits a Grid Engine job with attributes defined in the JobTemplate jobTemplate parameter.
    * @param jobTemplate: attributes of the job to be run.
-   * @return promise: the promise is resolved either with the id of the job that was successfully submitted, or it is
+   * @return Promise: the promise is resolved either with the id of the job that was successfully submitted, or it is
    *                  rejected with the occurred error.
    */
   runJob(jobTemplate){
-    if (!(jobTemplate instanceof JobTemplate)){
-      throw new Exception.InvalidArgumentException("Job Template must be an instance of JobTemplate");
-    }
+    return new Promise((resolve, reject) => {
 
-    let def = new defer();
+      if (!(jobTemplate instanceof JobTemplate)){
+        reject(new Exception.InvalidArgumentException("Job Template must be an instance of JobTemplate"));
+      }
 
-    when(sge.qsub(jobTemplate), (res) => {
-      let id = res.stdout.split(" ")[2];
-      _jobs[id] = new Job(id, this.sessionName, jobTemplate);
-      def.resolve(id);
-    }, (err) => {
-      def.reject(err);
+      sge.qsub(jobTemplate).then((res) => {
+        let id = res.stdout.split(" ")[2];
+        _jobs[id] = new Job(id, this.sessionName, jobTemplate);
+        resolve(id);
+      }, (err) => {
+        reject(err);
+      });
     });
 
-    return def.promise;
   }
 
   /**
@@ -54,52 +53,47 @@ export default class Session extends SessionBase{
    * @param start: the starting value for the loop index
    * @param end: the terminating value for the loop index
    * @param incr: the value by which to increment the loop index each iteration
-   * @return promise: the promise is resolved either with the id of the array job that was successfully submitted, or
+   * @return Promise: the promise is resolved either with the id of the array job that was successfully submitted, or
    *                  it is rejected with the occurred error.
    */
   runBulkJobs(jobTemplate, start, end, incr){
-    let def = new defer();
+    return new Promise((resolve, reject) => {
+      if (!(jobTemplate instanceof JobTemplate)){
+        reject(new Exception.InvalidArgumentException("Job Template must be an instance of JobTemplate"));
+        return;
+      }
 
-    if (!(jobTemplate instanceof JobTemplate)){
-      throw new Exception.InvalidArgumentException("Job Template must be an instance of JobTemplate");
-    }
+      if(!start)
+        reject(Exception.InvalidArgumentException("Missing starting index for array job"));
 
-    if(!start) {
-      def.reject(Exception.InvalidArgumentException("Missing starting index for array job"));
-      return def.promise;
-    }
-    else if(start<=0){
-      def.reject(new Exception.InvalidArgumentException("Invalid start index: cannot be negative or zero."));
-      return def.promise;
-    }
-    else if(end && end<=0){
-      def.reject(new Exception.InvalidArgumentException("Invalid end index: cannot be negative or zero."));
-      return def.promise;
-    }
-    else if(incr && incr<=0){
-      def.reject(new Exception.InvalidArgumentException("Invalid increment index: cannot be negative or zero."));
-      return def.promise;
-    }
+      else if(start<=0)
+        reject(new Exception.InvalidArgumentException("Invalid start index: cannot be negative or zero."));
 
-    when(sge.qsub(jobTemplate, start, end, incr), (res) => {
-      let id = res.stdout.split(" ")[2].split(".")[0];
+      else if(end && end<=0)
+        reject(new Exception.InvalidArgumentException("Invalid end index: cannot be negative or zero."));
 
-      // Get the indices directly from the output of SGE, since using the ones passed upon method's invocation
-      // would require some checks (e.g. check that start<end, check if a value for incr was passed etc)
-      let jobArrInfo = {
-        start: res.stdout.split(" ")[2].split(".")[1].split("-")[0],
-        end: res.stdout.split(" ")[2].split(".")[1].split("-")[1].split(":")[0],
-        incr: res.stdout.split(" ")[2].split(".")[1].split("-")[1].split(":")[1]
-      };
+      else if(incr && incr<=0)
+        reject(new Exception.InvalidArgumentException("Invalid increment index: cannot be negative or zero."));
 
-      _jobs[id] = new Job(id, this.sessionName, jobTemplate, true, jobArrInfo.start, jobArrInfo.end, jobArrInfo.incr);
 
-      def.resolve(id);
-    }, (err) => {
-      def.reject(err);
+      sge.qsub(jobTemplate, start, end, incr).then((res) => {
+        let id = res.stdout.split(" ")[2].split(".")[0];
+
+        // Get the indices directly from the output of SGE, since using the ones passed upon method's invocation
+        // would require some checks (e.g. check that start<end, check if a value for incr was passed etc)
+        let jobArrInfo = {
+          start: res.stdout.split(" ")[2].split(".")[1].split("-")[0],
+          end: res.stdout.split(" ")[2].split(".")[1].split("-")[1].split(":")[0],
+          incr: res.stdout.split(" ")[2].split(".")[1].split("-")[1].split(":")[1]
+        };
+
+        _jobs[id] = new Job(id, this.sessionName, jobTemplate, true, jobArrInfo.start, jobArrInfo.end, jobArrInfo.incr);
+
+        resolve(id);
+      }, (err) => {
+        reject(err);
+      });
     });
-
-    return def.promise;
 
   }
 
@@ -165,175 +159,146 @@ export default class Session extends SessionBase{
    * - DELETED: job was deleted using the "control(..)" method
    *
    * @param jobIds: the id(s) of the job(s) whose status is to be retrieved
-   * @return promise
+   * @return Promise
    */
   getJobProgramStatus(jobIds){
-    let def = new defer();
-    let jobsToQuery = [];     // List of jobs to query
-    let numJobsQueried = 0;   // Number of jobs that have been queried successfully
-    let response = {};        // Object containing the response data for each job, indexed by jobId
+    return new Promise((resolve, reject) => {
+      let jobsToQuery = [];     // List of jobs to query
+      let numJobsQueried = 0;   // Number of jobs that have been queried successfully
+      let response = {};        // Object containing the response data for each job, indexed by jobId
 
 
 
-    // ----- Arguments validation ----- //
+      // ----- Arguments validation ----- //
 
-    // If the argument passed is an array containing the jobs ids
-    if(Array.isArray(jobIds))
-      jobsToQuery = jobIds;  // Assign the job ids of the argument to the variable jobsToQuery
+      // If the argument passed is an array containing the jobs ids
+      if(Array.isArray(jobIds))
+        jobsToQuery = jobIds;  // Assign the job ids of the argument to the variable jobsToQuery
 
-    // Otherwise, if the Session.JOB_IDS_SESSION_ALL constant has been passed as an argument
-    else if(jobIds === this.JOB_IDS_SESSION_ALL)
-      jobsToQuery = Object.keys(_jobs);  // Assign all the jobs of this session to jobsToQuery
+      // Otherwise, if the Session.JOB_IDS_SESSION_ALL constant has been passed as an argument
+      else if(jobIds === this.JOB_IDS_SESSION_ALL)
+        jobsToQuery = Object.keys(_jobs);  // Assign all the jobs of this session to jobsToQuery
 
-    // Lastly, the argument is invalid, hence throw an exception.
-    else
-      def.reject(new Exception.InvalidArgumentException("Invalid argument: argument must be either an array of job ids " +
-        "or the special constant Session.JOB_IDS_SESSION_ALL"));
+      // Lastly, the argument is invalid, hence throw an exception.
+      else
+        reject(new Exception.InvalidArgumentException("Invalid argument: argument must be either an array of job ids " +
+          "or the special constant Session.JOB_IDS_SESSION_ALL"));
 
-    // Assert that there's at least one job specified in the job ids array
-    if(!jobIds || jobIds.length===0)
-      def.reject(new Exception.InvalidArgumentException("Empty jobs list: there must be at least one job in the list!"));
+      // Assert that there's at least one job specified in the job ids array
+      if(!jobIds || jobIds.length===0)
+        reject(new Exception.InvalidArgumentException("Empty jobs list: there must be at least one job in the list!"));
 
-    // Assert that each job id passed as argument belongs to this session
-    jobsToQuery.forEach((jobId) => {
-      if (!_jobs[jobId])
-        def.reject(new Exception.InvalidArgumentException("No jobs with id " + jobId + " were found in session "
-          + this.sessionName));
-    });
-
-    // -------------------------------- //
-
-
-    // Execute the qstat command, returning the list of jobs submitted to SGE
-    when(sge.qstat(), (jobs) => {
-
-      // Iterate through each of the jobs to query
+      // Assert that each job id passed as argument belongs to this session
       jobsToQuery.forEach((jobId) => {
+        if (!_jobs[jobId])
+          reject(new Exception.InvalidArgumentException("No jobs with id " + jobId + " were found in session "
+            + this.sessionName));
+      });
 
-        // Object describing the status of each job
-        let jobStatus = {
-          mainStatus: null,
-          subStatus: null
-        };
-
-        // First, check if the job was deleted with the "control(..)" method
-        if(_deletedJobs.includes(jobId))
-        {
-          jobStatus.mainStatus = "COMPLETED";
-          jobStatus.subStatus = "DELETED";
-
-          response[jobId] = jobStatus;
-
-          numJobsQueried++;
-
-          if(numJobsQueried === jobsToQuery.length)
-            // Resolve the promise if we retrieved the status for all the jobs passed by the invoker
-            def.resolve(response);
-        }
-
-        // If the job was not deleted, check if we are dealing with a job array
-        else if(_jobs[jobId]["isJobArray"])
-        {
-          let completedTasks = [];
-          let jobArray = _jobs[jobId];
-          let start = jobArray.jobArrayStart, end = jobArray.jobArrayEnd, incr = jobArray.jobArrayIncr;
-
-          response[jobId] = {};
-
-          // Iterate over each array job's task to retrieve their status
-          for(let taskId = start; taskId<=end; taskId+=incr){
-
-            // Object describing the status of each task belonging to the array job
-            let taskStatus = {
-              mainStatus: null,
-              subStatus: null
-            };
-
-            // The task appears on the list returned by qstat (hence not finished yet)
-            if(jobs[jobId] && jobs[jobId][taskId]){
-              taskStatus.mainStatus = _parseJobStatus(jobs[jobId][taskId].jobState);
-
-            }
-            else{
-              taskStatus.mainStatus = "COMPLETED";
-              completedTasks.push(taskId);
-            }
-
-            // Add an entry to the response object for the jobId, containing the retrieved status
-            response[jobId][taskId] = taskStatus;
-          }
-
-          when(sge.qacct(jobId), (jobInfo) => {
-            completedTasks.forEach((taskId) => {
-
-              if (jobInfo.notFound || !jobInfo[taskId])
-                response[jobId][taskId].subStatus = "UNDETERMINED";
-
-              // Job execution has finished but with failed status.
-              else if (jobInfo[taskId]["failed"] !== "0")
-                response[jobId][taskId].subStatus = "FAILED";
-
-              // Job execution has finished successfully
-              else
-                response[jobId][taskId].subStatus = "DONE";
-
-            });
-
-            // Determine the global job status according to its tasks' statuses.
-            jobStatus = _getArrayJobStatus(response[jobId]);
-
-            response[jobId]["mainStatus"] = jobStatus.mainStatus;
-            response[jobId]["subStatus"] = jobStatus.subStatus;
+      // -------------------------------- //
 
 
-            // At this point, the status of all the job's tasks has been retrieved, hence
-            // we can increment the counter of the successfully queried jobs
-            numJobsQueried++;
+      // Execute the qstat command, returning the list of jobs submitted to SGE
+      sge.qstat().then((jobs) => {
 
-            if(numJobsQueried === jobsToQuery.length)
-            // Resolve the promise if we retrieved the status for all the jobs passed by the invoker
-              def.resolve(response);
+        // Iterate through each of the jobs to query
+        jobsToQuery.forEach((jobId) => {
 
-          }, (err) => {
-            def.reject(err);
-          });
-        }
+          // Object describing the status of each job
+          let jobStatus = {
+            mainStatus: null,
+            subStatus: null
+          };
 
-        // If all previous checks failed, it means we are dealing with a single job
-        else{
+          // First, check if the job was deleted with the "control(..)" method
+          if(_deletedJobs.includes(jobId))
+          {
+            jobStatus.mainStatus = "COMPLETED";
+            jobStatus.subStatus = "DELETED";
 
-          // The job appears on the list returned by qstat (hence not finished successfully/failed)
-          if(jobs[jobId]){
-            jobStatus.mainStatus = _parseJobStatus(jobs[jobId].jobState);
-
-            // Add an entry to the response object for the jobId, containing the retrieved status
             response[jobId] = jobStatus;
 
             numJobsQueried++;
 
             if(numJobsQueried === jobsToQuery.length)
             // Resolve the promise if we retrieved the status for all the jobs passed by the invoker
-              def.resolve(response);
+              resolve(response);
           }
 
-          // The job is not on the list returned by qstat, hence it must have finished execution successfully or failed.
-          // We thus have to use the qacct function to query the info of finished jobs.
+          // If the job was not deleted, check if we are dealing with a job array
+          else if(_jobs[jobId]["isJobArray"])
+          {
+            let completedTasks = [];
+            let jobArray = _jobs[jobId];
+            let start = jobArray.jobArrayStart, end = jobArray.jobArrayEnd, incr = jobArray.jobArrayIncr;
+
+            response[jobId] = {};
+
+            // Iterate over each array job's task to retrieve their status
+            for(let taskId = start; taskId<=end; taskId+=incr){
+
+              // Object describing the status of each task belonging to the array job
+              let taskStatus = {
+                mainStatus: null,
+                subStatus: null
+              };
+
+              // The task appears on the list returned by qstat (hence not finished yet)
+              if(jobs[jobId] && jobs[jobId][taskId]){
+                taskStatus.mainStatus = _parseJobStatus(jobs[jobId][taskId].jobState);
+
+              }
+              else{
+                taskStatus.mainStatus = "COMPLETED";
+                completedTasks.push(taskId);
+              }
+
+              // Add an entry to the response object for the jobId, containing the retrieved status
+              response[jobId][taskId] = taskStatus;
+            }
+
+            sge.qacct(jobId).then((jobInfo) => {
+              completedTasks.forEach((taskId) => {
+
+                if (jobInfo.notFound || !jobInfo[taskId])
+                  response[jobId][taskId].subStatus = "UNDETERMINED";
+
+                // Job execution has finished but with failed status.
+                else if (jobInfo[taskId]["failed"] !== "0")
+                  response[jobId][taskId].subStatus = "FAILED";
+
+                // Job execution has finished successfully
+                else
+                  response[jobId][taskId].subStatus = "DONE";
+
+              });
+
+              // Determine the global job status according to its tasks' statuses.
+              jobStatus = _getArrayJobStatus(response[jobId]);
+
+              response[jobId]["mainStatus"] = jobStatus.mainStatus;
+              response[jobId]["subStatus"] = jobStatus.subStatus;
+
+
+              // At this point, the status of all the job's tasks has been retrieved, hence
+              // we can increment the counter of the successfully queried jobs
+              numJobsQueried++;
+
+              if(numJobsQueried === jobsToQuery.length)
+              // Resolve the promise if we retrieved the status for all the jobs passed by the invoker
+                resolve(response);
+
+            }, (err) => {
+              reject(err);
+            });
+          }
+
+          // If all previous checks failed, it means we are dealing with a single job
           else{
-            jobStatus.mainStatus = "COMPLETED";
 
-            when(sge.qacct(jobId), (jobInfo) => {
-              // Job execution has finished but its report has yet to show
-              // up on qacct, so its precise status can't be determined
-              if(jobInfo.notFound)
-                jobStatus.subStatus = "UNDETERMINED";
-
-              // Job execution has finished but with failed status.
-              else if(jobInfo.failed !== "0")
-                jobStatus.subStatus = "FAILED";
-
-              // Job execution has finished successfully
-              else
-                jobStatus.subStatus = "DONE";
+            // The job appears on the list returned by qstat (hence not finished successfully/failed)
+            if(jobs[jobId]){
+              jobStatus.mainStatus = _parseJobStatus(jobs[jobId].jobState);
 
               // Add an entry to the response object for the jobId, containing the retrieved status
               response[jobId] = jobStatus;
@@ -341,20 +306,48 @@ export default class Session extends SessionBase{
               numJobsQueried++;
 
               if(numJobsQueried === jobsToQuery.length)
+              // Resolve the promise if we retrieved the status for all the jobs passed by the invoker
+                resolve(response);
+            }
+
+            // The job is not on the list returned by qstat, hence it must have finished execution successfully or failed.
+            // We thus have to use the qacct function to query the info of finished jobs.
+            else{
+              jobStatus.mainStatus = "COMPLETED";
+
+              sge.qacct(jobId).then((jobInfo) => {
+                // Job execution has finished but its report has yet to show
+                // up on qacct, so its precise status can't be determined
+                if(jobInfo.notFound)
+                  jobStatus.subStatus = "UNDETERMINED";
+
+                // Job execution has finished but with failed status.
+                else if(jobInfo.failed !== "0")
+                  jobStatus.subStatus = "FAILED";
+
+                // Job execution has finished successfully
+                else
+                  jobStatus.subStatus = "DONE";
+
+                // Add an entry to the response object for the jobId, containing the retrieved status
+                response[jobId] = jobStatus;
+
+                numJobsQueried++;
+
+                if(numJobsQueried === jobsToQuery.length)
                 // Resolve the promise if we retrieved the status for all the jobs passed by the invoker
-                def.resolve(response);
+                  resolve(response);
 
-            }, (err) => {
-              def.reject(err);
-            });
+              }, (err) => {
+                reject(err);
+              });
+            }
           }
-        }
+        });
+      }, (err) => {
+        reject(err);
       });
-    }, (err) => {
-      def.reject(err);
     });
-
-    return def.promise;
   }
 
   /**
@@ -394,133 +387,135 @@ export default class Session extends SessionBase{
    * @param timeout: the maximum number of milliseconds to wait
    */
   synchronize(jobIds, timeout){
+
     timeout = timeout || this.TIMEOUT_WAIT_FOREVER;         // If not specified, timeout is set to wait forever
-    let def = new defer();
+
     let hasTimeout = timeout !== this.TIMEOUT_WAIT_FOREVER; // Whether the caller specified a timeout
     let jobsToSync = [];                                    // List of jobs (of class Job) to synchronize
     let completedJobs = [];                                 // Array containing the response data of each job
     let numJobs = 0;                                      // Number of jobs to synchronize
 
-    // ------- Arguments validation ------ //
-    // If the argument passed is an array containing the jobs ids
-    if(Array.isArray(jobIds)){
-      // Add to jobsToSync the elements of class Job corresponding to the ids passed as argument.
-      jobIds.forEach((jobId) => {
-        if(_jobs.hasOwnProperty(jobId))
-          jobsToSync.push(_jobs[jobId]);
-      });
-    }
-    // Otherwise, if the Session.JOB_IDS_SESSION_ALL constant has been passed as an argument
-    else if(jobIds === this.JOB_IDS_SESSION_ALL){
-      // Assign all the jobs of this session to jobsToSync
-      for(let jobId in _jobs)
-      {
-        if(_jobs.hasOwnProperty(jobId))
-          jobsToSync.push(_jobs[jobId]);
-      }
-      // We assign all the ids of the current session's job, since this is used in the event listener callbacks.
-      jobIds = Object.keys(_jobs);
-    }
-    // Lastly, the argument is invalid, hence throw an exception.
-    else
-      def.reject(new Exception.InvalidArgumentException("Invalid argument: argument must be either an array of job ids " +
-        "or the special constant Session.JOB_IDS_SESSION_ALL"));
-
-
-    if(!jobIds || jobIds.length===0)
-      throw new Exception.InvalidArgumentException("Empty jobs list: there must be at least one job in the list!");
-    // -------------------------------- //
-
-    numJobs = jobsToSync.length;
-
-    let _self = this;
-
-    // Listener callback function for the JobCompleted event.
-    // Checks whether the JobCompleted event received concerns
-    // one of the jobs that were registered for synchronization
-    // in this session.
-    function completedJobListener(jobId){
-      if(jobIds.includes(jobId))
-      {
-        let response = {
-          jobId: jobId,
-          msg: 'Job ' + jobId + ' completed',
-          jobStatus: {mainStatus: "COMPLETED", subStatus: "UNDETERMINED"},
-          errors: null
-        };
-
-        // Push the object containing all the info about the job's status inside the array to return after all
-        // jobs terminated their execution
-        completedJobs.push(response);
-
-        // If all jobs have terminated their execution, resolve the promise and stop the monitor
-        if (completedJobs.length === numJobs){
-          _removeListeners(_self.jobsMonitor, completedJobListener, errorJobListener);
-          def.resolve(completedJobs);
-        }
-
-      }
-    }
-
-    // Listener callback function for the JobError event.
-    // Checks whether the JobError event received concerns
-    // one of the jobs that were registered for synchronization
-    // in this session.
-    function errorJobListener(jobId){
-      if(jobIds.includes(jobId)) {
-        when(sge.qstat(jobId), (jobStats) => {
-
-          let response = {
-            jobId: jobId,
-            msg: "Job " + jobId + " is in error state.",
-            jobStatus: {mainStatus: "ERROR", subStatus: "UNDETERMINED"},
-            errors: jobStats["error_reason"]
-          };
-
-          completedJobs.push(response);
-
-          if (completedJobs.length === numJobs){
-            _removeListeners(_self.jobsMonitor, completedJobListener, errorJobListener);
-            def.resolve(completedJobs);
-          }
-        }, (err) => {
-          _removeListeners(_self.jobsMonitor, completedJobListener, errorJobListener);
-          def.reject(err);
+    return new Promise((resolve, reject) => {
+      // ------- Arguments validation ------ //
+      // If the argument passed is an array containing the jobs ids
+      if(Array.isArray(jobIds)){
+        // Add to jobsToSync the elements of class Job corresponding to the ids passed as argument.
+        jobIds.forEach((jobId) => {
+          if(_jobs.hasOwnProperty(jobId))
+            jobsToSync.push(_jobs[jobId]);
         });
       }
-    }
+      // Otherwise, if the Session.JOB_IDS_SESSION_ALL constant has been passed as an argument
+      else if(jobIds === this.JOB_IDS_SESSION_ALL){
+        // Assign all the jobs of this session to jobsToSync
+        for(let jobId in _jobs)
+        {
+          if(_jobs.hasOwnProperty(jobId))
+            jobsToSync.push(_jobs[jobId]);
+        }
+        // We assign all the ids of the current session's job, since this is used in the event listener callbacks.
+        jobIds = Object.keys(_jobs);
+      }
+      // Lastly, the argument is invalid, hence throw an exception.
+      else
+        reject(new Exception.InvalidArgumentException("Invalid argument: argument must be either an array of job ids " +
+          "or the special constant Session.JOB_IDS_SESSION_ALL"));
 
-    // Registers all the jobs to synchronize in order to receive notification from
-    // the monitor upon job's completion.
-    this.jobsMonitor.registerJobs(jobsToSync);
 
-    // Listener for JobCompleted events
-    this.jobsMonitor.on("JobCompleted", completedJobListener);
+      if(!jobIds || jobIds.length===0)
+        throw new Exception.InvalidArgumentException("Empty jobs list: there must be at least one job in the list!");
+      // -------------------------------- //
 
-    // Listener for JobError events
-    this.jobsMonitor.on("JobError", errorJobListener);
+      numJobs = jobsToSync.length;
 
-    this.jobsMonitor.on("qstatError", function(err) {
-      _removeListeners(_self.jobsMonitor, completedJobListener, errorJobListener);
-      _self.jobsMonitor.removeListener("qstatError", this);
-      def.reject(err);
+      let _self = this;
+
+      // Listener callback function for the JobCompleted event.
+      // Checks whether the JobCompleted event received concerns
+      // one of the jobs that were registered for synchronization
+      // in this session.
+      function completedJobListener(jobId){
+        if(jobIds.includes(jobId))
+        {
+          let response = {
+            jobId: jobId,
+            msg: 'Job ' + jobId + ' completed',
+            jobStatus: {mainStatus: "COMPLETED", subStatus: "UNDETERMINED"},
+            errors: null
+          };
+
+          // Push the object containing all the info about the job's status inside the array to return after all
+          // jobs terminated their execution
+          completedJobs.push(response);
+
+          // If all jobs have terminated their execution, resolve the promise and stop the monitor
+          if (completedJobs.length === numJobs){
+            _removeListeners(_self.jobsMonitor, completedJobListener, errorJobListener);
+            resolve(completedJobs);
+          }
+
+        }
+      }
+
+      // Listener callback function for the JobError event.
+      // Checks whether the JobError event received concerns
+      // one of the jobs that were registered for synchronization
+      // in this session.
+      function errorJobListener(jobId){
+        if(jobIds.includes(jobId)) {
+          sge.qstat(jobId).then((jobStats) => {
+
+            let response = {
+              jobId: jobId,
+              msg: "Job " + jobId + " is in error state.",
+              jobStatus: {mainStatus: "ERROR", subStatus: "UNDETERMINED"},
+              errors: jobStats["error_reason"]
+            };
+
+            completedJobs.push(response);
+
+            if (completedJobs.length === numJobs){
+              _removeListeners(_self.jobsMonitor, completedJobListener, errorJobListener);
+              resolve(completedJobs);
+            }
+          }, (err) => {
+            _removeListeners(_self.jobsMonitor, completedJobListener, errorJobListener);
+            reject(err);
+          });
+        }
+      }
+
+      // Registers all the jobs to synchronize in order to receive notification from
+      // the monitor upon job's completion.
+      this.jobsMonitor.registerJobs(jobsToSync);
+
+      // Listener for JobCompleted events
+      this.jobsMonitor.on("JobCompleted", completedJobListener);
+
+      // Listener for JobError events
+      this.jobsMonitor.on("JobError", errorJobListener);
+
+      this.jobsMonitor.on("qstatError", function(err) {
+        _removeListeners(_self.jobsMonitor, completedJobListener, errorJobListener);
+        _self.jobsMonitor.removeListener("qstatError", this);
+        reject(err);
+      });
+
+
+
+      if(hasTimeout)
+      {
+        // Rejects the promise after timeout has expired and remove registered listeners.
+        setTimeout(() => {
+          try{
+            _removeListeners(_self.jobsMonitor, completedJobListener, errorJobListener);
+            reject(new Exception.ExitTimeoutException("Timeout expired before job completion"));
+          }
+          catch(e) { }
+        }, timeout)
+      }
     });
 
-
-
-    if(hasTimeout)
-    {
-      // Rejects the promise after timeout has expired and remove registered listeners.
-      setTimeout(() => {
-        try{
-          _removeListeners(_self.jobsMonitor, completedJobListener, errorJobListener);
-          def.reject(new Exception.ExitTimeoutException("Timeout expired before job completion"));
-        }
-        catch(e) { }
-      }, timeout)
-    }
-
-    return def.promise;
   }
 
   /**
@@ -534,100 +529,97 @@ export default class Session extends SessionBase{
    * indefinitely for a result.
    *
    * The promise returned is resolved with an object of class JobInfo containing the information of the
-   * completed/failed job (see the class JobInfo.js for the object's structure),
-   * or a JSON with the error reasons for a job that is in ERROR status (in this case, the object's structure is
-   * identical to the one of the object returned by the synchronize(..) method).
+   * completed/failed job (see the class JobInfo.js for the object's structure).
    *
    * @param jobId: the id of the job for which to wait
    * @param timeout: amount of time in milliseconds to wait for the job to terminate its execution.
    */
   wait(jobId, timeout){
     timeout = timeout || this.TIMEOUT_WAIT_FOREVER;
-    let def = new defer();
+
     let hasTimeout = timeout !== this.TIMEOUT_WAIT_FOREVER;
 
-    // ------- ARGUMENTS VALIDATION ------ //
-    if(!_jobs[jobId])
-      def.reject(new Exception.InvalidArgumentException("No jobs with id " + jobId + " were found in session "
-        + this.sessionName));
+    return new Promise((resolve, reject) => {
+      // ------- ARGUMENTS VALIDATION ------ //
+      if(!_jobs[jobId])
+        reject(new Exception.InvalidArgumentException("No jobs with id " + jobId + " were found in session "
+          + this.sessionName));
 
-    if(hasTimeout && timeout < _refreshInterval)
-      throw new Exception.InvalidArgumentException("Timeout must be greater than refresh interval (" + _refreshInterval + ")");
-    // ----------------------------------- //
+      if(hasTimeout && timeout < _refreshInterval)
+        throw new Exception.InvalidArgumentException("Timeout must be greater than refresh interval (" + _refreshInterval + ")");
+      // ----------------------------------- //
 
 
-    let job = _jobs[jobId];
-    let isArrayJob = job["isJobArray"];
-    // If we are dealing with an array job, calculate the number of tasks that the job is composed of.
-    let numTasksAJ = isArrayJob ? Math.ceil((job["jobArrayEnd"] - job["jobArrayStart"] + 1)/ job["jobArrayIncr"]) : null;
+      let job = _jobs[jobId];
+      let isArrayJob = job["isJobArray"];
+      // If we are dealing with an array job, calculate the number of tasks that the job is composed of.
+      let numTasksAJ = isArrayJob ? Math.ceil((job["jobArrayEnd"] - job["jobArrayStart"] + 1)/ job["jobArrayIncr"]) : null;
 
-    when(this.synchronize([jobId], timeout), (response) => {
-      let jobState = response[0].jobStatus;
+      this.synchronize([jobId], timeout).then((response) => {
+        let jobState = response[0].jobStatus;
 
-      if(jobState.mainStatus === "COMPLETED"){
+        if(jobState.mainStatus === "COMPLETED" || jobState.mainStatus === "ERROR"){
 
-        // Job has completed its execution and its info are available on qacct
-        if(jobState.subStatus === "DONE" || jobState.subStatus === "FAILED"){
-          when(sge.qacct(jobId), (jobInfo) => {
-            def.resolve(new JobInfo(jobInfo));
-          }, (err) => {
-            def.reject(err);
-          });
-        }
-
-        // Job was deleted with the control(..) API
-        else if(_deletedJobs.includes(jobId)){
-          response[0].jobStatus.subStatus = "DELETED";
-          def.resolve(response);
-        }
-
-        // Job has completed its execution but its info are NOT yet available on qacct
-        // (i.e. jobState.subStatus === "UNDETERMINED")
-        else{
-          let monitor = setInterval(() => {
-            when(sge.qacct(jobId), (jobInfo) => {
-
-              // Job information available on qacct.
-              if(!jobInfo.notFound){
-
-                // If we are dealing with an array job, make sure that qacct returned the information
-                // for all the job's tasks, otherwise we need to do some more polling.
-                if(!isArrayJob || (isArrayJob && Object.keys(jobInfo).length === numTasksAJ)) {
-
-                  // Stop the monitor and resolve the promise with the job's info if all the info regarding
-                  // this job (or array job's tasks) were retrieved from qacct
-                  clearInterval(monitor);
-                  def.resolve(new JobInfo(jobInfo));
-                }
-              }
+          // Job has completed its execution and its info are available on qacct
+          if(jobState.mainStatus === "COMPLETED" && (jobState.subStatus === "DONE" || jobState.subStatus === "FAILED")){
+            sge.qacct(jobId).then((jobInfo) => {
+              resolve(new JobInfo(jobInfo));
             }, (err) => {
-              def.reject(err);
+              reject(err);
             });
-          }, _refreshInterval);
+          }
 
-          if(hasTimeout)
-          {
-            // Stop the monitor and reject the promise if timeout expires.
-            setTimeout(() => {
-              clearInterval(monitor);
+          // Job was deleted through the control(..) API
+          else if(_deletedJobs.includes(jobId)){
+            response[0].jobStatus.subStatus = "DELETED";
+            resolve(response);
+          }
 
-              try{
-                def.reject(new Exception.ExitTimeoutException("Timeout expired before job completion"));
-              }
-              catch(e) {}
-            }, timeout)
+          // Job has completed its execution (or is in "ERROR" state) but its info are NOT yet available on qacct
+          // (i.e. jobState.subStatus === "UNDETERMINED")
+          else{
+            let monitor = setInterval(() => {
+              sge.qacct(jobId).then((jobInfo) => {
+
+                // Job information available on qacct.
+                if(!jobInfo.notFound){
+
+                  // If we are dealing with an array job, make sure that qacct returned the information
+                  // for all the job's tasks, otherwise we need to do some more polling.
+                  if(!isArrayJob || (isArrayJob && Object.keys(jobInfo).length === numTasksAJ)) {
+
+                    // Stop the monitor and resolve the promise with the job's info if all the info regarding
+                    // this job (or array job's tasks) were retrieved from qacct
+                    clearInterval(monitor);
+                    let toReturn = new JobInfo(jobInfo);        // Job info to return
+                    // If job is in error state, add the error reasons returned by synchronize.
+                    if(jobState.mainStatus === "ERROR") toReturn.errors = response[0].errors;
+                    resolve(toReturn);
+                  }
+                }
+              }, (err) => {
+                reject(err);
+              });
+            }, _refreshInterval);
+
+            if(hasTimeout)
+            {
+              // Stop the monitor and reject the promise if timeout expires.
+              setTimeout(() => {
+                clearInterval(monitor);
+
+                try{
+                  reject(new Exception.ExitTimeoutException("Timeout expired before job completion"));
+                }
+                catch(e) {}
+              }, timeout)
+            }
           }
         }
-      }
-      // Job is in ERROR status, hence resolve with the information passed over by synchronize()
-      else if(jobState.mainStatus === "ERROR"){
-        def.resolve(response[0]);
-      }
-    },(err) => {
-      def.reject(err);
-    });
-
-    return def.promise;
+      },(err) => {
+        reject(err);
+      });
+    })
   }
 
   /**
@@ -658,71 +650,68 @@ export default class Session extends SessionBase{
    * @param action: The control action to be taken
    */
   control(jobId, action){
-    let def = new defer();
+    return new Promise((resolve, reject) => {
+      // Array with the ids of the jobs to control: if JOB_IDS_SESSION_ALL is passed then it will contain all the jobs
+      // submitted during this session.
+      let jobsList = jobId===this.JOB_IDS_SESSION_ALL ? Object.keys(_jobs) : [jobId];
 
-    // Array with the ids of the jobs to control: if JOB_IDS_SESSION_ALL is passed then it will contain all the jobs
-    // submitted during this session.
-    let jobsList = jobId===this.JOB_IDS_SESSION_ALL ? Object.keys(_jobs) : [jobId];
+      // Container for the response objects of each job that will be used to resolve the promise.
+      let response = [];
 
-    // Container for the response objects of each job that will be used to resolve the promise.
-    let response = [];
+      // Template for the response of each call to the desired action on each job
+      let jobResponse = {
+        jobId: null,
+        data: null,
+        error: null
+      };
 
-    // Template for the response of each call to the desired action on each job
-    let jobResponse = {
-      jobId: null,
-      data: null,
-      error: null
-    };
-
-    // Check the action's validity
-    if (action !== this.SUSPEND &&
+      // Check the action's validity
+      if (action !== this.SUSPEND &&
         action !== this.RESUME &&
         action !== this.HOLD &&
         action !== this.RELEASE &&
         action !== this.TERMINATE) {
-      throw new Exception.InvalidArgumentException("Invalid action: " + action);
-    }
-
-    // Iterate through the list of jobs and perform the action on each job
-    for(let i=0; i<jobsList.length; i++){
-      let jobId = jobsList[i];
-
-      if(!_jobs[jobId]) {
-        def.reject(new Exception.InvalidArgumentException("No jobs with id " + jobId + " were found in session "
-          + this.sessionName));
-        break;
+        throw new Exception.InvalidArgumentException("Invalid action: " + action);
       }
 
-      when(sge.control(jobId, action), (res) => {
+      // Iterate through the list of jobs and perform the action on each job
+      for(let i=0; i<jobsList.length; i++){
+        let jobId = jobsList[i];
 
-        jobResponse.jobId = jobId;
-        jobResponse.data = res;
+        if(!_jobs[jobId]) {
+          reject(new Exception.InvalidArgumentException("No jobs with id " + jobId + " were found in session "
+            + this.sessionName));
+          break;
+        }
 
-        response.push(jobResponse);
+        sge.control(jobId, action).then((res) => {
 
-        // If we are deleting a job, push the job id in the list of deleted jobs
-        if(action === this.TERMINATE)
-          _deletedJobs.push(jobId);
+          jobResponse.jobId = jobId;
+          jobResponse.data = res;
 
-        // Action was performed on all jobs => resolve
-        if(response.length===jobsList.length)
-          def.resolve(response);
+          response.push(jobResponse);
 
-      }, (err) => {
+          // If we are deleting a job, push the job id in the list of deleted jobs
+          if(action === this.TERMINATE)
+            _deletedJobs.push(jobId);
 
-        jobResponse.jobId = jobId;
-        jobResponse.error = err;
+          // Action was performed on all jobs => resolve
+          if(response.length===jobsList.length)
+            resolve(response);
 
-        response.push(jobResponse);
+        }, (err) => {
 
-        // Action was performed on all jobs => resolve
-        if(response.length===jobsList.length)
-          def.resolve(response);
-      });
-    }
+          jobResponse.jobId = jobId;
+          jobResponse.error = err;
 
+          response.push(jobResponse);
 
-    return def.promise;
+          // Action was performed on all jobs => resolve
+          if(response.length===jobsList.length)
+            resolve(response);
+        });
+      }
+    });
   }
 
 }

@@ -1,5 +1,4 @@
 import {exec, spawn} from "child_process";
-import {defer} from "promised-io/promise";
 import Version from "../Version";
 import * as Exception from "../Exceptions";
 
@@ -9,30 +8,27 @@ import * as Exception from "../Exceptions";
  * Get SGE version.
  */
 export function getDrmsInfo() {
-  let def = new defer();
-
-  // First, check if SGE is up and running
-  exec("qhost", (err, stdout, stderr) => {
-    if (err) {
-      def.reject(err);
-      return;
-    }
-    // If it's good, retrieve the version of the DRMS
-    exec("qstat -help", (err, stdout, stderr) => {
+  return new Promise((resolve, reject) => {
+    // First, check if SGE is up and running
+    exec("qhost", (err, stdout, stderr) => {
       if (err) {
-        def.reject(err);
+        reject(err);
         return;
       }
-      let data = stdout.split("\n")[0].split(" ");    // The first line is the one containing the SGE version.
-      let res = {drmsName: data[0]};                  // DRM name (SGE in this case)
-      let vparts = data[1].split(".");                // Split into major and minor version number
-      res.version = new Version(vparts[0],vparts[1]);
-      def.resolve(res);
+      // If it's good, retrieve the version of the DRMS
+      exec("qstat -help", (err, stdout, stderr) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        let data = stdout.split("\n")[0].split(" ");    // The first line is the one containing the SGE version.
+        let res = {drmsName: data[0]};                  // DRM name (SGE in this case)
+        let vparts = data[1].split(".");                // Split into major and minor version number
+        res.version = new Version(vparts[0],vparts[1]);
+        resolve(res);
+      });
     });
   });
-
-
-  return def.promise;
 }
 
 
@@ -41,44 +37,42 @@ export function getDrmsInfo() {
  * @param jobId: id of the job on which qstat will be called (optional)
  */
 export function qstat(jobId){
-  let def = new defer();
-  let args = [];
+  return new Promise((resolve, reject) => {
+    let args = [];
 
-  if(jobId)
-    args.push("-j", jobId);
+    if(jobId)
+      args.push("-j", jobId);
 
-  // With "-g d", array jobs are displayed verbosely in a one
-  // line per job task fashion.
-  args.push("-g", "d");
+    // With "-g d", array jobs are displayed verbosely in a one
+    // line per job task fashion.
+    args.push("-g", "d");
 
-  // console.log("Executing command: " + command);
+    // console.log("Executing command: " + command);
 
-  let qstat = spawn("qstat", args);
+    let qstat = spawn("qstat", args);
 
-  let stdout = "", stderr = "";
+    let stdout = "", stderr = "";
 
-  qstat.stdout.on('data', (data) => {
-    stdout += data;
+    qstat.stdout.on('data', (data) => {
+      stdout += data;
+    });
+
+    qstat.stderr.on('data', (data) => {
+      stderr += data;
+    });
+
+    qstat.on('error', (err) => {
+      reject(err);
+    });
+
+    qstat.on('close', () => {
+      let isSingleJobResult = !!jobId; // If qstat() is called with no parameters, equals to false
+
+      let res = _parseQstatResult(stdout, isSingleJobResult);
+
+      resolve(res);
+    });
   });
-
-  qstat.stderr.on('data', (data) => {
-    stderr += data;
-  });
-
-  qstat.on('error', (err) => {
-    def.reject(err);
-  });
-
-  qstat.on('close', () => {
-    let isSingleJobResult = !!jobId; // If qstat() is called with no parameters, equals to false
-
-    let res = _parseQstatResult(stdout, isSingleJobResult);
-
-    def.resolve(res);
-  });
-
-  return def.promise;
-
 }
 
 /**
@@ -89,28 +83,26 @@ export function qstat(jobId){
  * @param incr: optional, increment index of a job array
  */
 export function qsub(jobTemplate, start, end, incr){
-  // Options for the exec fuctions; set the working directory specified in the jobTemplate.
-  const opts = {
-    cwd: jobTemplate.workingDirectory
-  };
+  return new Promise((resolve, reject) => {
+    // Options for the exec fuctions; set the working directory specified in the jobTemplate.
+    const opts = {
+      cwd: jobTemplate.workingDirectory
+    };
+    let args = _parseQsubOptions(jobTemplate);
 
-  let def = new defer();
-  let args = _parseQsubOptions(jobTemplate);
+    // The user wants to run an array job
+    if(start)
+      args += " -t " + start + (end ? "-" + end + (incr ? ":" + incr : "") : "");
 
-  // The user wants to run an array job
-  if(start)
-    args += " -t " + start + (end ? "-" + end + (incr ? ":" + incr : "") : "");
+    let command = "qsub " + args + " " + jobTemplate.remoteCommand + " " + jobTemplate.args.join(" ");
 
-  let command = "qsub " + args + " " + jobTemplate.remoteCommand + " " + jobTemplate.args.join(" ");
+    // console.log("Executing command: " + command);
 
-  // console.log("Executing command: " + command);
-
-  exec(command, opts, (err, stdout, stderr) => {
-    if (err) { def.reject(err) ; return; }
-    def.resolve({stdout: stdout, stderr: stderr});
+    exec(command, opts, (err, stdout, stderr) => {
+      if (err) { reject(err) ; return; }
+      resolve({stdout: stdout, stderr: stderr});
+    });
   });
-
-  return def.promise;
 }
 
 /**
@@ -120,92 +112,88 @@ export function qsub(jobTemplate, start, end, incr){
  *                job array)
  */
 export function qacct(jobId, taskId){
-  let def = new defer();
+  return new Promise((resolve, reject) => {
+    let args = ["-j",jobId];
 
-  let args = ["-j",jobId];
+    if(taskId)
+      args.push("-t",taskId);
 
-  if(taskId)
-    args.push("-t",taskId);
+    let command = "qacct";
 
-  let command = "qacct";
+    // console.log("Executing command: " + command);
 
-  // console.log("Executing command: " + command);
+    let qacct = spawn(command, args);
 
-  let qacct = spawn(command, args);
+    let stdout = "", stderr = "";
 
-  let stdout = "", stderr = "";
+    qacct.stdout.on('data', (data) => {
+      stdout += data;
+    });
 
-  qacct.stdout.on('data', (data) => {
-    stdout += data;
-  });
+    qacct.stderr.on('data', (data) => {
+      stderr += data;
+    });
 
-  qacct.stderr.on('data', (data) => {
-    stderr += data;
-  });
+    qacct.on('error', (err) => {
+      reject(err);
+    });
 
-  qacct.on('error', (err) => {
-    def.reject(err);
-  });
-
-  qacct.on('close', (code) => {
-    if(stderr){
-      if(stderr.includes("not found")){
-        def.resolve({jobId: jobId, taskid: taskId, notFound: true});
+    qacct.on('close', (code) => {
+      if(stderr){
+        if(stderr.includes("not found")){
+          resolve({jobId: jobId, taskid: taskId, notFound: true});
+        }
+        else
+          reject(stderr);
       }
       else
-        def.reject(stderr);
-    }
-    else
-    {
-      // Parse the result in a JSON object
-      let res = _parseQacctResult(stdout);
+      {
+        // Parse the result in a JSON object
+        let res = _parseQacctResult(stdout);
 
-      def.resolve(res);
-    }
+        resolve(res);
+      }
+    });
   });
-
-  return def.promise;
 }
 
 export function control(jobIds, action) {
-  let def = new defer();
+  return new Promise((resolve, reject) => {
+    const SUSPEND = 0, RESUME = 1, HOLD = 2, RELEASE = 3, TERMINATE = 4;
 
-  const SUSPEND = 0, RESUME = 1, HOLD = 2, RELEASE = 3, TERMINATE = 4;
+    jobIds = (jobIds && typeof jobIds==='string') ? jobIds : jobIds.join(",");
 
-  jobIds = (jobIds && typeof jobIds==='string') ? jobIds : jobIds.join(",");
+    let command = "";
 
-  let command = "";
+    switch(action){
+      case(SUSPEND):
+        command = "qmod -sj " + jobIds;
+        break;
 
-  switch(action){
-    case(SUSPEND):
-      command = "qmod -sj " + jobIds;
-      break;
+      case(RESUME):
+        command = "qmod -usj " + jobIds;
+        break;
 
-    case(RESUME):
-      command = "qmod -usj " + jobIds;
-      break;
+      case(HOLD):
+        command = "qhold " + jobIds;
+        break;
 
-    case(HOLD):
-      command = "qhold " + jobIds;
-      break;
+      case(RELEASE):
+        command = "qrls " + jobIds;
+        break;
 
-    case(RELEASE):
-      command = "qrls " + jobIds;
-      break;
+      case(TERMINATE):
+        command = "qdel " + jobIds;
+        break;
+    }
 
-    case(TERMINATE):
-      command = "qdel " + jobIds;
-      break;
-  }
+    exec(command, (err, stdout, stderr) => {
+      if (err) { reject(err + stdout); return;  }
 
-  exec(command, (err, stdout, stderr) => {
-    if (err) { def.reject(err + stdout); return;  }
+      resolve(stdout);
 
-    def.resolve(stdout);
-
+    });
   });
-
-  return def.promise;
 }
 
 

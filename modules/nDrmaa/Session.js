@@ -1,5 +1,3 @@
-import * as Exception from "./Exceptions";
-
 /**
  * Abstract class representing the operations available for interacting with the DRM.
  */
@@ -74,7 +72,7 @@ export default class Session{
    * @param start: the starting value for the loop index
    * @param end: the terminating value for the loop index
    * @param incr: the value by which to increment the loop index each iteration
-   * @return promise: the promise is resolved either with the id of the array job that was successfully submitted, or
+   * @return Promise: the promise is resolved either with the id of the array job that was successfully submitted, or
    *                  it is rejected with the occurred error.
    */
   runBulkJobs(jobTemplate, start, end, incr){ }
