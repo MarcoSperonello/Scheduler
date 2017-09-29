@@ -14,7 +14,7 @@ export default class JobInfo{
     this.exitStatus = null; // exit code
     this.failed = null;     // Failure code
     this.errors = null;     // Error reasons, if any
+    this.deleted = false;   // Whether the error was deleted using the "control(..)" API
     this.rawInfo = {};      // Contains all the information obtained about the job's completion.
   }
-
 }

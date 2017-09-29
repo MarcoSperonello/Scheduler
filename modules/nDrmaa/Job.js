@@ -6,7 +6,6 @@
 export default class Job{
   constructor(jobId, sessionName, jobTemplate, isJobArray = false, jobArrayStart = null, jobArrayEnd = null, jobArrayIncr = null){
     this.jobId = jobId;
-    // this.jobStatus="UNDETERMINED";
     this.sessionName = sessionName;
     this.jobTemplate = jobTemplate;
     this.isJobArray = isJobArray || false;

@@ -30,11 +30,11 @@ export default class Session extends SessionBase{
 
   /**
    * Submits a Grid Engine job with attributes defined in the JobTemplate jobTemplate parameter.
-   * @param {JobTemplate} jobTemplate - Attributes of the job to be run.
+   * @param {JobTemplate} jobTemplate   - Attributes of the job to be run.
    * @return {Promise}
    * @resolve {number}                  - The id of the job that was successfully submitted to SGE.
    * @reject {InvalidArgumentException} - The jobTemplate specified is not an instance of class JobTemplate.
-   * @reject {*}                        - Any kind of error that might prevent job's submission in SGE.
+   * @reject {*}                        - Any errors that might prevent job's submission in SGE.
    */
   runJob(jobTemplate){
     return new Promise((resolve, reject) => {
@@ -59,15 +59,16 @@ export default class Session extends SessionBase{
    * Submits a Grid Engine array job very much as if the qsub option `-t start-end:incr' had been used with the
    * corresponding attributes defined in the DRMAA JobTemplate.
    * The same constraints regarding qsub -t value ranges also apply to the parameters start, end, and incr.
-   * @param {JobTemplate} jobTemplate - attributes of each job belonging to the array job to be run.
-   * @param {number} start - The starting value for the loop index
-   * @param {number} end - The terminating value for the loop index
-   * @param {number} incr  - The value by which to increment the loop index each iteration
+   *
+   * @param {JobTemplate} jobTemplate   - attributes of each job belonging to the array job to be run.
+   * @param {number} start              - The starting value for the loop index
+   * @param {number} end                - The terminating value for the loop index
+   * @param {number} incr               - The value by which to increment the loop index each iteration
    * @return {Promise}
-   * @resolve {number} - The id of the array job that was successfully submitted to SGE.
-   * @reject {InvalidArgumentException} - Rejects if the jobTemplate specified is not an instance of
-   *    class JobTemplate, or if any of the array job's indices are invalid.
-   * @reject {*} - Any kind of error that might prevent array job's submission in SGE.
+   * @resolve {number}                  - The id of the array job that was successfully submitted to SGE.
+   * @reject {InvalidArgumentException} - The jobTemplate specified is not an instance of class JobTemplate,
+   *    or if any of the array job's indices are invalid.
+   * @reject {*}                        - Any errors that might prevent array job's submission in SGE.
    */
   runBulkJobs(jobTemplate, start, end, incr){
     return new Promise((resolve, reject) => {
@@ -120,8 +121,8 @@ export default class Session extends SessionBase{
   /**
    * Object describing the status of a single job.
    * @typedef {Object} JobStatus
-   * @property {string} mainStatus                       - The main status of a job.
-   * @property {string} subStatus                        - The sub status of a job.
+   * @property {?string} mainStatus                       - The main status of a job.
+   * @property {?string} subStatus                        - The sub status of a job.
    */
 
   /**
@@ -210,12 +211,12 @@ export default class Session extends SessionBase{
    * - FAILED: job execution finished, but failed.
    * - DELETED: job was deleted using the "control(..)" method
    *
-   * @param {(number[]|string)} jobIds - The id(s) of the job(s) whose status is to be retrieved
+   * @param {(number[]|string)} jobIds  - The id(s) of the job(s) whose status is to be retrieved
    * @return {Promise}
-   * @resolve {JobsStatus} - Resolve the promise with an object containing the status of the specified jobs.
-   * @reject {InvalidArgumentException} - Rejects if the jobIds array is either empty or is of wrong type, or if the
+   * @resolve {JobsStatus}              - Object containing the status of the specified jobs.
+   * @reject {InvalidArgumentException} - The jobIds array is either empty or is of wrong type, or the
    *    job ids specified do not exist in the current session.
-   * @reject {*} - Any kind of error that might prevent the retrieval of the jobs' status from SGE.
+   * @reject {*}                        - Any errors that might prevent the retrieval of the jobs' status from SGE.
    */
   getJobProgramStatus(jobIds){
     return new Promise((resolve, reject) => {
@@ -445,19 +446,13 @@ export default class Session extends SessionBase{
    *  ....
    * ]
    *
-   * The object contained in the "jobStatus" property has the same structure as one of the object returned by the
-   * getJobProgramStatus(..) method (i.e. it has a different structure based on whether we are dealing with an array
-   * job or not).
-   *
-   * The promise returned is rejected with ExitTimeoutException if the timeout expires before all jobs finish.
-   *
-   * @param {(number[]|string)} jobIds - The ids of the jobs to synchronize.
-   * @param {number} timeout - The maximum number of milliseconds to wait
+   * @param {(number[]|string)} jobIds  - The ids of the jobs to synchronize.
+   * @param {number} timeout            - The maximum number of milliseconds to wait for jobs' completion.
    * @return {Promise}
-   * @resolve {CompletedJobData[]} - Resolve the promise with an array containing the status of the completed jobs.
+   * @resolve {CompletedJobData[]}      - Array containing the status of the completed jobs.
    * @reject {InvalidArgumentException} - The jobIds array is either empty or is of wrong type.
-   * @reject {ExitTimeoutException} - Timeout expired before jobs' completion.
-   * @reject {*} - Any kind of error that might prevent the retrieval of the jobs' status from SGE.
+   * @reject {ExitTimeoutException}     - Timeout expired before jobs' completion.
+   * @reject {*}                        - Any errors that might prevent the retrieval of the jobs' status from SGE.
    */
   synchronize(jobIds, timeout){
 
@@ -510,10 +505,11 @@ export default class Session extends SessionBase{
       function completedJobListener(jobId){
         if(jobIds.includes(jobId))
         {
+          let wasDeleted = _deletedJobs.includes(jobId);
           let response = {
             jobId: jobId,
             msg: 'Job ' + jobId + ' completed',
-            jobStatus: {mainStatus: "COMPLETED", subStatus: "UNDETERMINED"},
+            jobStatus: {mainStatus: "COMPLETED", subStatus: (wasDeleted ? "DELETED" : "UNDETERMINED")},
             errors: null
           };
 
@@ -538,10 +534,11 @@ export default class Session extends SessionBase{
         if(jobIds.includes(jobId)) {
           sge.qstat(jobId).then((jobStats) => {
 
+            let wasDeleted = _deletedJobs.includes(jobId);
             let response = {
               jobId: jobId,
               msg: "Job " + jobId + " is in error state.",
-              jobStatus: {mainStatus: "ERROR", subStatus: "UNDETERMINED"},
+              jobStatus: {mainStatus: "ERROR", subStatus: (wasDeleted ? "DELETED" : "UNDETERMINED")},
               errors: jobStats["error_reason"]
             };
 
@@ -597,15 +594,16 @@ export default class Session extends SessionBase{
    * otherwise if there's an error preventing the job from completing, returns the job information retrieved with the
    * command "qstat" in order to be able to access the error reasons.
    *
-   * To prevent blocking indefinitely in this call, the caller may use timeout, specifying how many milliseconds to wait
-   * for this call to complete before timing out. The special value TIMEOUT_WAIT_FOREVER can be uesd to wait
-   * indefinitely for a result.
+   * The caller may use timeout, specifying how many milliseconds to wait for this call to complete before timing out.
+   * The special value TIMEOUT_WAIT_FOREVER can be uesd to wait indefinitely for a result.
    *
-   * The promise returned is resolved with an object of class JobInfo containing the information of the
-   * completed/failed job (see the class JobInfo.js for the object's structure).
-   *
-   * @param jobId: the id of the job for which to wait
-   * @param timeout: amount of time in milliseconds to wait for the job to terminate its execution.
+   * @param {number} jobId              - The id of the job for which to wait
+   * @param {number} timeout            - Maximum amount of milliseconds to wait for job's completion.
+   * @return {Promise}
+   * @resolve {JobInfo}                 - The information of the completed job. See {@link JobInfo} class' properties.
+   * @reject {InvalidArgumentException} - The job id provided does not exist in the current session
+   * @reject {ExitTimeoutException}     - Timeout expired before jobs' completion information were available.
+   * @reject {*}                        - Any errors that might prevent the retrieval of the job's information from SGE.
    */
   wait(jobId, timeout){
     timeout = timeout || this.TIMEOUT_WAIT_FOREVER;
@@ -614,12 +612,11 @@ export default class Session extends SessionBase{
 
     return new Promise((resolve, reject) => {
       // ------- ARGUMENTS VALIDATION ------ //
+      if(isNaN(jobId))
+        reject(new Exception.InvalidArgumentException("Job id must be a valid number!"));
       if(!_jobs[jobId])
         reject(new Exception.InvalidArgumentException("No jobs with id " + jobId + " were found in session "
           + this.sessionName));
-
-      if(hasTimeout && timeout < _refreshInterval)
-        throw new Exception.InvalidArgumentException("Timeout must be greater than refresh interval (" + _refreshInterval + ")");
       // ----------------------------------- //
 
 
@@ -642,14 +639,7 @@ export default class Session extends SessionBase{
             });
           }
 
-          // Job was deleted through the control(..) API
-          else if(_deletedJobs.includes(jobId)){
-            response[0].jobStatus.subStatus = "DELETED";
-            resolve(response);
-          }
-
           // Job has completed its execution (or is in "ERROR" state) but its info are NOT yet available on qacct
-          // (i.e. jobState.subStatus === "UNDETERMINED")
           else{
             let monitor = setInterval(() => {
               sge.qacct(jobId).then((jobInfo) => {
@@ -667,6 +657,7 @@ export default class Session extends SessionBase{
                     let toReturn = new JobInfo(jobInfo);        // Job info to return
                     // If job is in error state, add the error reasons returned by synchronize.
                     if(jobState.mainStatus === "ERROR") toReturn.errors = response[0].errors;
+                    if(_deletedJobs.includes(jobId)) toReturn.deleted = true;
                     resolve(toReturn);
                   }
                 }
@@ -716,11 +707,15 @@ export default class Session extends SessionBase{
    * {
    *   jobId: the id of the job
    *   response: the response given by a successful call to the function performing the desired action
-   *   error: the error given by a unsuccessful call to the function performing the desired function
+   *   error: the error given by a unsuccessful call to the function performing the desired action
    * }
    *
-   * @param jobId: The id of the job to control
-   * @param action: The control action to be taken
+   * @param {number|string} jobId  - The id of the job to control, or the constant "JOB_IDS_SESSION_ALL"
+   * @param {string} action - The control action to be taken
+   * @return {Promise}
+   * @resolve {ActionResponse[]} - The response to the action taken on the specified job(s)
+   * @reject {InvalidArgumentException} - An invalid action or job id was passed.
+   * @reject {*} - Any errors that SGE might return when trying to perform the action.
    */
   control(jobId, action){
     return new Promise((resolve, reject) => {
@@ -744,7 +739,7 @@ export default class Session extends SessionBase{
         action !== this.HOLD &&
         action !== this.RELEASE &&
         action !== this.TERMINATE) {
-        throw new Exception.InvalidArgumentException("Invalid action: " + action);
+        reject(new Exception.InvalidArgumentException("Invalid action: " + action));
       }
 
       // Iterate through the list of jobs and perform the action on each job
@@ -794,8 +789,8 @@ export default class Session extends SessionBase{
 
 /**
  * Helper method for parsing a job's status starting from the letters displayed in "qstat" result.
- * @param jobStatus:
- * @returns {string}: one of the following extended statuses: QUEUED, ON_HOLD, RUNNING, SUSPENDED, ERROR
+ * @param {string} jobStatus  - The status of a job retrieved from SGE with the command "qstat".
+ * @returns {string}          - one of the following extended statuses: QUEUED, ON_HOLD, RUNNING, SUSPENDED, ERROR
  * @private
  */
 function _parseJobStatus(jobStatus){
@@ -844,7 +839,7 @@ function _parseJobStatus(jobStatus){
 /**
  * Helper method for retrieving the global status of an array job based on its tasks' statuses.
  *
- * The global job status can have the following values:
+ * The returned global job status can have the following values:
  *
  * - mainStatus:
  *   - COMPLETED: if all the job's tasks mainStatus property is equal to COMPLETED
@@ -858,10 +853,8 @@ function _parseJobStatus(jobStatus){
  *   - FAILED: if the global status' main status is COMPLETE and at least one task's subStatus property is FAILED
  *   - DONE: if the global status' main status is COMPLETE and all the sub tasks' subStatus is DONE
  *
- * @param jobTasks: JSON object containing the status of all the tasks of an array job. The structure of the object
- *                  is the same as the specified in the JSDoc of "getJobProgramStatus(..)" method for the "JobArrayId"
- *                  property.
- * @returns {{mainStatus: {string} || null, subStatus: {string} || null}}
+ * @param {Object.<number, TaskStatus>} jobTasks - Object containing the status of all the tasks of an array job.
+ * @returns {JobStatus} - Global status of the array job.
  * @private
  */
 function _getArrayJobStatus(jobTasks){
@@ -906,10 +899,10 @@ function _getArrayJobStatus(jobTasks){
 }
 
 /**
- * Wrapper function for removing the listeners from the jobMonitor.
+ * Wrapper function for removing the listeners from an element of class JobMonitor.
  * @param jobMonitor
- * @param completedListener
- * @param errorListener
+ * @param {callback} completedListener
+ * @param {callback} errorListener
  * @private
  */
 function _removeListeners(jobMonitor, completedListener, errorListener){

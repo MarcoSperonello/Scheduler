@@ -66,7 +66,7 @@ export default class JobTemplate {
     /**
      * Specifies e-mail addresses that are used to report  the  job
      * completion and status.
-     * @type {[string]}
+     * @type {string[]}
      */
     this.email = [];
 
@@ -139,7 +139,7 @@ export default class JobTemplate {
     // Parses the input params if the class is instantiated by passing an object with corresponding values
     if(params){
       for (let prop in params){
-        if(this[prop]!==undefined)
+        if(params.hasOwnProperty(prop) && this.hasOwnProperty(prop))
           this[prop]=params[prop];
         else
           console.log("Ignoring property '"+prop+"' since it does not belong to JobTemplate.");
