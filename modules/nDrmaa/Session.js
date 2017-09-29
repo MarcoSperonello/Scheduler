@@ -68,8 +68,8 @@ export default class Session{
 
   /**
    * Submit a set of parametric jobs, dependent on the implied loop index, each with attributes defined in the jobTemplate.
-   * @param jobTemplate: attributes of each job belonging to the array job to be run.
-   * @param start: the starting value for the loop index
+   * @param {JobTemplate} jobTemplate - Attributes of each job belonging to the array job to be run.
+   * @param {number} start - the starting value for the loop index
    * @param end: the terminating value for the loop index
    * @param incr: the value by which to increment the loop index each iteration
    * @return Promise: the promise is resolved either with the id of the array job that was successfully submitted, or

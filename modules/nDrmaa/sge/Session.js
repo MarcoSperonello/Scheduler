@@ -21,11 +21,20 @@ export default class Session extends SessionBase{
     this.contact = contact;
   }
 
+
+  /**
+   * Template for the submission of a job.
+   * See {@link JobTemplate} for the detailed properties.
+   * @typedef {Object} JobTemplate
+   */
+
   /**
    * Submits a Grid Engine job with attributes defined in the JobTemplate jobTemplate parameter.
-   * @param jobTemplate: attributes of the job to be run.
-   * @return Promise: the promise is resolved either with the id of the job that was successfully submitted, or it is
-   *                  rejected with the occurred error.
+   * @param {JobTemplate} jobTemplate - Attributes of the job to be run.
+   * @return {Promise}
+   * @resolve {number}                  - The id of the job that was successfully submitted to SGE.
+   * @reject {InvalidArgumentException} - The jobTemplate specified is not an instance of class JobTemplate.
+   * @reject {*}                        - Any kind of error that might prevent job's submission in SGE.
    */
   runJob(jobTemplate){
     return new Promise((resolve, reject) => {
@@ -45,16 +54,20 @@ export default class Session extends SessionBase{
 
   }
 
+
   /**
    * Submits a Grid Engine array job very much as if the qsub option `-t start-end:incr' had been used with the
    * corresponding attributes defined in the DRMAA JobTemplate.
    * The same constraints regarding qsub -t value ranges also apply to the parameters start, end, and incr.
-   * @param jobTemplate: attributes of each job belonging to the array job to be run.
-   * @param start: the starting value for the loop index
-   * @param end: the terminating value for the loop index
-   * @param incr: the value by which to increment the loop index each iteration
-   * @return Promise: the promise is resolved either with the id of the array job that was successfully submitted, or
-   *                  it is rejected with the occurred error.
+   * @param {JobTemplate} jobTemplate - attributes of each job belonging to the array job to be run.
+   * @param {number} start - The starting value for the loop index
+   * @param {number} end - The terminating value for the loop index
+   * @param {number} incr  - The value by which to increment the loop index each iteration
+   * @return {Promise}
+   * @resolve {number} - The id of the array job that was successfully submitted to SGE.
+   * @reject {InvalidArgumentException} - Rejects if the jobTemplate specified is not an instance of
+   *    class JobTemplate, or if any of the array job's indices are invalid.
+   * @reject {*} - Any kind of error that might prevent array job's submission in SGE.
    */
   runBulkJobs(jobTemplate, start, end, incr){
     return new Promise((resolve, reject) => {
@@ -98,34 +111,73 @@ export default class Session extends SessionBase{
   }
 
   /**
+   * Object describing the status of a task belonging to an array job.
+   * @typedef {Object} TaskStatus
+   * @property {string} mainStatus                       - The main status of a task of an array job.
+   * @property {string} subStatus                        - The sub status of a task of an array job.
+   */
+
+  /**
+   * Object describing the status of a single job.
+   * @typedef {Object} JobStatus
+   * @property {string} mainStatus                       - The main status of a job.
+   * @property {string} subStatus                        - The sub status of a job.
+   */
+
+  /**
+   * Object describing the global status of an array job along with the statuses of its tasks.
+   * @typedef {Object} ArrayJobStatus
+   * @property {string} mainStatus                       - The global main status of an array job.
+   * @property {string} subStatus                        - The global sub status of an array job.
+   * @property {Object.<number, TaskStatus>} tasksStatus - Object containing the status of each task of the
+   *    array job, indexed by task id.
+   */
+
+  /**
+   * Object that contains the status of a set of jobs, indexed by job id.
+   * @typedef {Object.<number,(JobStatus|ArrayJobStatus)>} JobsStatus
+   */
+
+  /**
    * Get the program status of the job(s) specified in jobIds.
    *
    * The promise returned is resolved with a JSON object, indexed by id, describing the status of the job;
    * the object has the following structure:
    *
    * {
-   *   jobId1:      {
-   *                  mainStatus: {string},
-   *                  subStatus: {string}
-   *                },
+   *   {number} jobId1:
+   *                    {
+   *                      {string} mainStatus,
+   *                      {string} subStatus
+   *                    },
    *
-   *   jobId2:      {
-   *                  mainStatus: {string},
-   *                  subStatus: {string}
-   *                },
+   *   {number} jobId2:
+   *                    {
+   *                      {string} mainStatus,
+   *                      {string} subStatus
+   *                    },
    *
-   *   jobArrayId: {
-   *                  mainStatus: {string},
-   *                  subStatus: {string},
-   *                  jobTaskId1: {
-   *                                mainStatus: {string},
-   *                                subStatus: {string}
-   *                              },
-   *                  jobTaskId2: {
-   *                                mainStatus: {string},
-   *                                subStatus: {string}
-   *                              },
-   *                },
+   *   {number} jobArrayId:
+   *                    {
+   *                      {string} mainStatus,
+   *                      {string} subStatus,
+   *                      {Object} tasksStatus :
+   *                                            {
+   *                                                {number} jobTaskId1:
+   *                                                                    {
+   *                                                                      {string} mainStatus,
+   *                                                                      {string} subStatus
+   *                                                                    },
+   *
+   *                                                {number} jobTaskId2:
+   *                                                                    {
+   *                                                                      {string} mainStatus,
+   *                                                                      {string} subStatus
+   *                                                                    },
+   *                                                ...
+   *                                                ...
+   *                                            }
+   *                    },
    *   ...
    *   ...
    *   ...
@@ -141,7 +193,8 @@ export default class Session extends SessionBase{
    * Each job (or task) has an object containing two properties: mainStatus and subStatus.
    * The subStatus property is used to better distinguish a job that has finished its execution.
    *
-   * These are possible values for the mainStatus property:
+   *
+   * The possible values for the mainStatus property are:
    * - UNDETERMINED: (only for array jobs) one or more job's tasks are either running, queued, on hold, or suspended.
    * - QUEUED: job is queued
    * - ON_HOLD: job is queued and on hold
@@ -150,22 +203,25 @@ export default class Session extends SessionBase{
    * - ERROR: job is in error state.
    * - COMPLETED: job has finished execution
    *
-   *
-   * These are possible values for the subStatus property:
+   * The possible values for the subStatus property are:
    * - null: the job's main status is not "COMPLETED"
    * - UNDETERMINED: job execution finished but status cannot be determined
    * - DONE: job execution finished normally
    * - FAILED: job execution finished, but failed.
    * - DELETED: job was deleted using the "control(..)" method
    *
-   * @param jobIds: the id(s) of the job(s) whose status is to be retrieved
-   * @return Promise
+   * @param {(number[]|string)} jobIds - The id(s) of the job(s) whose status is to be retrieved
+   * @return {Promise}
+   * @resolve {JobsStatus} - Resolve the promise with an object containing the status of the specified jobs.
+   * @reject {InvalidArgumentException} - Rejects if the jobIds array is either empty or is of wrong type, or if the
+   *    job ids specified do not exist in the current session.
+   * @reject {*} - Any kind of error that might prevent the retrieval of the jobs' status from SGE.
    */
   getJobProgramStatus(jobIds){
     return new Promise((resolve, reject) => {
       let jobsToQuery = [];     // List of jobs to query
       let numJobsQueried = 0;   // Number of jobs that have been queried successfully
-      let response = {};        // Object containing the response data for each job, indexed by jobId
+      let jobsStatus = {};      // Object containing the status for each job with which we resolve the promise
 
 
 
@@ -216,13 +272,13 @@ export default class Session extends SessionBase{
             jobStatus.mainStatus = "COMPLETED";
             jobStatus.subStatus = "DELETED";
 
-            response[jobId] = jobStatus;
+            jobsStatus[jobId] = jobStatus;
 
             numJobsQueried++;
 
             if(numJobsQueried === jobsToQuery.length)
             // Resolve the promise if we retrieved the status for all the jobs passed by the invoker
-              resolve(response);
+              resolve(jobsStatus);
           }
 
           // If the job was not deleted, check if we are dealing with a job array
@@ -232,7 +288,11 @@ export default class Session extends SessionBase{
             let jobArray = _jobs[jobId];
             let start = jobArray.jobArrayStart, end = jobArray.jobArrayEnd, incr = jobArray.jobArrayIncr;
 
-            response[jobId] = {};
+            jobsStatus[jobId] = {
+              mainStatus: null,
+              subStatus: null,
+              tasksStatus: {}
+            };
 
             // Iterate over each array job's task to retrieve their status
             for(let taskId = start; taskId<=end; taskId+=incr){
@@ -253,31 +313,31 @@ export default class Session extends SessionBase{
                 completedTasks.push(taskId);
               }
 
-              // Add an entry to the response object for the jobId, containing the retrieved status
-              response[jobId][taskId] = taskStatus;
+              // Add an entry to the jobsStatus object for the jobId, containing the retrieved status
+              jobsStatus[jobId]['tasksStatus'][taskId] = taskStatus;
             }
 
             sge.qacct(jobId).then((jobInfo) => {
               completedTasks.forEach((taskId) => {
 
                 if (jobInfo.notFound || !jobInfo[taskId])
-                  response[jobId][taskId].subStatus = "UNDETERMINED";
+                  jobsStatus[jobId]['tasksStatus'][taskId].subStatus = "UNDETERMINED";
 
                 // Job execution has finished but with failed status.
                 else if (jobInfo[taskId]["failed"] !== "0")
-                  response[jobId][taskId].subStatus = "FAILED";
+                  jobsStatus[jobId]['tasksStatus'][taskId].subStatus = "FAILED";
 
                 // Job execution has finished successfully
                 else
-                  response[jobId][taskId].subStatus = "DONE";
+                  jobsStatus[jobId]['tasksStatus'][taskId].subStatus = "DONE";
 
               });
 
               // Determine the global job status according to its tasks' statuses.
-              jobStatus = _getArrayJobStatus(response[jobId]);
+              jobStatus = _getArrayJobStatus(jobsStatus[jobId]['tasksStatus']);
 
-              response[jobId]["mainStatus"] = jobStatus.mainStatus;
-              response[jobId]["subStatus"] = jobStatus.subStatus;
+              jobsStatus[jobId]["mainStatus"] = jobStatus.mainStatus;
+              jobsStatus[jobId]["subStatus"] = jobStatus.subStatus;
 
 
               // At this point, the status of all the job's tasks has been retrieved, hence
@@ -286,7 +346,7 @@ export default class Session extends SessionBase{
 
               if(numJobsQueried === jobsToQuery.length)
               // Resolve the promise if we retrieved the status for all the jobs passed by the invoker
-                resolve(response);
+                resolve(jobsStatus);
 
             }, (err) => {
               reject(err);
@@ -300,14 +360,14 @@ export default class Session extends SessionBase{
             if(jobs[jobId]){
               jobStatus.mainStatus = _parseJobStatus(jobs[jobId].jobState);
 
-              // Add an entry to the response object for the jobId, containing the retrieved status
-              response[jobId] = jobStatus;
+              // Add an entry to the jobsStatus object for the jobId, containing the retrieved status
+              jobsStatus[jobId] = jobStatus;
 
               numJobsQueried++;
 
               if(numJobsQueried === jobsToQuery.length)
               // Resolve the promise if we retrieved the status for all the jobs passed by the invoker
-                resolve(response);
+                resolve(jobsStatus);
             }
 
             // The job is not on the list returned by qstat, hence it must have finished execution successfully or failed.
@@ -329,14 +389,14 @@ export default class Session extends SessionBase{
                 else
                   jobStatus.subStatus = "DONE";
 
-                // Add an entry to the response object for the jobId, containing the retrieved status
-                response[jobId] = jobStatus;
+                // Add an entry to the jobsStatus object for the jobId, containing the retrieved status
+                jobsStatus[jobId] = jobStatus;
 
                 numJobsQueried++;
 
                 if(numJobsQueried === jobsToQuery.length)
                 // Resolve the promise if we retrieved the status for all the jobs passed by the invoker
-                  resolve(response);
+                  resolve(jobsStatus);
 
               }, (err) => {
                 reject(err);
@@ -351,16 +411,24 @@ export default class Session extends SessionBase{
   }
 
   /**
+   * An object containing the status of a completed job.
+   * @typedef {Object} CompletedJobData
+   * @property {number} jobId         - The id of the job
+   * @property {string} msg           - A brief message with the job's status
+   * @property {JobStatus} jobStatus  - The status of the completed job
+   * @property {string[]} errors      - Error reasons if the job is in error status
+   */
+
+  /**
    * The synchronize() method returns when all jobs specified in jobIds have failed or finished
    * execution. If jobIds contains JOB_IDS_SESSION_ALL, then this method waits for all jobs submitted during this
    * DRMAA session.
    *
-   * To prevent blocking indefinitely in this call, the caller may specify a timeout, indicating how many milliseconds
-   * to wait for this call to complete before timing out. The special value TIMEOUT_WAIT_FOREVER can be used to wait
-   * indefinitely for a result.
+   * The caller may specify a timeout, indicating how many milliseconds to wait for this call to complete before
+   * timing out. The special value TIMEOUT_WAIT_FOREVER can be used to wait indefinitely for a result.
    *
    * The promise returned is resolved a with an array of objects, one for each job specified upon method invocation,
-   * indicating different informations for each job; the array has the following structure:
+   * indicating different information for each job; the array has the following structure:
    *
    * [
    *  {
@@ -383,8 +451,13 @@ export default class Session extends SessionBase{
    *
    * The promise returned is rejected with ExitTimeoutException if the timeout expires before all jobs finish.
    *
-   * @param jobIds: the ids of the jobs to synchronize
-   * @param timeout: the maximum number of milliseconds to wait
+   * @param {(number[]|string)} jobIds - The ids of the jobs to synchronize.
+   * @param {number} timeout - The maximum number of milliseconds to wait
+   * @return {Promise}
+   * @resolve {CompletedJobData[]} - Resolve the promise with an array containing the status of the completed jobs.
+   * @reject {InvalidArgumentException} - The jobIds array is either empty or is of wrong type.
+   * @reject {ExitTimeoutException} - Timeout expired before jobs' completion.
+   * @reject {*} - Any kind of error that might prevent the retrieval of the jobs' status from SGE.
    */
   synchronize(jobIds, timeout){
 
@@ -392,8 +465,8 @@ export default class Session extends SessionBase{
 
     let hasTimeout = timeout !== this.TIMEOUT_WAIT_FOREVER; // Whether the caller specified a timeout
     let jobsToSync = [];                                    // List of jobs (of class Job) to synchronize
-    let completedJobs = [];                                 // Array containing the response data of each job
-    let numJobs = 0;                                      // Number of jobs to synchronize
+    let completedJobs = [];                                 // Array containing the response data of each completed job
+    let numJobs = 0;                                        // Number of jobs to synchronize
 
     return new Promise((resolve, reject) => {
       // ------- Arguments validation ------ //
@@ -423,7 +496,7 @@ export default class Session extends SessionBase{
 
 
       if(!jobIds || jobIds.length===0)
-        throw new Exception.InvalidArgumentException("Empty jobs list: there must be at least one job in the list!");
+        reject(new Exception.InvalidArgumentException("Empty jobs list: there must be at least one job in the list!"));
       // -------------------------------- //
 
       numJobs = jobsToSync.length;
