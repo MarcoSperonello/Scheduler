@@ -58,6 +58,12 @@ export default class Session{
   get TERMINATE(){ return TERMINATE }
   get JOB_IDS_SESSION_ALL(){ return JOB_IDS_SESSION_ALL }
 
+  /**
+   * /**
+   * Returns a job, identified by jobId, submitted in the current session.
+   * @param {(number|string)} jobId - The id of the job to retrieve
+   */
+  getJob(jobId) {}
 
   /**
    * Submits a job with attributes defined in the JobTemplate jobTemplate parameter.
@@ -70,8 +76,8 @@ export default class Session{
    * Submit a set of parametric jobs, dependent on the implied loop index, each with attributes defined in the jobTemplate.
    * @param {JobTemplate} jobTemplate - Attributes of each job belonging to the array job to be run.
    * @param {number} start - the starting value for the loop index
-   * @param end: the terminating value for the loop index
-   * @param incr: the value by which to increment the loop index each iteration
+   * @param {?number} end - the terminating value for the loop index
+   * @param {?number} incr - the value by which to increment the loop index each iteration
    * @return Promise: the promise is resolved either with the id of the array job that was successfully submitted, or
    *                  it is rejected with the occurred error.
    */

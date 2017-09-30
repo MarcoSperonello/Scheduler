@@ -21,6 +21,19 @@ export default class Session extends SessionBase{
     this.contact = contact;
   }
 
+  /**
+   * Returns a job, identified by jobId, submitted in the current session.
+   * @param {(number|string)} jobId - The id of the job to retrieve
+   * @return {Job} - The instance of class {@link Job} of the job requested.
+   * @throws {InvalidArgumentException} - The job id provided does not match any job submitted in this session.
+   */
+  getJob(jobId){
+    if(_jobs.hasOwnProperty(jobId))
+      return _jobs[jobId];
+    else
+      throw new Exception.InvalidArgumentException("No jobs with id " + jobId + " were found in session "
+        + this.sessionName)
+  }
 
   /**
    * Template for the submission of a job.
@@ -62,8 +75,8 @@ export default class Session extends SessionBase{
    *
    * @param {JobTemplate} jobTemplate   - attributes of each job belonging to the array job to be run.
    * @param {number} start              - The starting value for the loop index
-   * @param {number} end                - The terminating value for the loop index
-   * @param {number} incr               - The value by which to increment the loop index each iteration
+   * @param {?number} end                - The terminating value for the loop index
+   * @param {?number} incr               - The value by which to increment the loop index each iteration
    * @return {Promise}
    * @resolve {number}                  - The id of the array job that was successfully submitted to SGE.
    * @reject {InvalidArgumentException} - The jobTemplate specified is not an instance of class JobTemplate,

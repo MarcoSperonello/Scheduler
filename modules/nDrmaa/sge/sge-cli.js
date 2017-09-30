@@ -397,8 +397,7 @@ function _parseQacctResult(result){
       let lines = jobTask.split("\n").filter((line) => { return line!==""});
       lines.forEach((line) => {
         let key = line.split(" ",1)[0];
-        let value = line.slice(key.length).trim();
-        taskInfo[key] = value;
+        taskInfo[key] = line.slice(key.length).trim();
       });
       jobInfo[taskInfo.taskid] = taskInfo;
     });
@@ -409,8 +408,7 @@ function _parseQacctResult(result){
     let lines = result.split("\n").slice(1).filter((line) => { return line!==""});
     lines.forEach((line) => {
       let key = line.split(" ",1)[0];
-      let value = line.slice(key.length).trim();
-      jobInfo[key] = value;
+      jobInfo[key] = line.slice(key.length).trim();
     });
   }
 

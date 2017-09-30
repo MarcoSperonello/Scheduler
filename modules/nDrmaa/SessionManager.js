@@ -1,4 +1,3 @@
-import {when,Deferred} from "promised-io/promise";
 import * as Exception from "./Exceptions";
 
 /**
