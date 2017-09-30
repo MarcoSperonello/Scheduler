@@ -113,11 +113,19 @@ export default {
     }, (error) => {
       Logger.info(error.description);
     });*/
-    when(Sec.handleRequest(requestData), (status) => {
+    /*when(Sec.handleRequest(requestData), (status) => {
       when(monitors.getJobResult(status.jobData.jobId), (status) => {
         console.log('Job ' + status.jobId + ': ' + status.mainStatus + ', ' + status.description);
       }, (error) => {
         console.log(error);
+      })
+    }, (error) => {
+      Logger.info(error.description);
+    });*/
+    Sec.handleRequest(requestData).then( (status) => {
+      monitors.getJobResult(monitors.monitorJob, status.jobData.jobId).then( (status) => {
+        console.log('RESOLVING GET JOB RESULT');
+        console.log('Job ' + status.jobId + ': ' + status.mainStatus + '-' + status.subStatus + ', exitCode: ' + status.exitStatus + ', failed: \"' + status.failed + '\", errors: ' + status.errors + ', description: ' + status.description);
       })
     }, (error) => {
       Logger.info(error.description);
