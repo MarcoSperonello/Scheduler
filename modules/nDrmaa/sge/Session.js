@@ -5,15 +5,22 @@ import JobTemplate from "../JobTemplate";
 import Job from "../Job";
 import JobInfo from "./JobInfo";
 
-let _refreshInterval = 1000;                    // Refresh interval for the jobs' status monitoring
-let _deletedJobs = [];                          // List of jobs that have been deleted using the control(..) API
+let _refreshInterval = 1000;                    // Refresh interval for the polling of completed jobs' information.
+let _deletedJobs = [];                          // List of jobs that have been terminated using the control(..) API
 let _jobs = {};                                 // Object containing the jobs submitted in this session, indexed by id
 
 
 /**
- * The Session class provides a DRMAA interface to Grid Engine.
+ * Class providing a DRMAA interface to Grid Engine.
+ * @extends SessionBase
  */
 export default class Session extends SessionBase{
+  /**
+   * Create a Session.
+   * @param {string} sessionName - Name of the session
+   * @param {JobMonitor} monitor - Reference to a job monitor
+   * @param {?string} contact - Contact information
+   */
   constructor(sessionName, monitor, contact){
     super();
     this.sessionName = sessionName;             // Session name
@@ -21,19 +28,6 @@ export default class Session extends SessionBase{
     this.contact = contact;
   }
 
-  /**
-   * Returns a job, identified by jobId, submitted in the current session.
-   * @param {(number|string)} jobId - The id of the job to retrieve
-   * @return {Job} - The instance of class {@link Job} of the job requested.
-   * @throws {InvalidArgumentException} - The job id provided does not match any job submitted in this session.
-   */
-  getJob(jobId){
-    if(_jobs.hasOwnProperty(jobId))
-      return _jobs[jobId];
-    else
-      throw new Exception.InvalidArgumentException("No jobs with id " + jobId + " were found in session "
-        + this.sessionName)
-  }
 
   /**
    * Template for the submission of a job.
@@ -224,7 +218,7 @@ export default class Session extends SessionBase{
    * - FAILED: job execution finished, but failed.
    * - DELETED: job was deleted using the "control(..)" method
    *
-   * @param {(number[]|string)} jobIds  - The id(s) of the job(s) whose status is to be retrieved
+   * @param {number[]} jobIds  - The id(s) of the job(s) whose status is to be retrieved
    * @return {Promise}
    * @resolve {JobsStatus}              - Object containing the status of the specified jobs.
    * @reject {InvalidArgumentException} - The jobIds array is either empty or is of wrong type, or the
@@ -460,7 +454,7 @@ export default class Session extends SessionBase{
    * ]
    *
    * @param {(number[]|string)} jobIds  - The ids of the jobs to synchronize.
-   * @param {number} timeout            - The maximum number of milliseconds to wait for jobs' completion.
+   * @param {?number} timeout            - The maximum number of milliseconds to wait for jobs' completion.
    * @return {Promise}
    * @resolve {CompletedJobData[]}      - Array containing the status of the completed jobs.
    * @reject {InvalidArgumentException} - The jobIds array is either empty or is of wrong type.
@@ -611,7 +605,7 @@ export default class Session extends SessionBase{
    * The special value TIMEOUT_WAIT_FOREVER can be uesd to wait indefinitely for a result.
    *
    * @param {number} jobId              - The id of the job for which to wait
-   * @param {number} timeout            - Maximum amount of milliseconds to wait for job's completion.
+   * @param {?number} timeout            - Maximum amount of milliseconds to wait for job's completion.
    * @return {Promise}
    * @resolve {JobInfo}                 - The information of the completed job. See {@link JobInfo} class' properties.
    * @reject {InvalidArgumentException} - The job id provided does not exist in the current session
@@ -720,6 +714,7 @@ export default class Session extends SessionBase{
    * {
    *   jobId: the id of the job
    *   response: the response given by a successful call to the function performing the desired action
+   *   action: code that identifies the action taken
    *   error: the error given by a unsuccessful call to the function performing the desired action
    * }
    *
@@ -743,6 +738,7 @@ export default class Session extends SessionBase{
       let jobResponse = {
         jobId: null,
         data: null,
+        action: null,
         error: null
       };
 
@@ -769,6 +765,7 @@ export default class Session extends SessionBase{
 
           jobResponse.jobId = jobId;
           jobResponse.data = res;
+          jobResponse.action = action;
 
           response.push(jobResponse);
 

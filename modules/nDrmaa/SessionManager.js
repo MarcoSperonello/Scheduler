@@ -1,13 +1,16 @@
 import * as Exception from "./Exceptions";
 
 /**
- * Class used to manage objects of class Session, tailored to the DRMS in use.
+ * Class used to create and manage objects of class Session, tailored to the DRMS in use.
  */
 
 let _Sessions = {};                       // List of active sessions created by the SessionManager
 
 export default class SessionManager{
-
+  /**
+   * Initialize an empty session manager
+   * @return {SessionManager}
+   */
   constructor(){
     // Make sure that this class can't be constructed directly but only through subclasses
     if (new.target === SessionManager) {
@@ -27,7 +30,10 @@ export default class SessionManager{
    * Creates a new Session with name sessionName
    * @param sessionName: name of the session to create
    * @param contact: contact info.
-   * @returns {Session}: the session created
+   * @return {Session} - The created session.
+   * @throws {InvalidArgumentException} - Caller did not specify a session name
+   * @throws {AlreadyActiveSessionException} - Tried to create a session with a name that is already in use
+   *    by another session
    */
   createSession(sessionName, contact){
     return this.ready.then(() => {
@@ -45,8 +51,10 @@ export default class SessionManager{
 
   /**
    * Retrieve the session identified by sessionName
-   * @param sessionName: the name of the session to retrieve
-   * @returns {Session}: the session retrieved
+   * @param {string} sessionName - The name of the session to retrieve
+   * @return {Promise} - Promise returning the session retrieved
+   * @throws {InvalidArgumentException} - Caller did not specify a session name
+   * @throws {NoActiveSessionException} - Tried to retrieve a non-existent session
    */
   getSession(sessionName){
     return this.ready.then(() => {
@@ -62,7 +70,8 @@ export default class SessionManager{
 
   /**
    * Closes the session identified by sessionName
-   * @param sessionName: the name of the session to close
+   * @param {string} sessionName - Name of the session to close
+   * @throws {NoActiveSessionException} - Tried to close a non-existent session.
    */
   closeSession(sessionName){
     return this.ready.then(() => {
@@ -75,7 +84,7 @@ export default class SessionManager{
 
   /**
    * Returns the version of the DRMS in use
-   * @returns {Version}: an object of class Version that contains the version of the DRMS
+   * @return {Promise} - Promise that returns an object of class Version containing the version of the DRMS
    */
   getVersion(){
     return this.ready.then(() => {

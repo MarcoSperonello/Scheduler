@@ -4,25 +4,33 @@ import Job from "../Job";
 import {EventEmitter} from "events";
 
 let _refreshInterval = 1000;                    // Refresh interval for the monitor
-
+/**
+ * Class for monitoring job execution completion.
+ * @extends EventEmitter
+ */
 export default class JobMonitor extends EventEmitter{
+  /**
+   * Initialize monitor's parameters.
+   */
   constructor(){
     super();
     this.setMaxListeners(0);                    // Set to infinity the max number of listeners for this EventEmitter.
     this.JobsQueue = [];                        // List of jobs to monitor
-    this.startMonitor();
+    this.startMonitor();                        // Starts monitoring
     console.log("Job Monitor started");
   }
 
   /**
    * Registers a list of jobs to monitor for completion status.
-   * @param jobs: list of jobs to register
+   * @param {Job[]} jobs - List of jobs to register for completion update.
+   * @see {@link Job}
+   * @throws {InvalidArgumentException} - The array passed does not contain elements of class Job
    */
   registerJobs(jobs){
     jobs.forEach((job) => {
       if(!(job instanceof Job))
-        throw new Exception.InvalidArgumentException("registerJob(jobs): argument 'jobs' must be an array of " +
-          " elements instanced from class Job");
+        throw new Exception.InvalidArgumentException("Function registerJob(jobs): argument 'jobs' must be an array of " +
+          " elements of class Job");
       this.JobsQueue.push(job);
     });
   }
@@ -37,10 +45,34 @@ export default class JobMonitor extends EventEmitter{
   }
 
   /**
+   * JobCompleted event. Fires when a job has completed its execution.
+   *
+   * @event JobCompleted
+   * @type {number} - The id of the job that completed its execution.
+   */
+
+  /**
+   * JobError event. Fires when a job has encountered an error and could not complete its execution.
+   *
+   * @event JobError
+   * @type {number} - The id of the job that encountered the error.
+   */
+
+  /**
+   * qstatError event. Fires when the invocation of command qstat could not be executed due to some error.
+   *
+   * @event qstatError
+   * @type {*} - The error reason.
+   */
+
+  /**
    * Get the list of currently active jobs from qstat, and emits event according to the completion status of each
    * registered job: if a job is registered but does not show up on the list returned by qstat, it emits a "JobCompleted"
    * event with the id of the job as a message; otherwise, if it appears on the list but its status is marked as "ERROR",
    * emit the event "JobError" along with the id of the job.
+   * @fires JobCompleted
+   * @fires JobError
+   * @fires qstatError
    */
   getJobs(){
     if(this.JobsQueue.length>0) {
@@ -76,8 +108,8 @@ export default class JobMonitor extends EventEmitter{
 
 /**
  * Helper method for retrieving the status of a job
- * @param jobStatus: raw status parsed from qstat
- * @returns {string}: a more explicative status.
+ * @param {string} jobStatus - raw status parsed from qstat
+ * @returns {string} - a more explicative status.
  * @private
  */
 function _parseJobStatus(jobStatus){
@@ -125,8 +157,8 @@ function _parseJobStatus(jobStatus){
 /**
  * Function to determine whether an array job is in error state. It suffices that only one task of the array job
  * is in error state for the whole job to be marked as in error.
- * @param jobArrayTasks: list of tasks of the array job retrieved from qstat
- * @returns {string}: "ERROR" if the array job is in error state, "UNDETERMINED" otherwise
+ * @param {Object} jobArrayTasks - list of tasks of the array job retrieved from qstat
+ * @returns {string} - "ERROR" if the array job is in error state, "UNDETERMINED" otherwise
  * @private
  */
 function _parseJobArrayStatus(jobArrayTasks){

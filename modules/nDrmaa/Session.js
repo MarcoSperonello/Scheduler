@@ -78,8 +78,6 @@ export default class Session{
    * @param {number} start - the starting value for the loop index
    * @param {?number} end - the terminating value for the loop index
    * @param {?number} incr - the value by which to increment the loop index each iteration
-   * @return Promise: the promise is resolved either with the id of the array job that was successfully submitted, or
-   *                  it is rejected with the occurred error.
    */
   runBulkJobs(jobTemplate, start, end, incr){ }
 
@@ -99,7 +97,7 @@ export default class Session{
    * 	  + UNDETERMINED: job execution finished but status cannot be determined
    * 	  + DONE: job execution finished normally
    *  	+ FAILED: job execution finished, but failed.
-   * @param jobIds: the id(s) of the job(s) whose status is to be retrieved
+   * @param {number[]} jobIds: the id(s) of the job(s) whose status is to be retrieved
    */
   getJobProgramStatus(jobIds){ }
 
@@ -109,27 +107,26 @@ export default class Session{
    * execution. If jobIds contains JOB_IDS_SESSION_ALL, then this method waits for all jobs submitted during this
    * DRMAA session.
    *
-   * To prevent blocking indefinitely in this call, the caller may use timeout, specifying how many milliseconds to wait
-   * for this call to complete before timing out. The special value TIMEOUT_WAIT_FOREVER can be used to wait
-   * indefinitely for a result.
+   * The caller may specify a timeout, indicating how many milliseconds to wait for this call to complete before
+   * timing out. The special value TIMEOUT_WAIT_FOREVER can be used to wait indefinitely for a result.
    *
-   * @param jobIds: the ids of the jobs to synchronize
-   * @param timeout: the maximum number of milliseconds to wait
+   * @param {(number[]|string)} jobIds  - The ids of the jobs to synchronize.
+   * @param {?number} timeout            - The maximum number of milliseconds to wait for jobs' completion.
    */
   synchronize(jobIds, timeout){ }
 
 
   /**
    * Wait until a job is complete and the information regarding the job's execution are available.
-   * Whether the job completes successfully or with a failure status, returns the job information, otherwise if
-   * there's an error preventing the job from completing, returns the job error reasons.
+   * Whether the job completes successfully or with a failure status, returns the job information using the command "qacct";
+   * otherwise if there's an error preventing the job from completing, returns the job information retrieved with the
+   * command "qstat" in order to be able to access the error reasons.
    *
-   * To prevent blocking indefinitely in this call, the caller may use timeout, specifying how many milliseconds to wait
-   * for this call to complete before timing out. The special value TIMEOUT_WAIT_FOREVER can be uesd to wait
-   * indefinitely for a result.
+   * The caller may use timeout, specifying how many milliseconds to wait for this call to complete before timing out.
+   * The special value TIMEOUT_WAIT_FOREVER can be uesd to wait indefinitely for a result.
    *
-   * @param jobId: the id of the job for which to wait
-   * @param timeout: amount of time in milliseconds to wait for the job to terminate its execution.
+   * @param {number} jobId - the id of the job for which to wait
+   * @param {?number} timeout - amount of time in milliseconds to wait for the job to terminate its execution.
    */
   wait(jobId, timeout){ }
 
@@ -149,8 +146,8 @@ export default class Session{
    * This routine returns once the action has been acknowledged by the DRM system, but does not wait
    * until the action has been completed.
    *
-   * @param jobId: The id of the job to control
-   * @param action: The control action to be taken
+   * @param {number|string} jobId  - The id of the job to control, or the constant "JOB_IDS_SESSION_ALL"
+   * @param {string} action - The control action to be taken
    */
   control(jobId, action){ }
 

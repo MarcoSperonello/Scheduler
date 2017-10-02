@@ -4,6 +4,16 @@
  * is an array job.
  */
 export default class Job{
+  /**
+   * Create a Job object
+   * @param {number} jobId - The id of the job
+   * @param {string} sessionName - Name of the belonging session
+   * @param {JobTemplate} jobTemplate - Template used for creating the job (i.e. job's submission options)
+   * @param {boolean} isJobArray - Whether it's an array job
+   * @param {?number} jobArrayStart - Starting array job index
+   * @param {?number} jobArrayEnd - Ending array job index
+   * @param {?number} jobArrayIncr - Increment array job index
+   */
   constructor(jobId, sessionName, jobTemplate, isJobArray = false, jobArrayStart = null, jobArrayEnd = null, jobArrayIncr = null){
     this.jobId = jobId;
     this.sessionName = sessionName;

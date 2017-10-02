@@ -18,6 +18,17 @@
 //   }
 // });
 
+/**
+ * The exceptions used in the nDrmaa module.
+ */
+
+/**
+ * Helper function for creating the exceptions.
+ * @param exceptionName
+ * @param msg
+ * @return {Error}
+ * @private
+ */
 function _createException(exceptionName, msg){
   let err = new Error(msg);
   err.name = exceptionName;

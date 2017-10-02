@@ -4,24 +4,33 @@ import * as sge from "./sge-cli";
 import Session from "./Session";
 import * as Exception from "../Exceptions";
 
+/**
+ * Implementation of class {@link SessionManager} for SGE.
+ * @extends SessionManagerBase
+ */
 export default class SessionManager extends SessionManagerBase{
-
+  /**
+   * Retrieves the version of SGE and initializes SessionManager.
+   * Parameter "ready" is a promise that is resolved only if we were able
+   * to retrieve SGE version, and it used as a ready check in all the
+   * methods of the base class.
+   */
   constructor(){
     super();
-
+    console.log("Loading DRMAA Libs for SGE");
     this.ready = new Promise((resolve, reject) => {
-      this.jobsMonitor = new JobMonitor();
-      this.SessionConstructor = Session;
-      console.log("Loading DRMAA Libs for SGE");
-
-      sge.getDrmsInfo().then((drmsInfo) => {
-        console.log("SGE DRMAA Ready");
-        this.drmsName = drmsInfo.drmsName;
-        this.drmsVersion = drmsInfo.version;
-        resolve(true);
-      }, (err) => {
-        throw new Exception.DrmsInitException("Could not initialize SGE: check running status.");
-      });
+      sge.getDrmsInfo()
+        .then((drmsInfo) => {
+          console.log("SGE DRMAA Ready");
+          this.jobsMonitor = new JobMonitor();
+          this.SessionConstructor = Session;
+          this.drmsName = drmsInfo.drmsName;
+          this.drmsVersion = drmsInfo.version;
+          resolve(true);
+        })
+        .catch(() => {
+          reject(new Exception.DrmsInitException("Could not initialize SGE: check running status."));
+        });
     });
 
   }

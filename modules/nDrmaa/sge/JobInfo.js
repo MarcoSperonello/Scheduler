@@ -2,8 +2,13 @@ import JobInfoBase from "../JobInfo";
 
 /**
  * This class provides information about a completed Grid Engine job.
+ * @extends JobInfoBase
  */
 export default class JobInfo extends JobInfoBase{
+  /**
+   * Inserts the info passed as argument based on the type of job we are dealing with (array or single)
+   * @param {Object} info
+   */
   constructor(info) {
     super();
 

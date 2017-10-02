@@ -2,21 +2,31 @@ import {exec, spawn} from "child_process";
 import Version from "../Version";
 import * as Exception from "../Exceptions";
 
-/** Set of functions to interact with Grid Engine through CLI **/
+/** Module that provides a set of functions to interact with Grid Engine through CLI **/
+
+/**
+ * Object containing the name and version of SGE
+ * @typedef {Object} DrmsInfo
+ * @property {string} drmsName - The name of the DRMS
+ * @property {Version} version - Version of DRMS in use (see class {@link Version})
+ */
 
 /**
  * Get SGE version.
+ * @return {Promise}
+ * @resolve {DrmsInfo} - The name and the version of SGE.
+ * @reject {*} - Any error that might prevent communication with SGE.
  */
 export function getDrmsInfo() {
   return new Promise((resolve, reject) => {
     // First, check if SGE is up and running
-    exec("qhost", (err, stdout, stderr) => {
+    exec("qhost", (err) => {
       if (err) {
         reject(err);
         return;
       }
       // If it's good, retrieve the version of the DRMS
-      exec("qstat -help", (err, stdout, stderr) => {
+      exec("qstat -help", (err, stdout) => {
         if (err) {
           reject(err);
           return;
@@ -34,7 +44,11 @@ export function getDrmsInfo() {
 
 /**
  * Function for invoking the qstat command of SGE.
- * @param jobId: id of the job on which qstat will be called (optional)
+ * @param {?(string|number)} jobId - id of the job on which qstat will be called
+ * @return {Promise}
+ * @resolve {Object} - Different possible results based on the kind of job specified (if any).
+ *    (See "APIResponseExamples.txt" document for output format)
+ * @reject {*} - Any error that might prevent retrieving jobs' status from SGE.
  */
 export function qstat(jobId){
   return new Promise((resolve, reject) => {
@@ -43,14 +57,11 @@ export function qstat(jobId){
     if(jobId)
       args.push("-j", jobId);
 
-    // With "-g d", array jobs are displayed verbosely in a one
+    // With "-g d", array jobs' tasks are displayed verbosely in a one
     // line per job task fashion.
     args.push("-g", "d");
 
-    // console.log("Executing command: " + command);
-
     let qstat = spawn("qstat", args);
-
     let stdout = "", stderr = "";
 
     qstat.stdout.on('data', (data) => {
@@ -77,10 +88,13 @@ export function qstat(jobId){
 
 /**
  * Function for invoking the qsub command of SGE.
- * @param jobTemplate: contains all the job's parameters.
- * @param start: optional, starting index of a job array
- * @param end: optional, final index of a job array
- * @param incr: optional, increment index of a job array
+ * @param {JobTemplate} jobTemplate - Contains job's parameters. See {@link JobTemplate} class
+ * @param {?number} start - Starting index of a job array
+ * @param {?number} end - Final index of a job array
+ * @param {?number} incr - Increment index of a job array
+ * @return {Promise}
+ * @resolve {Object} - Contains the stdout and stderr of the command execution
+ * @reject {*} - Any error that may prevent the submission of a job.
  */
 export function qsub(jobTemplate, start, end, incr){
   return new Promise((resolve, reject) => {
@@ -107,16 +121,15 @@ export function qsub(jobTemplate, start, end, incr){
 
 /**
  * Function for invoking the qacct command of SGE.
- * @param jobId: the id of the job for which we want to retrieve information.
- * @param taskId: optional param indicating the task id for which we want to retrieve information (only if jobId is a
- *                job array)
+ * @param {(string|number)} jobId - Id of the completed job for which we want to retrieve information.
+ * @return {Promise}
+ * @resolve {Object} - Contains the detailed information of a completed job.
+ *    (See "APIResponseExamples.txt" document for output format)
+ * @reject {*} - Any error that might prevent retrieving data about a completed job.
  */
-export function qacct(jobId, taskId){
+export function qacct(jobId){
   return new Promise((resolve, reject) => {
     let args = ["-j",jobId];
-
-    if(taskId)
-      args.push("-t",taskId);
 
     let command = "qacct";
 
@@ -138,10 +151,10 @@ export function qacct(jobId, taskId){
       reject(err);
     });
 
-    qacct.on('close', (code) => {
+    qacct.on('close', () => {
       if(stderr){
         if(stderr.includes("not found")){
-          resolve({jobId: jobId, taskid: taskId, notFound: true});
+          resolve({jobId: jobId, notFound: true});
         }
         else
           reject(stderr);
@@ -150,13 +163,20 @@ export function qacct(jobId, taskId){
       {
         // Parse the result in a JSON object
         let res = _parseQacctResult(stdout);
-
         resolve(res);
       }
     });
   });
 }
 
+/**
+ * Function for controlling a job that's being executed by SGE.
+ * @param {(string[]|number[]|string)} jobIds - Id(s) of the job(s) to control
+ * @param {string} action - Action to undertake
+ * @return {Promise}
+ * @resolve {string} - Standard output of the command execution.
+ * @reject {*} - Any error that might prevent the execution of the command.
+ */
 export function control(jobIds, action) {
   return new Promise((resolve, reject) => {
     const SUSPEND = 0, RESUME = 1, HOLD = 2, RELEASE = 3, TERMINATE = 4;
@@ -187,7 +207,7 @@ export function control(jobIds, action) {
         break;
     }
 
-    exec(command, (err, stdout, stderr) => {
+    exec(command, (err, stdout) => {
       if (err) { reject(err + stdout); return;  }
 
       resolve(stdout);
@@ -202,8 +222,8 @@ export function control(jobIds, action) {
 
 /**
  * Parses the options and arguments included in a jobTemplate.
- * @param jobTemplate
- * @returns {string} opts containing the formatted string with the specified options.
+ * @param {JobTemplate} jobTemplate
+ * @returns {string} - The string with the specified options formatted s.t. they can be parsed by SGE.
  * @private
  */
 function _parseQsubOptions(jobTemplate){
@@ -306,9 +326,9 @@ function _parseQsubOptions(jobTemplate){
 
 /**
  * Parses the result of a qstat function invocation.
- * @param result: the result of the qstat command
- * @param isSingleJobResult: whether the qacct command was called with the flag -j specifying a job id
- * @returns jobs: object containing the parsed result
+ * @param {string} result - The result of the qstat command
+ * @param {boolean} isSingleJobResult - whether the qacct command was called with the flag -j specifying a job id
+ * @returns {Object} - The parsed result
  * @private
  */
 function _parseQstatResult(result, isSingleJobResult){
@@ -377,8 +397,8 @@ function _parseQstatResult(result, isSingleJobResult){
 
 /**
  * Parses the result of a qacct function invocation.
- * @param result: the result of the qacct command
- * @returns jobInfo: object containing the parsed result
+ * @param {string} result - the result of the qacct command
+ * @returns {Object} - The parsed result
  * @private
  */
 function _parseQacctResult(result){
