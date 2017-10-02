@@ -6,7 +6,6 @@ import aux from './aux';
 import Logger from './logger';
 import {getRoutes,isMonitoring,setMonitor} from './server';
 import {Sec} from "./scheduler/scheduler-manager";
-import * as monitors from "./scheduler/monitors";
 
 import {when,defer,all} from "promised-io";
 import JobTemplate from "./nDrmaa/JobTemplate";
@@ -123,7 +122,8 @@ export default {
       Logger.info(error.description);
     });*/
     Sec.handleRequest(requestData).then( (status) => {
-      monitors.getJobResult(monitors.monitorJob, status.jobData.jobId).then( (status) => {
+      //monitors.getJobResult(monitors.monitorJob, status.jobData.jobId).then( (status) => {
+      Sec.getJobResult(status.jobData.jobId).then( (status) => {
         console.log('RESOLVING GET JOB RESULT');
         console.log('Job ' + status.jobId + ': ' + status.mainStatus + '-' + status.subStatus + ', exitCode: ' + status.exitStatus + ', failed: \"' + status.failed + '\", errors: ' + status.errors + ', description: ' + status.description);
       })

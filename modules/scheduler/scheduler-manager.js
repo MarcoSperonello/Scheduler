@@ -7,8 +7,13 @@ import SessionManager from '../nDrmaa/sge/SessionManager';
 import * as sgeClient from '../nDrmaa/sge/sge-cli';
 import * as monitors from './monitors';
 
-// Possible job types. A SINGLE job consists of a single task, while an ARRAY
-// job is made up of several tasks.
+/** Possible job types. A SINGLE job consists of a single task, while an ARRAY
+ * job is made up of several tasks.
+ *
+ * @typedef JOBTYPE
+ * @type {{SINGLE: string, ARRAY: string}}
+ * @const
+ */
 export const JOBTYPE = {
   SINGLE: 'SINGLE',
   ARRAY: 'ARRAY'
@@ -19,60 +24,52 @@ export const sessionManager = new SessionManager();
 
 /**
  * Class that manages client requests to submit a job to the Sun Grid Engine
- * (SGE).
+ * (SGE).<br><br>
  *
  * Job can either be SINGLE or ARRAY. SINGLE jobs consist of a single task,
- * while ARRAY jobs feature multiple ones.
- * Job submission and handling is bound by the following constraints:
- *  - maximum number of requests per user per time unit
- *  - maximum number of requests per time unit for all users
- *  - blacklisted and whitelisted users
- *  - maximum number of concurrent jobs (in any state)
- *  - maximum allotted runtime, after which the job is forcibly terminated.
- *
+ * while ARRAY jobs feature multiple ones.<br>
+ * Job submission and handling is bound by the following constraints:<br>
+ *  - maximum number of requests per user per time unit<br>
+ *  - maximum number of requests per time unit for all users<br>
+ *  - blacklisted and whitelisted users<br>
+ *  - maximum number of concurrent jobs (in any state)<br>
+ *  - maximum allotted runtime, after which the job is forcibly terminated.<br>
+ * <br>
  * There are two kinds of time limits: the "queued" time limit, which dictates
  * how long a job can be in a non-RUNNING state, and the "running" time limit,
  * used to restrict the time spent in a RUNNING state by a job. SINGLE and ARRAY
  * jobs time limit pairs are different (i.e. the 'queued' and/or 'running' time
- * limit of a SINGLE job can be different than those of a RUNNING job).
+ * limit of a SINGLE job can be different than those of a RUNNING job).<br>
  * These constraints are configured in the input.json file, to be placed in the
- * root of the project directory (temporary arrangement).
+ * root of the project directory (temporary arrangement).<br><br>
  *
- * INSTANTIATION:
+ * INSTANTIATION:<br>
  * The class constructor is called automatically and the input file, whose path
  * is passed to the constructor, is read in order to configure the class
  * parameters. Said file is then read every time a request is received by the
  * server (provided the last read happened a long enough time ago), so dynamic
  * configuration of input parameters is supported. Refer to the sample file and
  * the constructor comments for further details regarding the input parameters.
- *
- * USAGE:
- * This class is meant to be accessed by the outside via the handleRequest
- * method, which returns a promise. This method accepts a requestData object
- * with the following structure:
- *
- * {
- *       ip: {string}
- *       time: {Date}
- *       jobPath: {JSON object}
- * }
- * where:
- * - "ip" is the IP address of the user who submitted the request (or, more
- * generally, their name);
- * - "time" is the time at which the request was received;
- * - "jobPath" is a JSON with all or some fields of a JobTemplate object (see
- * ../nDrmaa/JobTemplate.js) plus three additional parameters: (1) start, (2)
- * end, (3) incr, which represent the numbers of the first task, the last task,
- * and the step size of an ARRAY job respectively (see the qsub -t manual).
- *
- * The handleRequest method proceeds to verify whether any of the aforementioned
- * constraints are violated. If they are not, handleRequest calls the
- * handleJobSubmission method which attempts to submit the job to the SGE. The
- * handleRequest method eventually returns a promise object, containing several
- * information regarding the outcome of the request (see handleRequest
- * documentation).
+ * <br><br>
+ * USAGE:<br>
+ * This class is meant to be accessed by the outside via the
+ * [handleRequest]{@link SchedulerSecurity#handleRequest} method, which returns
+ * a promise.<br> Said method proceeds to verify whether any of the
+ * aforementioned constraints are violated. If they are not, this method calls
+ * the [handleJobSubmission]{@link SchedulerSecurity#handleJobSubmission} method
+ * which attempts to submit the job to the SGE. [handleRequest]{@link
+ * SchedulerSecurity#handleRequest} returns a promise which eventually resolves
+ * into a {@link requestOutcome} object containing several information regarding
+ * the outcome of the request.
  */
 class SchedulerSecurity {
+  /**
+   * Reads the input parameters from the specified file and initializes class
+   * variables to these values. If the file cannot be found or not all
+   * parameters are specified within it, the missing parameters are initialized
+   * to default values.
+   * @param {string} inputFile - the path of the file with the input parameters.
+   */
   constructor(inputFile) {
     this.inputFile_ = inputFile;  // File from which to read input parameters.
     this.jobs_ = [];              // Jobs list.
@@ -157,30 +154,82 @@ class SchedulerSecurity {
   }
 
   /**
+   * Relevant information of a user request.
+   * @typedef {Object} requestData
+   * @property {string} ip - The IP address of the user.
+   * @property {string} time - The time at which the request was received.
+   * @property {string} jobPath - Path of the file with the job specifications.
+   */
+
+  /**
+   * Relevant information regarding the outcome of a user request.
+   * @typedef {Object} requestOutcome
+   * @property {string} ip - The IP address of the user who submitted the
+   * request.
+   * @property {string} time - The time at which the request was received.
+   * @property {JobTemplate} jobData - SGE parameters of the submitted job. See
+   * {@link JobTemplate}.
+   * @property {string} description - Brief description of the outcome of the
+   * request as specified in {@link requestStatus}.
+   */
+
+  /**
+   * Status of a user request. Helper object to determine whether a user request
+   * passes all checks and can be serviced.
+   * @typedef {Object} requestStatus
+   * @property {boolean} status - True if no constraints have been violated by
+   * the user request.
+   * @property {string} description - Brief description of why the request
+   * cannot be serviced, empty if it can be serviced.
+   */
+
+  /**
+   * Relevant information regarding a submitted job.
+   * @typedef {Object} jobDescription
+   * @property {number} jobId - The unique identifier of the job, determined by
+   * the SGE.
+   * @property {string} jobName - The name of the job.
+   * @property {number} firstTaskId - The number of the first task of the job if
+   * it is a {@link JOBTYPE}.ARRAY job, null otherwise.
+   * @property {number} lastTaskId - The number of the last task of the job if
+   * it is a {@link JOBTYPE}.ARRAY, null otherwise.
+   * @property {number} increment - The step size of the job if it is a {@link
+   * JOBTYPE}.ARRAY job, null otherwise.
+   * @property {array} taskInfo - Information for each task (see {@link
+   * taskData}) of the job if it is a {@link JOBTYPE}.ARRAY job, null otherwise.
+   * @property {string} user - The IP address of the user who submitted the
+   * request.
+   * @property {string} submitDate - The time at which the job was submitted to
+   * the SGE.
+   * @property {string} totalExecutionTime - The sum of the time spent in the
+   * RUNNING state by each task of the job if it is a {@link JOBTYPE}.ARRAY job.
+   * @property {string} jobType - the type of the job as specified in {@link
+   * JOBTYPE}.
+   */
+
+  /**
+   * Relevant information of a task of a {@link JOBTYPE}.ARRAY job.
+   * @typedef {Object} taskData
+   * @property {number} taskId - The ID of the task.
+   * @property {string} status - The status of the task. See {@link
+   * Session#getJobProgramStatus}.
+   * @property {string} runningStart - The time at which the task switched to
+   * the RUNNING state.
+   * @property {string} runningTime - The time the task has spent in the RUNNING
+   * state.
+   */
+
+  /**
    * Handles a job submission request by a user. If no constraints are violated,
-   * the request is accepted and forwarded to the SGE.
+   * the request is accepted and forwarded to the SGE.<br><br>
    *
-   * The promise, either resolved (if the job is successfully submitted) or
-   * rejected (if it is not), consists of a JSON object with the following
-   * fields:
+   * The promise resolves only if the job could be submitted to the SGE.
    *
-   * {
-   *       ip {string}
-   *       time {Date}
-   *       jobData {JSON object}
-   *       description {string}
-   * }
-   * where:
-   * - "ip" is the IP address of the user who submitted the request (or, more
-   * generally, their name);
-   * - "time" is the time at which the request was received;
-   * - "jobData" is comprised of several useful information of the submitted job
-   * (see handleJobSubmission documentation). If the job could not be submitted,
-   * this field is null;
-   * - "description" a brief description of the outcome of the request (whether
-   * it succeeded or the reason it failed).
-   *
-   * @param requestData: object holding request information (user, ip, jobPath)
+   * @param {requestData} requestData - Object containing request information.
+   * @returns {Promise}
+   * Resolve - A {@link requestOutcome} object, containing information regarding
+   * the request and submitted job.<br>
+   * Reject - A {@link requestOutcome} object whose jobData field is null.
    */
   handleRequest(requestData) {
     return new Promise((resolve, reject) => {
@@ -203,7 +252,7 @@ class SchedulerSecurity {
       }
 
       // Object to resolve or reject the promise with.
-      let information = {
+      let requestOutcome = {
         ip: requestData.ip,
         time: requestData.time,
         jobData: null,
@@ -240,70 +289,39 @@ class SchedulerSecurity {
         this.handleJobSubmission(requestData)
             .then(
                 (jobData) => {
-                  information.jobData = jobData;
-                  information.description =
+                  requestOutcome.jobData = jobData;
+                  requestOutcome.description =
                       'Request accepted: job ' + jobData.jobId + ' submitted.';
-                  resolve(information);
+                  resolve(requestOutcome);
                 },
                 (error) => {
-                  information.description = error;
-                  reject(information);
+                  requestOutcome.description = error;
+                  reject(requestOutcome);
                 });
       }
       // One or more constraints were violated. The job cannot be submitted.
       else {
         // Logger.info('Request denied.');
-        information.description =
+        requestOutcome.description =
             'Request denied: ' + verifyOutcome.description;
-        reject(information);
+        reject(requestOutcome);
       }
 
     });
   }
 
   /**
-   * Attempts to submit a job to the SGE.
+   * Attempts to submit a job to the SGE.<br><br>
    *
-   * If the job is successfully submitted, the promise is resolved to a JSON
-   * object with the following structure:
+   * The promise is resolved only if the job could be submitted to the SGE, it
+   * is otherwise rejected.
    *
-   * {
-   *      jobId {integer}
-   *      jobName {string}
-   *      firstTaskId {integer}
-   *      lastTaskId {integer}
-   *      increment {integer}
-   *      taskInfo {array}
-   *      user {string}
-   *      submitDate {Date}
-   *      totalExecutionTime {integer}
-   *      jobType {const String}
-   * }
-   * where:
-   * - jobId is the numeric identified of the job, determined by the SGE;
-   * - jobName is the name of the job;
-   * - firstTaskId is the number of the first task of the ARRAY job;
-   * - lastTaskId is the number of the last task of the ARRAY job;
-   * - increment is the step size of the ARRAY job;
-   * - taskInfo is an array containing the following parameters for each task of
-   * an ARRAY job: the task id (taskId), status, time spent in RUNNING state
-   * (runningTime), time at which the task started running (runningStart);
-   * - user is the ip address of the user who submitted the request;
-   * - submitDate is the date at which the job was submitted to the SGE;
-   * - totalExecutionTime is the sum of the time spent in the RUNNING state by
-   * each task of an ARRAY job;
-   * - jobType specifies whether the job is of the SINGLE or ARRAY type.
-   *
-   * Note: the parameters specific to ARRAY jobs are irrelevant and should be
-   * ignored if the jobType is SINGLE.
-   * Note: if the jobType is ARRAY, the runningTime and runningStart fields of
-   * each task as well as the totalExecutionTime of the job are initially all
-   * set to zero.
-   *
-   * If the job could not be submitted, the promise is rejected with a brief
-   * description explaining why the operation failed.
-   *
-   * @param requestData: object holding request information (user, ip, jobPath)
+   * @param {requestData} requestData - Object containing request information.
+   * @returns {Promise}
+   * Resolve - A {@link jobDescription} object containing several information
+   * about the job.<br>
+   * Reject - A brief description (string) of why the job could not be
+   * submitted.
    */
   handleJobSubmission(requestData) {
     return new Promise((resolve, reject) => {
@@ -369,11 +387,11 @@ class SchedulerSecurity {
                           // The status of the task.
                           status:
                               jobStatus[jobId].tasksStatus[taskId].mainStatus,
-                          // Time the task has spent in the RUNNING state.
-                          runningTime: 0,
                           // Time at which the task switched to the RUNNING
                           // state.
                           runningStart: 0,
+                          // Time the task has spent in the RUNNING state.
+                          runningTime: 0,
                         })
                       }
                     }
@@ -424,14 +442,36 @@ class SchedulerSecurity {
   }
 
   /**
-   * Returns true if the request can be serviced, along with a brief description
-   * of the reason why (or why not).
+   * Wrapper for the [monitorJob]{@link module:scheduler/monitors.monitorJob}
+   * function. Keeps calling said function until the promise resolves or an
+   * error
+   * occurs.
    *
-   * @param requestData: object holding request information.
-   * @param userIndex: the corresponding index of the users_ array of the user
+   * @returns {Promise}
+   * Resolve - A [jobStatusInformation]{@link
+   * module:scheduler/monitors~jobStatusInformation}
+   * object.<br>
+   * Reject - A brief description (string) of the error.
+   */
+  getJobResult() {
+    // Parses the ID of the job whose status needs to be monitored.
+    let jobId = Array.from(arguments);
+    // Calls
+    return monitors.monitorJob.apply(null, jobId).catch((result) => {
+      if (result.hasOwnProperty('error')) return Promise.reject(result.error);
+      return this.getJobResult.apply(this, jobId);
+    })
+  }
+
+  /**
+   * Verifies if a request can be serviced. The result is contained in a {@link
+   * requestStatus} object.
+   *
+   * @param {requestData} requestData - Object holding request information.
+   * @param {number} userIndex - The corresponding index of the users_ array of
+   * the user
    * submitting the request.
-   * @returns {object} status: true if the request is accepted, description:
-   * brief description of the outcome of the checks.
+   * @returns {requestStatus} status - Object storing the result of the checks.
    */
   verifyRequest(requestData, userIndex) {
     let checkResult = this.checkUserRequests(requestData, userIndex);
@@ -451,11 +491,10 @@ class SchedulerSecurity {
    * Verifies whether any request-per-time-unit constraints would be violated by
    * the input request.
    *
-   * @param requestData: object holding request information.
-   * @param userIndex: the user which submitted the request.
-   * @returns {object} status: true if no constraints are violated, description:
-   * empty string if status is set to "true", otherwise it is a brief
-   * description of what constraint was violated.
+   * @param {requestData} requestData - Object holding request information.
+   * @param {number} userIndex - The users_ array index of the user who
+   * submitted the request.
+   * @returns {requestStatus} Object storing the result of the checks.
    */
   checkUserRequests(requestData, userIndex) {
     // If the user is blacklisted, the request is rejected.
@@ -525,8 +564,8 @@ class SchedulerSecurity {
    * Verifies whether the global request-per-time-unit constraint would be
    * violated by the input request.
    *
-   * @param requestData: object holding request information (user, ip, jobPath).
-   * @returns {boolean} true if no constraints are violated.
+   * @param {requestData} requestData - Object holding request information.
+   * @returns {boolean} True if no constraints are violated.
    */
   checkGlobalRequests(requestData) {
     // Pruning of expired global requests, if any.
@@ -559,8 +598,8 @@ class SchedulerSecurity {
   /**
    * Checks if the user is blacklisted.
    *
-   * @param requestData: object holding request information (user, ip, jobPath).
-   * @returns {boolean} true if the user is blacklisted.
+   * @param {requestData} requestData - Object holding request information.
+   * @returns {boolean} True if the user is blacklisted.
    */
   isBlacklisted(requestData) {
     if (this.blacklist_.findIndex((elem) => {
@@ -576,8 +615,8 @@ class SchedulerSecurity {
   /**
    * Checks if the user is whitelisted.
    *
-   * @param requestData: object holding request information (user, ip, jobPath).
-   * @returns {boolean} true if the user is whitelisted.
+   * @param {requestData} requestData - Object holding request information.
+   * @returns {boolean} True if the user is whitelisted.
    */
   isWhitelisted(requestData) {
     if (this.whitelist_.findIndex((elem) => {
@@ -593,7 +632,7 @@ class SchedulerSecurity {
   /**
    * Logs a request (ip and timestamp) to database.
    *
-   * @param requestData: object holding request information (user, ip, jobPath).
+   * @param {requestData} requestData - Object holding request information.
    */
   registerRequestToDatabase(requestData) {
     Logger.info('Logging request to database.');
@@ -604,11 +643,11 @@ class SchedulerSecurity {
    * Returns the index of the element of the array corresponding to the user who
    * submitted the input request.
    *
-   * @param userArray: the array the user who submitted the request belongs to.
-   * @param requestData: object holding request information (user, ip, jobPath).
-   * @returns {number} the index of the element corresponding to the user who
-   * submitted the request.
-   *    Returns -1 if the user is not found.
+   * @param {array} userArray - The array the user who submitted the request is
+   * stored in.
+   * @param {requestData} requestData - Object holding request information.
+   * @returns {number} The index of the element corresponding to the user who
+   * submitted the request; -1 if the user is not found.
    */
   findUserIndex(userArray, requestData) {
     return userArray.findIndex(
@@ -618,11 +657,15 @@ class SchedulerSecurity {
   /**
    * Verifies if the start, end and increment parameters for an array job are
    * valid.
+   * If there are no logical errors but the sum of the start and increment
+   * parameters is bigger than the end parameter, the job is classified as
+   * {@link JOBTYPE}.SINGLE.
    *
-   * @param start: index of the first task.
-   * @param end: index of the last task.
-   * @param increment: index increment.
-   * @returns {string} JOBTYPE.SINGLE if the check fails, JOBTYPE.ARRAY
+   * @param {number} start - The index of the first task.
+   * @param {number} end - The index of the last task.
+   * @param {number} increment - The index increment.
+   * @returns {string} {@link JOBTYPE}.SINGLE if the check fails, {@link
+   * JOBTYPE}.ARRAY
    * otherwise.
    */
   checkArrayParams(start, end, increment) {
@@ -652,6 +695,7 @@ class SchedulerSecurity {
     this.listPollingIntervalID_ =
         setInterval(this.updateLists.bind(this), this.listPollingInterval_);
   }
+
   /**
    * Attempts to read the local and global black/whitelist files and update the
    * arrays of the blacklisted and whitelisted users.
@@ -698,7 +742,7 @@ class SchedulerSecurity {
   }
 
   /**
-   * Attempts to read the input file and update the input parameters.
+   * Attempts to read the input file and update the input parameters.<br>
    * Time related parameters are multiplied by 1000 in order to convert seconds
    * to milliseconds.
    */
