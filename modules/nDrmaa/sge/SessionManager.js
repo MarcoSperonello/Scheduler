@@ -1,14 +1,14 @@
-import SessionManagerBase from "../SessionManager";
+import SessionManager from "../SessionManager";
 import JobMonitor from "./JobMonitor";
 import * as sge from "./sge-cli";
 import Session from "./Session";
 import * as Exception from "../Exceptions";
 
 /**
- * Implementation of class {@link SessionManager} for SGE.
- * @extends SessionManagerBase
+ * Implementation of class SessionManager for SGE.
+ * @extends SessionManager
  */
-export default class SessionManager extends SessionManagerBase{
+class SessionManagerImpl extends SessionManager{
   /**
    * Retrieves the version of SGE and initializes SessionManager.
    * Parameter "ready" is a promise that is resolved only if we were able
@@ -36,3 +36,5 @@ export default class SessionManager extends SessionManagerBase{
   }
 
 }
+
+export default SessionManagerImpl;

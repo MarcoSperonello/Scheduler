@@ -1,51 +1,71 @@
 /**
- * Abstract class representing the operations available for interacting with the DRM.
- */
-
-/**
- * Wait indefinitely for a result.  Used with the Session.wait() method.
+ * Wait indefinitely for a result.  Used with the Session.wait() and Session.synchronize() methods.
+ * @const
  */
 const TIMEOUT_WAIT_FOREVER = -1;
 
 /**
  * Suspend the job.  Used with the Session.control() method.
+ * @const
  */
 const SUSPEND = 0;
 
 /**
  * Resume the job.  Used with the Session.control() method.
+ * @const
  */
 const RESUME = 1;
 
 /**
  * Put the job on hold.  Used with the Session.control() method.
+ * @const
  */
 const HOLD = 2;
 
 /**
  * Release the hold on the job.  Used with the Session.control() method.
+ * @const
  */
 const RELEASE = 3;
 
 /**
  * Kill the job.  Used with the Session.control() method.
+ * @const
  */
 const TERMINATE = 4;
 
 /**
- * All jobs submitted during this DRMAA session.  Used with the Session.synchronize() method.
+ * All jobs submitted during this DRMAA session.  Used with the Session.synchronize(),
+ * Session.getJobProgramStatus() and Session.control() methods.
+ * @const
  */
 const JOB_IDS_SESSION_ALL = "DRMAA_JOB_IDS_SESSION_ALL";
 
-export default class Session{
+/**
+ * Abstract class representing the operations available for interacting with the DRM.
+ */
+class Session{
   constructor(){
     if (new.target === Session) {
       throw new TypeError("Cannot construct Session instances from its abstract class.");
     }
 
-    this.jobs = [];
+    /**
+     * Session name.
+     * @type {string}
+     */
     this.sessionName = "";
+
+    /**
+     * Contact information.
+     * @type {string}
+     */
     this.contact = "";
+
+    /**
+     * Job monitor
+     * @type {JobMonitor}
+     */
     this.jobsMonitor = null;
   }
 
@@ -58,12 +78,6 @@ export default class Session{
   get TERMINATE(){ return TERMINATE }
   get JOB_IDS_SESSION_ALL(){ return JOB_IDS_SESSION_ALL }
 
-  /**
-   * /**
-   * Returns a job, identified by jobId, submitted in the current session.
-   * @param {(number|string)} jobId - The id of the job to retrieve
-   */
-  getJob(jobId) {}
 
   /**
    * Submits a job with attributes defined in the JobTemplate jobTemplate parameter.
@@ -152,3 +166,5 @@ export default class Session{
   control(jobId, action){ }
 
 }
+
+export default Session;

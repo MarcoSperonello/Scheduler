@@ -2,7 +2,11 @@
  * Class representing a Job Template.
  * @see http://gridscheduler.sourceforge.net/htmlman/htmlman3/drmaa_attributes.html
  */
-export default class JobTemplate {
+class JobTemplate {
+  /**
+   * Creates a new instance of JobTemplate from the object passed in input.
+   * @param {Object} params
+   */
   constructor(params){
     /**
      * Specifies the remote command to execute. The  remote_command
@@ -147,4 +151,6 @@ export default class JobTemplate {
     }
   }
 
-};
+}
+
+export default JobTemplate;

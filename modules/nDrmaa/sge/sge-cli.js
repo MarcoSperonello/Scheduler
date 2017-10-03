@@ -2,7 +2,10 @@ import {exec, spawn} from "child_process";
 import Version from "../Version";
 import * as Exception from "../Exceptions";
 
-/** Module that provides a set of functions to interact with Grid Engine through CLI **/
+/**
+ * Module that provides a set of functions to interact with Grid Engine through CLI
+ * @module sge-cli
+ */
 
 /**
  * Object containing the name and version of SGE
@@ -14,8 +17,14 @@ import * as Exception from "../Exceptions";
 /**
  * Get SGE version.
  * @return {Promise}
- * @resolve {DrmsInfo} - The name and the version of SGE.
- * @reject {*} - Any error that might prevent communication with SGE.
+ * <ul>
+ *    <li>
+ *      <b>Resolve</b> {{@link DrmsInfo}} - The name and the version of SGE.
+ *    </li>
+ *    <li>
+ *      <b>Reject</b> {*} - Any error that might prevent communication with SGE.
+ *    </li>
+ * </ul>
  */
 export function getDrmsInfo() {
   return new Promise((resolve, reject) => {
@@ -46,9 +55,15 @@ export function getDrmsInfo() {
  * Function for invoking the qstat command of SGE.
  * @param {?(string|number)} jobId - id of the job on which qstat will be called
  * @return {Promise}
- * @resolve {Object} - Different possible results based on the kind of job specified (if any).
- *    (See "APIResponseExamples.txt" document for output format)
- * @reject {*} - Any error that might prevent retrieving jobs' status from SGE.
+ * <ul>
+ *    <li>
+ *      <b>Resolve</b> {Object} - Different possible results based on the kind of job specified (if any).
+ *        (See "APIResponseExamples.txt" document for output format)
+ *    </li>
+ *    <li>
+ *      <b>Reject</b> {*} - Any error that might prevent retrieving jobs' status from SGE.
+ *    </li>
+ * </ul>
  */
 export function qstat(jobId){
   return new Promise((resolve, reject) => {
@@ -93,8 +108,14 @@ export function qstat(jobId){
  * @param {?number} end - Final index of a job array
  * @param {?number} incr - Increment index of a job array
  * @return {Promise}
- * @resolve {Object} - Contains the stdout and stderr of the command execution
- * @reject {*} - Any error that may prevent the submission of a job.
+ * <ul>
+ *    <li>
+ *      <b>Resolve</b> {Object} - Contains the stdout and stderr of the command execution
+ *    </li>
+ *    <li>
+ *      <b>Reject</b> {*} - Any error that may prevent the submission of a job.
+ *    </li>
+ * </ul>
  */
 export function qsub(jobTemplate, start, end, incr){
   return new Promise((resolve, reject) => {
@@ -123,9 +144,15 @@ export function qsub(jobTemplate, start, end, incr){
  * Function for invoking the qacct command of SGE.
  * @param {(string|number)} jobId - Id of the completed job for which we want to retrieve information.
  * @return {Promise}
- * @resolve {Object} - Contains the detailed information of a completed job.
- *    (See "APIResponseExamples.txt" document for output format)
- * @reject {*} - Any error that might prevent retrieving data about a completed job.
+ * <ul>
+ *   <li>
+ *      <b>Resolve</b> {Object} - Contains the detailed information of a completed job.
+ *        (See "APIResponseExamples.txt" document for output format)
+ *   </li>
+ *   <li>
+ *      <b>Reject</b> {*} - Any error that might prevent retrieving data about a completed job.
+ *   </li>
+ * </ul>
  */
 export function qacct(jobId){
   return new Promise((resolve, reject) => {
@@ -174,8 +201,14 @@ export function qacct(jobId){
  * @param {(string[]|number[]|string)} jobIds - Id(s) of the job(s) to control
  * @param {string} action - Action to undertake
  * @return {Promise}
- * @resolve {string} - Standard output of the command execution.
- * @reject {*} - Any error that might prevent the execution of the command.
+ * <ul>
+ *   <li>
+ *      <b>Resolve</b> {string} - Standard output of the command execution.
+ *   </li>
+ *   <li>
+ *      <b>Reject</b> {*} - Any error that might prevent the execution of the command.
+ *   </li>
+ * </ul>
  */
 export function control(jobIds, action) {
   return new Promise((resolve, reject) => {

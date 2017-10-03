@@ -8,7 +8,7 @@ let _refreshInterval = 1000;                    // Refresh interval for the moni
  * Class for monitoring job execution completion.
  * @extends EventEmitter
  */
-export default class JobMonitor extends EventEmitter{
+class JobMonitor extends EventEmitter{
   /**
    * Initialize monitor's parameters.
    */
@@ -23,8 +23,8 @@ export default class JobMonitor extends EventEmitter{
   /**
    * Registers a list of jobs to monitor for completion status.
    * @param {Job[]} jobs - List of jobs to register for completion update.
-   * @see {@link Job}
-   * @throws {InvalidArgumentException} - The array passed does not contain elements of class Job
+   * @throws {module:nDrmaaExceptions.InvalidArgumentException} InvalidArgumentException - The array passed does not
+   *    contain elements of class Job
    */
   registerJobs(jobs){
     jobs.forEach((job) => {
@@ -46,23 +46,26 @@ export default class JobMonitor extends EventEmitter{
 
   /**
    * JobCompleted event. Fires when a job has completed its execution.
+   * Returns the Id of the completed job.
    *
    * @event JobCompleted
-   * @type {number} - The id of the job that completed its execution.
+   * @type {number}
    */
 
   /**
    * JobError event. Fires when a job has encountered an error and could not complete its execution.
+   * Returns the Id of the job in error.
    *
    * @event JobError
-   * @type {number} - The id of the job that encountered the error.
+   * @type {number}
    */
 
   /**
    * qstatError event. Fires when the invocation of command qstat could not be executed due to some error.
+   * Returns the error reason.
    *
    * @event qstatError
-   * @type {*} - The error reason.
+   * @type {*}
    */
 
   /**
@@ -171,3 +174,5 @@ function _parseJobArrayStatus(jobArrayTasks){
   }
   return jobStatus;
 }
+
+export default JobMonitor

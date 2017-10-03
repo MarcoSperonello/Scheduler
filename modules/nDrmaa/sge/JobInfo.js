@@ -1,10 +1,10 @@
-import JobInfoBase from "../JobInfo";
+import JobInfo from "../JobInfo";
 
 /**
  * This class provides information about a completed Grid Engine job.
- * @extends JobInfoBase
+ * @extends JobInfo
  */
-export default class JobInfo extends JobInfoBase{
+class JobInfoImpl extends JobInfo{
   /**
    * Inserts the info passed as argument based on the type of job we are dealing with (array or single)
    * @param {Object} info
@@ -38,3 +38,5 @@ export default class JobInfo extends JobInfoBase{
     this.rawInfo = info;
   }
 }
+
+export default JobInfoImpl

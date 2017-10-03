@@ -1,6 +1,6 @@
 import * as Exception from "../Exceptions";
 import * as sge from "./sge-cli";
-import SessionBase from "../Session";
+import Session from "../Session";
 import JobTemplate from "../JobTemplate";
 import Job from "../Job";
 import JobInfo from "./JobInfo";
@@ -11,37 +11,40 @@ let _jobs = {};                                 // Object containing the jobs su
 
 
 /**
- * Class providing a DRMAA interface to Grid Engine.
- * @extends SessionBase
+ * Class that extends the abstract class Session, providing a DRMAA interface to Grid Engine.
+ * @extends Session
  */
-export default class Session extends SessionBase{
+class SessionImpl extends Session{
   /**
-   * Create a Session.
+   * Create a SGE Session.
    * @param {string} sessionName - Name of the session
    * @param {JobMonitor} monitor - Reference to a job monitor
    * @param {?string} contact - Contact information
    */
   constructor(sessionName, monitor, contact){
     super();
-    this.sessionName = sessionName;             // Session name
-    this.jobsMonitor = monitor;                 // Session monitor
+    this.sessionName = sessionName;
+    this.jobsMonitor = monitor;
     this.contact = contact;
   }
 
 
   /**
-   * Template for the submission of a job.
-   * See {@link JobTemplate} for the detailed properties.
-   * @typedef {Object} JobTemplate
-   */
-
-  /**
    * Submits a Grid Engine job with attributes defined in the JobTemplate jobTemplate parameter.
    * @param {JobTemplate} jobTemplate   - Attributes of the job to be run.
-   * @return {Promise}
-   * @resolve {number}                  - The id of the job that was successfully submitted to SGE.
-   * @reject {InvalidArgumentException} - The jobTemplate specified is not an instance of class JobTemplate.
-   * @reject {*}                        - Any errors that might prevent job's submission in SGE.
+   * @return {Promise} Promise resolving/rejecting as follows:
+   * <ul>
+   *    <li>
+   *      <b>Resolve</b> {number} - The id of the job that was successfully submitted to SGE.
+   *    </li>
+   *    <li>
+   *      <b>Reject</b> {[InvalidArgumentException]{@link module:nDrmaaExceptions.InvalidArgumentException}} - The
+   *      jobTemplate specified is not an instance of class JobTemplate.
+   *    </li>
+   *    <li>
+   *      <b>Reject</b> {*} - Any errors that might prevent job's submission in SGE.
+   *    </li>
+   * </ul>
    */
   runJob(jobTemplate){
     return new Promise((resolve, reject) => {
@@ -71,11 +74,19 @@ export default class Session extends SessionBase{
    * @param {number} start              - The starting value for the loop index
    * @param {?number} end                - The terminating value for the loop index
    * @param {?number} incr               - The value by which to increment the loop index each iteration
-   * @return {Promise}
-   * @resolve {number}                  - The id of the array job that was successfully submitted to SGE.
-   * @reject {InvalidArgumentException} - The jobTemplate specified is not an instance of class JobTemplate,
-   *    or if any of the array job's indices are invalid.
-   * @reject {*}                        - Any errors that might prevent array job's submission in SGE.
+   * @return {Promise} Promise resolving/rejecting as follows:
+   * <ul>
+   *    <li>
+   *      <b>Resolve</b> {number} - The id of the array job that was successfully submitted to SGE.
+   *    </li>
+   *    <li>
+   *      <b>Reject</b> {[InvalidArgumentException]{@link module:nDrmaaExceptions.InvalidArgumentException}} - The
+   *      jobTemplate specified is not an instance of class JobTemplate, or if any of the array job's indices are invalid.
+   *    </li>
+   *    <li>
+   *      <b>Reject</b> {*} - Any errors that might prevent array job's submission in SGE.
+   *    </li>
+   * </ul>
    */
   runBulkJobs(jobTemplate, start, end, incr){
     return new Promise((resolve, reject) => {
@@ -219,11 +230,19 @@ export default class Session extends SessionBase{
    * - DELETED: job was deleted using the "control(..)" method
    *
    * @param {number[]} jobIds  - The id(s) of the job(s) whose status is to be retrieved
-   * @return {Promise}
-   * @resolve {JobsStatus}              - Object containing the status of the specified jobs.
-   * @reject {InvalidArgumentException} - The jobIds array is either empty or is of wrong type, or the
-   *    job ids specified do not exist in the current session.
-   * @reject {*}                        - Any errors that might prevent the retrieval of the jobs' status from SGE.
+   * @return {Promise} Promise resolving/rejecting as follows:
+   * <ul>
+   *    <li>
+   *      <b>Resolve</b> {{@link JobsStatus}} - Object containing the status of the specified jobs.
+   *    </li>
+   *    <li>
+   *      <b>Reject</b> {[InvalidArgumentException]{@link module:nDrmaaExceptions.InvalidArgumentException}} - The
+   *      jobIds array is either empty or is of wrong type, or the job ids specified do not exist in the current session.
+   *    </li>
+   *    <li>
+   *      <b>Reject</b> {*} - Any errors that might prevent the retrieval of the jobs' status from SGE.
+   *    </li>
+   * </ul>
    */
   getJobProgramStatus(jobIds){
     return new Promise((resolve, reject) => {
@@ -455,11 +474,19 @@ export default class Session extends SessionBase{
    *
    * @param {(number[]|string)} jobIds  - The ids of the jobs to synchronize.
    * @param {?number} timeout            - The maximum number of milliseconds to wait for jobs' completion.
-   * @return {Promise}
-   * @resolve {CompletedJobData[]}      - Array containing the status of the completed jobs.
-   * @reject {InvalidArgumentException} - The jobIds array is either empty or is of wrong type.
-   * @reject {ExitTimeoutException}     - Timeout expired before jobs' completion.
-   * @reject {*}                        - Any errors that might prevent the retrieval of the jobs' status from SGE.
+   * @return {Promise} Promise resolving/rejecting as follows:
+   * <ul>
+   *    <li>
+   *      <b>Resolve</b> {Array.<{@link CompletedJobData}>} - Array containing the status of the completed jobs.
+   *    </li>
+   *    <li>
+   *      <b>Reject</b> {[InvalidArgumentException]{@link module:nDrmaaExceptions.InvalidArgumentException}} - The
+   *      jobIds array is either empty or is of wrong type.
+   *    </li>
+   *    <li>
+   *      <b>Reject</b> {*} - Any errors that might prevent the retrieval of the jobs' status from SGE.
+   *    </li>
+   * </ul>
    */
   synchronize(jobIds, timeout){
 
@@ -606,11 +633,19 @@ export default class Session extends SessionBase{
    *
    * @param {number} jobId              - The id of the job for which to wait
    * @param {?number} timeout            - Maximum amount of milliseconds to wait for job's completion.
-   * @return {Promise}
-   * @resolve {JobInfo}                 - The information of the completed job. See {@link JobInfo} class' properties.
-   * @reject {InvalidArgumentException} - The job id provided does not exist in the current session
-   * @reject {ExitTimeoutException}     - Timeout expired before jobs' completion information were available.
-   * @reject {*}                        - Any errors that might prevent the retrieval of the job's information from SGE.
+   * @return {Promise} Promise resolving/rejecting as follows:
+   * <ul>
+   *    <li>
+   *      <b>Resolve</b> {{@link JobInfo}} - The information of the completed job.
+   *    </li>
+   *    <li>
+   *      <b>Reject</b> {[InvalidArgumentException]{@link module:nDrmaaExceptions.InvalidArgumentException}} - The job
+   *      id provided does not exist in the current session.
+   *    </li>
+   *    <li>
+   *      <b>Reject</b> {*} - Any errors that might prevent the retrieval of the job's information from SGE.
+   *    </li>
+   * </ul>
    */
   wait(jobId, timeout){
     timeout = timeout || this.TIMEOUT_WAIT_FOREVER;
@@ -694,6 +729,15 @@ export default class Session extends SessionBase{
   }
 
   /**
+   * Response to a call to Session.control() method.
+   * @typedef {Object} ActionResponse
+   * @property {number} jobId - Id of the job upon which the action has been called.
+   * @property {string} data - The response of SGE after the action was submitted.
+   * @property {number} action - Code that identifies the action specified taken.
+   * @property {?string} error - Error given by a unsuccessful call to the function performing the desired action
+   */
+
+  /**
    * Hold, release, suspend, resume, or kill the job identified by jobId.
    * If jobId is JOB_IDS_SESSION_ALL, then this routine acts on all jobs submitted during this DRMAA session up to
    * the moment control() is called.
@@ -720,10 +764,19 @@ export default class Session extends SessionBase{
    *
    * @param {number|string} jobId  - The id of the job to control, or the constant "JOB_IDS_SESSION_ALL"
    * @param {string} action - The control action to be taken
-   * @return {Promise}
-   * @resolve {ActionResponse[]} - The response to the action taken on the specified job(s)
-   * @reject {InvalidArgumentException} - An invalid action or job id was passed.
-   * @reject {*} - Any errors that SGE might return when trying to perform the action.
+   * @return {Promise} Promise resolving/rejecting as follows:
+   * <ul>
+   *    <li>
+   *      <b>Resolve</b> {Array.<{@link ActionResponse}>} - The response to the action taken on the specified job(s).
+   *    </li>
+   *    <li>
+   *      <b>Reject</b> {[InvalidArgumentException]{@link module:nDrmaaExceptions.InvalidArgumentException}} - An
+   *      invalid action or job id was passed.
+   *    </li>
+   *    <li>
+   *      <b>Reject</b> {*} - Any errors that SGE might return when trying to perform the action.
+   *    </li>
+   * </ul>
    */
   control(jobId, action){
     return new Promise((resolve, reject) => {
@@ -735,7 +788,7 @@ export default class Session extends SessionBase{
       let response = [];
 
       // Template for the response of each call to the desired action on each job
-      let jobResponse = {
+      let actionResponse = {
         jobId: null,
         data: null,
         action: null,
@@ -763,11 +816,11 @@ export default class Session extends SessionBase{
 
         sge.control(jobId, action).then((res) => {
 
-          jobResponse.jobId = jobId;
-          jobResponse.data = res;
-          jobResponse.action = action;
+          actionResponse.jobId = jobId;
+          actionResponse.data = res;
+          actionResponse.action = action;
 
-          response.push(jobResponse);
+          response.push(actionResponse);
 
           // If we are deleting a job, push the job id in the list of deleted jobs
           if(action === this.TERMINATE)
@@ -779,10 +832,10 @@ export default class Session extends SessionBase{
 
         }, (err) => {
 
-          jobResponse.jobId = jobId;
-          jobResponse.error = err;
+          actionResponse.jobId = jobId;
+          actionResponse.error = err;
 
-          response.push(jobResponse);
+          response.push(actionResponse);
 
           // Action was performed on all jobs => resolve
           if(response.length===jobsList.length)
@@ -919,3 +972,5 @@ function _removeListeners(jobMonitor, completedListener, errorListener){
   jobMonitor.removeListener("JobCompleted", completedListener);
   jobMonitor.removeListener("JobError", errorListener);
 }
+
+export default SessionImpl;
