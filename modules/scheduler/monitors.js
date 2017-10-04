@@ -6,7 +6,7 @@ import {Sec, sessionManager, JOBTYPE} from './scheduler-manager';
 /**
  * Scans the users array and removes users which have been inactive (i.e. have
  * not made a request) for longer than the maximum allotted time
- * (userLifespan_).
+ * ([userLifespan_]{@link scheduler/SchedulerManager#userLifespan_}).
  */
 export function monitorUsers() {
   let currentTime = new Date().getTime();
@@ -42,18 +42,36 @@ export function monitorUsers() {
  */
 
 /**
+ * Relevant information regarding the failure to read the status of a job.
+ * @typedef {Object} jobStatusError
+ * @property {string} error - The dump of the error.
+ * @property {string} description - A statement to inform the user of this
+ * object that an error occurred.
+ */
+
+/**
  * Monitors the status of the job whose index is specified by the jobId
  * parameter. The status is checked after a set amount of time, specified by the
- * jobPollingInterval_ parameter, has passed.
+ * [jobPollingInterval_]{@link scheduler/SchedulerManager#jobPollingInterval_}
+ * parameter, has passed.<br>
  * The promise returned by the function is resolved once a job is in a COMPLETED
  * or ERROR state, otherwise it is rejected.
  *
  * @param {number} jobId - The id of the job to monitor.
  * @returns {Promise}
- * Resolve - A [jobStatusInformation]{@link
- * module:scheduler/monitors~jobStatusInformation} object.<br>
- * Reject - A [jobStatusInformation]{@link
- * module:scheduler/monitors~jobStatusInformation} object.<br><br>
+ * <ul>
+ *    <li>
+ *      <b>Resolve</b> {[jobStatusInformation]{@link
+ *      module:scheduler/monitors~jobStatusInformation}} - Object holding
+ *      information regarding status of the job currently being handled by the
+ *      SGE.
+ *    </li>
+ *    <li>
+ *      <b>Reject</b> {[jobStatusError]{@link
+ *      module:scheduler/monitors~jobStatusError}} - Object holding
+ *      information regarding the failure to read the status of the job.
+ *    </li>
+ * </ul>
  * Note: the exitStatus, failed and errors fields are always null if the job was
  * terminated while !RUNNING (i.e. while QUEUED/ON_HOLD).
  */
@@ -102,10 +120,18 @@ export function monitorJob(jobId) {
  *
  * @param {number} jobId - The id of the job to monitor.
  * @returns {Promise}
- * Resolve - A [jobStatusInformation]{@link
- * module:scheduler/monitors~jobStatusInformation} object.<br>
- * Reject - A dump (string) of the error if the status of the job could not be
- * read.
+ * <ul>
+ *    <li>
+ *      <b>Resolve</b> {[jobStatusInformation]{@link
+ *      module:scheduler/monitors~jobStatusInformation}} - Object holding
+ *      information regarding status of the job currently being handled by the
+ *      SGE.
+ *    </li>
+ *    <li>
+ *      <b>Reject</b> {string} - A dump of the error if the status of the job
+ *      could not be read.
+ *    </li>
+ * </ul>
  */
 function pollJob(jobId) {
   return new Promise((resolve, reject) => {
@@ -166,11 +192,13 @@ function pollJob(jobId) {
  * (2) the job is in ERROR state --> the job is forcibly terminated and deleted
  * from history;<br>
  * (3) the job was !RUNNING, is still !RUNNING and the time limit for !RUNNING
- * jobs (maxJobQueuedTime_) has been exceeded --> the job is forcibly terminated
- * and deleted from history;<br>
+ * jobs ([maxJobQueuedTime_]{@link
+ * scheduler/SchedulerManager#maxJobQueuedTime_}) has been exceeded --> the job
+ * is forcibly terminated and deleted from history;<br>
  * (4) the job was RUNNING, is still RUNNING and the time limit for RUNNING jobs
- * (maxJobRunningTime_) has been exceeded --> the job is forcibly terminated and
- * deleted from history;<br>
+ * ([maxJobRunningTime_]{@link scheduler/SchedulerManager#maxJobRunningTime_})
+ * has been exceeded --> the job is forcibly terminated and deleted from
+ * history;<br>
  * (5) the job was !COMPLETED and is now COMPLETED --> the job is deleted from
  * history.<br><br>
  *
@@ -180,18 +208,27 @@ function pollJob(jobId) {
  * the updated submitDate field (point (1)) is subjected to unavoidable
  * approximations, whose precision is inversely proportional to the time
  * interval between two subsequent calls of this function (regulated by the
- * jobPollingInterval_ parameter).<br><br>
+ * [jobPollingInterval_]{@link scheduler/SchedulerManager#jobPollingInterval_}
+ * parameter).<br><br>
  *
  * The promise always resolves unless an error occurs.
  *
  * @param {Session} session - The name of the session the job belongs to.
- * @param {string} jobStatus - The current status of the job as returned from
- * getJobProgramStatus.
+ * @param {string} jobStatus - The current status of the job as returned by
+ * [getJobProgramStatus]{@link Session#getJobProgramStatus}.
  * @param {number} index - The index of the job in the job history (jobs_).
  * @returns {Promise}
- * Resolve - A [jobStatusInformation]{@link
- * module:scheduler/monitors~jobStatusInformation} object.<br>
- * Reject - A brief description (string) of the error.
+ * <ul>
+ *    <li>
+ *      <b>Resolve</b> {[jobStatusInformation]{@link
+ *      module:scheduler/monitors~jobStatusInformation}} - Object holding
+ *      information regarding status of the job currently being handled by the
+ *      SGE.
+ *    </li>
+ *    <li>
+ *      <b>Reject</b> {string} - A brief description of the error.
+ *    </li>
+ * </ul>
  */
 function monitorSingleJob(session, jobStatus, index) {
   return new Promise((resolve, reject) => {
@@ -351,12 +388,14 @@ function monitorSingleJob(session, jobStatus, index) {
  * (1) the job is in ERROR state (one or more of its tasks is in ERROR) -->
  * the job is forcibly terminated and deleted from history;<br>
  * (2) the first task of the job was !RUNNING, is still !RUNNING and the time
- * limit for !RUNNING array jobs (maxArrayJobQueuedTime_) has been exceeded -->
- * the job is forcibly terminated and deleted from history;<br>
+ * limit for !RUNNING array jobs ([maxArrayJobQueuedTime_]{@link
+ * scheduler/SchedulerManager#maxArrayJobQueuedTime_}) has been exceeded --> the
+ * job is forcibly terminated and deleted from history;<br>
  * (3) at least the first task of the job started RUNNING and total execution
  * time of the job has exceeded the time limit for RUNNING array jobs
- * (maxArrayJobRunningTime_) --> the job is forcibly terminated and deleted from
- * history;<br>
+ * ([maxArrayJobRunningTime_]{@link
+ * scheduler/SchedulerManager#maxArrayJobRunningTime_}) --> the job is forcibly
+ * terminated and deleted from history;<br>
  * (4) the job was !COMPLETED and is now COMPLETED --> the job is deleted from
  * history.<br><br>
  *
@@ -368,18 +407,29 @@ function monitorSingleJob(session, jobStatus, index) {
  * the runningStart and runningTime fields of each task are subjected to
  * unavoidable approximations, whose precision is inversely proportional to the
  * time interval between two subsequent calls of this function (regulated by the
- * jobPollingInterval_ parameter).<br><br>
+ * [jobPollingInterval_]{@link scheduler/SchedulerManager#jobPollingInterval_}
+ * parameter).<br><br>
  *
  * The promise always resolves unless an error occurs.
  *
- * @param {Session} session - The name of the Drmaa session the job belongs to.
+ * @param {Session} session - The name of the Drmaa
+ * session the job belongs to.
  * @param {string} jobStatus - The current status of the job as returned by
- * {@link Session#getJobProgramStatus}.
- * @param {number} index - The index of the job in the job history (jobs_).
+ * [getJobProgramStatus]{@link Session#getJobProgramStatus}.
+ * @param {number} index - The index of the job in the job history
+ * ([jobs_]{@link scheduler/SchedulerManager#jobs_}).
  * @returns {Promise}
- * Resolve - A [jobStatusInformation]{@link
- * module:scheduler/monitors~jobStatusInformation} object.<br>
- * Reject - A brief description (string) of the error.
+ * <ul>
+ *    <li>
+ *      <b>Resolve</b> {[jobStatusInformation]{@link
+ *      module:scheduler/monitors~jobStatusInformation}} - Object holding
+ *      information regarding status of the job currently being handled by the
+ *      SGE.
+ *    </li>
+ *    <li>
+ *      <b>Reject</b> {string} - A brief description of the error.
+ *    </li>
+ * </ul>
  */
 function monitorArrayJob(session, jobStatus, index) {
   return new Promise((resolve, reject) => {
@@ -600,17 +650,24 @@ function monitorArrayJob(session, jobStatus, index) {
  *
  * The promise resolves if the job could be deleted.
  *
- * @param {Session} session - The name of the Drmaa session the job belongs to.
+ * @param {Session} session - The name of the Drmaa session the job
+ * belongs to.
  * @param {number} jobId - The id of the job to terminate and remove from
  * history.
  * @param {boolean} qacctAvailable - True if the qacct command can find
  * information about this job after its deletion. This is impossible if the job
  * was terminated while not RUNNING.
  * @returns {Promise}
- * Resolve - A {@link JobInfo} object containing several information about the
- * deleted job.<br>
- * Reject - A dump (string) of the error if the status of the job could not be
- * deleted.
+ * <ul>
+ *    <li>
+ *      <b>Resolve</b> {{@link JobInfo}} - Object containing several
+ *      information about the deleted job.
+ *    </li>
+ *    <li>
+ *      <b>Reject</b> {string} - A dump of the error if the status of the job
+ *      could not be deleted.
+ *    </li>
+ * </ul>
  */
 function deleteJob(session, jobId, qacctAvailable) {
   return new Promise((resolve, reject) => {
@@ -636,7 +693,8 @@ function deleteJob(session, jobId, qacctAvailable) {
 }
 
 /**
- * Removes the job specified by the jobId from the jobs_ array.
+ * Removes the job specified by the jobId from the [jobs_]{@link
+ * scheduler/SchedulerManager#jobs_} array.
  * @param {number} jobId - The id of the job to remove.
  */
 function spliceJobArray(jobId) {

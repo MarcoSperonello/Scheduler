@@ -47,22 +47,31 @@ export const sessionManager = new SessionManager();
  * The class constructor is called automatically and the input file, whose path
  * is passed to the constructor, is read in order to configure the class
  * parameters. Said file is then read every time a request is received by the
- * server (provided the last read happened a long enough time ago), so dynamic
- * configuration of input parameters is supported. Refer to the sample file and
- * the constructor comments for further details regarding the input parameters.
+ * server (provided the last read happened a long enough time ago), so
+ * reconfiguration of input parameters during runtime is supported.
+ * Refer to the sample file and the constructor comments for further details
+ * regarding the input parameters.
  * <br><br>
  * USAGE:<br>
  * This class is meant to be accessed by the outside via the
- * [handleRequest]{@link SchedulerSecurity#handleRequest} method, which returns
- * a promise.<br> Said method proceeds to verify whether any of the
+ * [handleRequest]{@link scheduler/SchedulerManager#handleRequest} method, which
+ * returns a promise.<br> Said method proceeds to verify whether any of the
  * aforementioned constraints are violated. If they are not, this method calls
- * the [handleJobSubmission]{@link SchedulerSecurity#handleJobSubmission} method
- * which attempts to submit the job to the SGE. [handleRequest]{@link
- * SchedulerSecurity#handleRequest} returns a promise which eventually resolves
- * into a {@link requestOutcome} object containing several information regarding
- * the outcome of the request.
+ * the [handleJobSubmission]{@link
+ * scheduler/SchedulerManager#handleJobSubmission} method which attempts to
+ * submit the job to the SGE. [handleRequest]{@link
+ * scheduler/SchedulerManager#handleRequest} returns a promise which eventually
+ * resolves into a {@link requestOutcome} object containing several information
+ * regarding the outcome of the request.
+ * <br><br>
+ * Please refer to the [tutorial]{@tutorial SchedulerManager} for an in-depth
+ * explanation.
+ *
+ * @tutorial SchedulerManager
+ *
+ * @alias scheduler/SchedulerManager
  */
-class SchedulerSecurity {
+class SchedulerManager {
   /**
    * Reads the input parameters from the specified file and initializes class
    * variables to these values. If the file cannot be found or not all
@@ -71,51 +80,89 @@ class SchedulerSecurity {
    * @param {string} inputFile - the path of the file with the input parameters.
    */
   constructor(inputFile) {
-    this.inputFile_ = inputFile;  // File from which to read input parameters.
-    this.jobs_ = [];              // Jobs list.
-    this.users_ = [];             // Users list.
-    this.globalRequests_ = [];    // Recent requests by all users.
-    this.blacklist_ = [];  // Requests from blacklisted users are rejected.
-    this.whitelist_ = [];  // Requests from blacklisted users are rejected.
+    /** The path of the file from which to read the input parameters.
+     * @type {string}
+     * @private
+     */
+    this.inputFile_ = inputFile;
+    /** Job history, consisting of the jobs submitted to the SGE and not yet
+     * completed or deleted.
+     * @type {Array}
+     * @private
+     */
+    this.jobs_ = [];
+    /** User history, consisting of the users who have not exceeded their
+     * maximum lifespan ([userLifespan]{@link
+     * scheduler/SchedulerManager#userLifespan_}).
+     * @type {Array}
+     */
+    this.users_ = [];
+    /** Recent request history by all users, consisting of the request which
+     * have not exceeded their maximum lifespan ([requestLifespan]{@link
+     * scheduler/SchedulerManager#requestLifespan_}).
+     * @type {Array}
+     */
+    this.globalRequests_ = [];
+    /** Blacklisted users.
+     * @type {Array}
+     * @private
+     */
+    this.blacklist_ = [];
+    /** Whitelisted users.
+     * @type {Array}
+     * @private
+     */
+    this.whitelist_ = [];
+    /** Current setInterval ID of the [monitorUsers]{@link
+     * modules:scheduler/monitors.monitorUsers} function, called in
+     * [updateMonitors]{@link scheduler/SchedulerManager.updateMonitors}.
+     * @type {number}
+     * @default null
+     * @private
+     */
     this.userPollingIntervalID_ = null;
+    /** Current setInterval ID of the [updateLists]{@link
+     * scheduler/SchedulerManager.updateLists} function, called in
+     * [updateMonitors]{@link scheduler/SchedulerManager.updateMonitors}.
+     * @type {number}
+     * @default null
+     * @private
+     */
     this.listPollingIntervalID_ = null;
+    /**
+     * Helper object to initialize class variables to their default values when
+     * the constructor is called. Said variables are then updated to their
+     * respective values specified in the [input file]{@link
+     * scheduler/SchedulerManager#inputFile_} via
+     * [updateInputParameters]{@link
+     * scheduler/SchedulerManager#updateInputParameters}.
+     * This "preemptive" initialization is necessary since this class is
+     * instantiated only once and the class variables are periodically updated
+     * during runtime via [updateInputParameters]{@link
+     * scheduler/SchedulerManager#updateInputParameters}.
+     *
+     * @type {Object}
+     * @private
+     */
+    // See the updateInputParameters method for a description of each of these
+    // variables.
     this.inputParams_ = {
-      // Max number of requests per user per time unit (requestLifespan).
       maxRequestsPerSecUser: 2,
-      // Max number of requests per time unit for all users.
       maxRequestsPerSecGlobal: 4,
-      // Maximum time allowed to pass after the most recent request of a user
-      // before the user is removed from history.
       userLifespan: 1000000,
-      // Time after which a request can be removed from history.
       requestLifespan: 5000,
-      // Maximum number of concurrent jobs (either RUNNING, QUEUED, ON_HOLD...).
       maxConcurrentJobs: 1,
-      // Time after which a RUNNING job can be forcibly stopped.
       maxJobRunningTime: 10000,
-      // Time after which a QUEUED job can be forcibly stopped.
       maxJobQueuedTime: 10000,
-      // Time after which an array job whose first task is RUNNING can be
-      // forcibly stopped.
       maxArrayJobRunningTime: 10000,
-      // Time after which an array job whose first task is QUEUED can be
-      // forcibly stopped.
       maxArrayJobQueuedTime: 10000,
-      // Path of the local black/whitelist file.
       localListPath: '',
-      // Path of the global black/whitelist file.
       globalListPath: '',
-      // Minimum time between two consecutive input file reads.
       minimumInputUpdateInterval: 5000,
-      // Time of the last input file read.
       lastInputFileUpdate: 0,
-      // Time interval between two consecutive job history polls.
       jobPollingInterval: 1000,
-      // Time interval between two consecutive user history polls.
       userPollingInterval: 1000,
-      // Time interval between two consecutive black/whitelist file reads.
       listPollingInterval: 1000,
-      // Name of the Drmaa session.
       sessionName: 'session',
     };
 
@@ -126,7 +173,11 @@ class SchedulerSecurity {
     this.updateLists();
 
     // Creates a Drmaa session using the specified session name.
-    sessionManager.createSession(this.sessionName_);
+    sessionManager.createSession(this.sessionName_).then( () => {
+      Logger.info('Initialized SGE session ' + this.sessionName_ + '.');
+    }, (error) => {
+      Logger.info(error);
+    });
 
     /*// Polls the user history as often as specified.
     setInterval(monitors.monitorUsers.bind(this), this.userPollingInterval_);
@@ -211,8 +262,8 @@ class SchedulerSecurity {
    * Relevant information of a task of a {@link JOBTYPE}.ARRAY job.
    * @typedef {Object} taskData
    * @property {number} taskId - The ID of the task.
-   * @property {string} status - The status of the task. See {@link
-   * Session#getJobProgramStatus}.
+   * @property {string} status - The status of the task. See
+   * [getJobProgramStatus]{@link Session#getJobProgramStatus}.
    * @property {string} runningStart - The time at which the task switched to
    * the RUNNING state.
    * @property {string} runningTime - The time the task has spent in the RUNNING
@@ -227,9 +278,16 @@ class SchedulerSecurity {
    *
    * @param {requestData} requestData - Object containing request information.
    * @returns {Promise}
-   * Resolve - A {@link requestOutcome} object, containing information regarding
-   * the request and submitted job.<br>
-   * Reject - A {@link requestOutcome} object whose jobData field is null.
+   * <ul>
+   *    <li>
+   *      <b>Resolve</b> {{@link requestOutcome}} - Object holding information
+   *      regarding the request and the submitted job.
+   *    </li>
+   *    <li>
+   *      <b>Reject</b> {{@link requestOutcome}} - Object holding information
+   *      regarding the request. Its jobData field is null.
+   *    </li>
+   * </ul>
    */
   handleRequest(requestData) {
     return new Promise((resolve, reject) => {
@@ -318,10 +376,16 @@ class SchedulerSecurity {
    *
    * @param {requestData} requestData - Object containing request information.
    * @returns {Promise}
-   * Resolve - A {@link jobDescription} object containing several information
-   * about the job.<br>
-   * Reject - A brief description (string) of why the job could not be
-   * submitted.
+   * <ul>
+   *    <li>
+   *      <b>Resolve</b> {{@link jobDescription}} - Object containing several
+   *      information about the job.
+   *    </li>
+   *    <li>
+   *      <b>Reject</b> {string} - A brief description of why the job could not
+   *      be submitted.
+   *    </li>
+   * </ul>
    */
   handleJobSubmission(requestData) {
     return new Promise((resolve, reject) => {
@@ -444,14 +508,22 @@ class SchedulerSecurity {
   /**
    * Wrapper for the [monitorJob]{@link module:scheduler/monitors.monitorJob}
    * function. Keeps calling said function until the promise resolves or an
-   * error
-   * occurs.
+   * error occurs.
    *
    * @returns {Promise}
-   * Resolve - A [jobStatusInformation]{@link
-   * module:scheduler/monitors~jobStatusInformation}
-   * object.<br>
-   * Reject - A brief description (string) of the error.
+   * <ul>
+   *    <li>
+   *      <b>Resolve</b> {[jobStatusInformation]{@link
+   *      module:scheduler/monitors~jobStatusInformation}} -
+   *      Object containing several information about the job successfully
+   *      submitted to the SGE.
+   *    </li>
+   *    <li>
+   *      <b>Reject</b> {[jobStatusError]{@link
+   *      module:scheduler/monitors~jobStatusError}} - Information regarding the
+   *      failure to read the result of the job computation.
+   *    </li>
+   * </ul>
    */
   getJobResult() {
     // Parses the ID of the job whose status needs to be monitored.
@@ -755,36 +827,119 @@ class SchedulerSecurity {
           'Error while reading input file ' + this.inputFile_ +
           '. Using default parameters.');
     }
-
+    /** Max number of requests per user per time unit ([requestLifespan]{@link
+        * scheduler/SchedulerManager#requestLifespan_}) for a single users.
+     * @type {number}
+     * @default 2
+     * @private
+     */
     this.maxRequestsPerSecUser_ = this.inputParams_.maxRequestsPerSecUser || 2;
+    /** Max number of requests per user per time unit ([requestLifespan]{@link
+        * scheduler/SchedulerManager#requestLifespan_}) for all users.
+     * @type {number}
+     * @default 4
+     * @private
+     */
     this.maxRequestsPerSecGlobal_ =
         this.inputParams_.maxRequestsPerSecGlobal || 4;
+    /** Maximum time (in ms) allowed to pass after the most recent request
+     * of a user before the user is removed from history.
+     * @type {number}
+     * @default 100000
+     * @private
+     */
     this.userLifespan_ = this.inputParams_.userLifespan * 1000 || 1000000;
+    /** Time (in ms) after which a request can be removed from history.
+     * @type {number}
+     * @default 5000
+     * @private
+     */
     this.requestLifespan_ = this.inputParams_.requestLifespan * 1000 || 5000;
+    /** Maximum number of concurrent jobs (either RUNNING, QUEUED, ON_HOLD...).
+     * @type {number}
+     * @default 1
+     * @private
+     */
     this.maxConcurrentJobs_ = this.inputParams_.maxConcurrentJobs || 1;
+    /** Time (in ms) after which a RUNNING job can be forcibly stopped.
+     * @type {number}
+     * @default 10000
+     * @private
+     */
     this.maxJobRunningTime_ =
         this.inputParams_.maxJobRunningTime * 1000 || 10000;
+    /** Time (in ms) after which a QUEUED job can be forcibly stopped.
+     * @type {number}
+     * @default 10000
+     */
     this.maxJobQueuedTime_ = this.inputParams_.maxJobQueuedTime * 1000 || 10000;
+    /** Time (in ms) after which an array job whose first task is RUNNING can
+     * be forcibly stopped.
+     * @type {number}
+     * @default 10000
+     */
     this.maxArrayJobRunningTime_ =
         this.inputParams_.maxArrayJobRunningTime * 1000 || 10000;
+    /** Time (in ms) after which an array job whose first task is QUEUED can
+     * be forcibly stopped.
+     * @type {number}
+     * @default 10000
+     */
     this.maxArrayJobQueuedTime_ =
         this.inputParams_.maxArrayJobQueuedTime * 1000 || 10000;
+    /** Path of the local black/whitelist file.
+     * @type {string}
+     * @default ''
+     */
     this.localListPath_ = this.inputParams_.localListPath || '';
+    /** Path of the global black/whitelist file.
+     * @type {string}
+     * @default ''
+     * @private
+     */
     this.globalListPath_ = this.inputParams_.globalListPath || '';
+    /** Minimum time (in ms) between two consecutive input file reads.
+     * @type {number}
+     * @default 5000
+     * @private
+     */
     this.minimumInputUpdateInterval_ =
         this.inputParams_.minimumInputUpdateInterval * 1000 || 10000;
+    /** Time (in ms) of the last input file read.
+     * @type {number}
+     * @default 0
+     * @private
+     */
     this.lastInputFileUpdate_ = new Date().getTime();
 
+    /** Time (in ms) interval between two consecutive job history polls.
+     * @type {number}
+     * @default 1000
+     * @private
+     */
     this.jobPollingInterval_ =
         this.inputParams_.jobPollingInterval * 1000 || 1000;
+    /** Time (in ms) interval between two consecutive user history polls.
+     * @type {number}
+     * @default 1000
+     */
     this.userPollingInterval_ =
         this.inputParams_.userPollingInterval * 1000 || 1000;
+    /** Time (in ms) interval between two consecutive black/whitelist file
+     * reads.
+     * @type {number}
+     * @default 1000
+     * @private
+     */
     this.listPollingInterval_ =
         this.inputParams_.listPollingInterval * 1000 || 1000;
     this.updateMonitors();
-
+    /** Name of the Drmaa [session]{@ link Session}.
+     * @type {string}
+     * @default session
+     */
     this.sessionName_ = this.inputParams_.sessionName || 'session';
   }
 }
 
-export const Sec = new SchedulerSecurity('./input_files/input.json');
+export const Sec = new SchedulerManager('./input_files/input.json');

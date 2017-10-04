@@ -121,10 +121,10 @@ export default {
     }, (error) => {
       Logger.info(error.description);
     });*/
-    Sec.handleRequest(requestData).then( (status) => {
-      //monitors.getJobResult(monitors.monitorJob, status.jobData.jobId).then( (status) => {
+    //Sec.handleRequest(requestData).then( (status) => {
+    let handleRequestPromise = Sec.handleRequest(requestData);
+    handleRequestPromise.then( (status) => {
       Sec.getJobResult(status.jobData.jobId).then( (status) => {
-        console.log('RESOLVING GET JOB RESULT');
         console.log('Job ' + status.jobId + ': ' + status.mainStatus + '-' + status.subStatus + ', exitCode: ' + status.exitStatus + ', failed: \"' + status.failed + '\", errors: ' + status.errors + ', description: ' + status.description);
       })
     }, (error) => {
