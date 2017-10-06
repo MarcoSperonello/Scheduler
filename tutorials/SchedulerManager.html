@@ -1,8 +1,64 @@
 <html>
 <body>
 
-This is a brief tutorial on how to submit jobs, wait for their completion and get the results back. The following is everything you need to use in order to have access to all the important information (as specified in [jobStatusInformation]{@link scheduler/monitors~jobStatusInformation}) of a job whose execution has ended.<br>
+This is a brief tutorial on how to configure the [SchedulerManager]{@link scheduler/SchedulerManager} class and use it submit jobs, wait for their completion and get the results back. The following is everything you need to use in order to have access to all the important information (as specified in [jobStatusInformation]{@link module:scheduler/monitors~jobStatusInformation}) of a job whose execution has ended.<br>
 A complete example is featured at the end of this tutorial.
+
+
+<p>
+<h3>Configuring SchedulerManager</h3>
+
+Configuration is done via a JSON file, ./input_files/input.json by default. The parameters that can be specified are the following:<br><br>
+
+ <ul>
+  	<li>
+      <b>[maxRequestsPerSecUser]{@link scheduler/SchedulerManager#maxRequestsPerSecUser_}</b>: maximum number of requests a user can issue in a single time unit ([requestLifespan]{@link scheduler/SchedulerManager#requestLifespan_}). Requests received by a user who has issued the maximum number of requests will not be forwarded to the SGE (unless the user submitting the request is whitelisted).
+    </li>
+    <li>
+      <b>[maxRequestsPerSecGlobal]{@link scheduler/SchedulerManager#maxRequestsPerSecGlobal_}</b>: maximum number of requests that can be issued by all users collectively in a single time unit ([requestLifespan]{@link scheduler/SchedulerManager#requestLifespan_}). This is a stronger constraint than [maxRequestsPerSecUser]{@link scheduler/SchedulerManager#maxRequestsPerSecUser_}. For example, if three users issued one request each in a given time unit, and [maxRequestsPerSecGlobal]{@link scheduler/SchedulerManager#maxRequestsPerSecGlobal_} was set to 3, another request by any user would be rejected (unless the user submitting the request is whitelisted).
+    </li>
+    <li>
+    	<b>[userLifespan]{@link scheduler/SchedulerManager#userLifespan_}</b>: time (in seconds) that must pass without any requests being issued by a given user, after which said user will be removed from the user history. The next time the user will submit a request, it will be as if it was the first time the user ever tried to issue one.
+    </li>
+    <li>
+    	<b>[requestLifespan]{@link scheduler/SchedulerManager#requestLifespan_}</b>: time (in seconds) that a request issued by a user spends in the user's request history, after which it is deleted. This parameter represents the "time unit" mentioned in [maxRequestsPerSecUser]{@link scheduler/SchedulerManager#maxRequestsPerSecUser_} and [maxRequestsPerSecGlobal]{@link scheduler/SchedulerManager#maxRequestsPerSecGlobal_}.
+    </li>
+    <li>
+    	<b>[maxConcurrentJobs]{@link scheduler/SchedulerManager#maxConcurrentJobs_}</b>: maximum number of jobs that can be handled by the SGE at the same time. Requests received by a user when the maximum number of concurrent jobs has already been reached will not be forwarded to the SGE (unless the user submitting the request is whitelisted).
+    </li>
+    <li>
+    	<b>[maxJobRunningTime]{@link scheduler/SchedulerManager#maxJobRunningTime_}</b>: maximum time (in seconds) a [SINGLE]{@link JOBTYPE} job submitted to the SGE can spend in the RUNNING state, after which it is terminated and removed from the job history.
+    </li>
+    <li>
+    	<b>[maxJobQueuedTime]{@link scheduler/SchedulerManager#maxJobQueuedTime_}</b>: maximum time (in seconds) a [SINGLE]{@link JOBTYPE} job submitted to the SGE can spend in the ON_HOLD/QUEUED state (without ever switching to RUNNING), after which it is terminated and removed from the job history.
+    </li>
+    <li>
+    	<b>[maxArrayRunningJobTime]{@link scheduler/SchedulerManager#maxArrayJobRunningTime_}</b>: maximum time (in seconds) an [ARRAY]{@link JOBTYPE} job submitted to the SGE can spend in the RUNNING state, after which it is terminated and removed from the job history. Note that an [ARRAY]{@link JOBTYPE} job is considered to be RUNNING once the first task starts running.
+    </li>
+    <li>
+    	<b>[maxJobQueuedTime]{@link scheduler/SchedulerManager#maxArrayJobQueuedTime_}</b>: maximum time (in seconds) an [ARRAY]{@link JOBTYPE} job submitted to the SGE can spend in the ON_HOLD/QUEUED state (without ever switching to RUNNING), after which it is terminated and removed from the job history. Note that an [ARRAY]{@link JOBTYPE} job is considered to be ON_HOLD/QUEUED as long as its first task is ON_HOLD/QUEUED itself.
+    </li>
+    <li>
+    	<b>[localListPath]{@link scheduler/SchedulerManager#localListPath_}</b>: path to the JSON file listing the blacklisted and whitelisted users for the service this specific instance of [SchedulerManager]{@link scheduler/SchedulerManager} module is being used for. The blacklist and whitelist fields are arrays of strings. Regular expressions are supported. See ./input_files/local-lists.json for an example.
+    </li>
+    <li>
+			<b>[globalListPath]{@link scheduler/SchedulerManager#globalListPath_}</b>: path to the JSON file listing the blacklisted and whitelisted users for all services. Regular expressions are supported. See ./input_files/global-lists.json for an example.<br> If a user is present in the blacklist or whitelist defined in this file, then the user is blacklisted or whitelisted from any and all services, regardless of their presence in the lists specific to any given service.
+    </li>
+    <li>
+    	<b>[minimumInputUpdateInterval]{@link scheduler/SchedulerManager#minimumInputUpdateInterval_}</b>: minimum time interval (in seconds) between two consecutive reads of the input file. The input file is read whenever a user submits a request, provided the previous read happened at least minimumInputUpdateInterval seconds ago.
+    </li>
+    <li>
+    	<b>[jobPollingInterval]{@link scheduler/SchedulerManager#jobPollingInterval_}</b>: time (in seconds) dictating how often the status and several other information of a job submitted to the SGE must be checked.
+    </li>
+    <li>
+    	<b>[userPollingInterval]{@link scheduler/SchedulerManager#userPollingInterval_}</b>: time (in seconds) dictating how often the user history must be checked, in order to detect and purge requests which have exceeded their requestLifespan or users whose userLifespan has expired.
+    </li>
+    <li>
+    	<b>[listPollingInterval]{@link scheduler/SchedulerManager#listPollingInterval_}</b>: time (in seconds) dictating how often to read the blacklist and whitelist files specified by [localListPath]{@link scheduler/SchedulerManager#localListPath_} and [globalListPath]{@link scheduler/SchedulerManager#globalListPath_}, in order to update the blacklist and whitelist.
+    </li>
+ </ul>
+ <br>
+NOTE: a whitelisted user's requests will ALWAYS be forwarded to the SGE. Likewise, a blacklisted user's requests will ALWAYS be discarded.
 
 <p>
 <h3>Submitting a job</h3>
@@ -62,7 +118,7 @@ As explained in the [handleRequest]{@link scheduler/SchedulerManager#handleReque
 
 
 <br><br>
-In the previous example, the status object which the promise resolves into in case of success is a {@link RequestOutcome} object holding several useful information, the most important of which is the job ID (stored in the jobId field) assigned by the SGE to the job that has just been submitted.
+In the previous example, the status object which the promise resolves into in case of success is a {@link requestOutcome} object holding several useful information, the most important of which is the job ID (stored in the jobId field) assigned by the SGE to the job that has just been submitted.
 
 </p>
 <p>

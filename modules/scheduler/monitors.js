@@ -12,7 +12,7 @@ export function monitorUsers() {
   let currentTime = new Date().getTime();
   for (let i = Sec.users_.length - 1; i >= 0; i--) {
     if (currentTime -
-            Sec.users_[i].requests[Sec.users_[i].requests.length - 1] >
+        Sec.users_[i].requests[Sec.users_[i].requests.length - 1] >
         Sec.userLifespan_) {
       Logger.info(
           'Removing user ' + Sec.users_[i].ip +
@@ -28,6 +28,8 @@ export function monitorUsers() {
  * @typedef {Object} jobStatusInformation
  * @property {number} jobId - The id of the job.
  * @property {string} jobName - The name of the job.
+ * @param {string} sessionName - The UUID of the {@link Session} the job was
+ * launched in.
  * @property {string} mainStatus - The main status of the job as specified in
  * {@link Session}.
  * @property {string} subStatus - The sub status of the job as specified in
@@ -58,6 +60,8 @@ export function monitorUsers() {
  * or ERROR state, otherwise it is rejected.
  *
  * @param {number} jobId - The id of the job to monitor.
+ * @param {string} sessionName - The UUID of the {@link Session} the job was
+ * launched in.
  * @returns {Promise}
  * <ul>
  *    <li>
@@ -75,19 +79,19 @@ export function monitorUsers() {
  * Note: the exitStatus, failed and errors fields are always null if the job was
  * terminated while !RUNNING (i.e. while QUEUED/ON_HOLD).
  */
-export function monitorJob(jobId) {
+export function monitorJob(jobId, sessionName) {
   return new Promise((resolve, reject) => {
     setTimeout(() => {
       try {
         // Keeps checking the status of the job until it is completed or an
         // error occurs.
-        pollJob(jobId).then(
+        pollJob(jobId, sessionName).then(
             (status) => {
               // The job is not COMPLETED or in ERROR, the function is called
               // again after the specified time.
               if (status.mainStatus !== 'COMPLETED' &&
                   status.mainStatus !== 'ERROR') {
-                console.log('not yet completed');
+                //console.log('not yet completed');
                 reject(status);
               } else {
                 console.log('RESOLVING');
@@ -119,6 +123,8 @@ export function monitorJob(jobId) {
  * it is rejected.
  *
  * @param {number} jobId - The id of the job to monitor.
+ * @param {string} sessionName - The UUID of the {@link Session} the job was
+ * launched in.
  * @returns {Promise}
  * <ul>
  *    <li>
@@ -133,7 +139,7 @@ export function monitorJob(jobId) {
  *    </li>
  * </ul>
  */
-function pollJob(jobId) {
+function pollJob(jobId, sessionName) {
   return new Promise((resolve, reject) => {
 
     // Attempts to find the job with the id corresponding to the one passed to
@@ -148,7 +154,7 @@ function pollJob(jobId) {
     let jobName = Sec.jobs_[index].jobName;
     let jobType = Sec.jobs_[index].jobType;
 
-    sessionManager.getSession(Sec.sessionName_).then((session) => {
+    sessionManager.getSession(sessionName).then((session) => {
       // Fetches the status of the specified job and verifies if any meaningful
       // changes to the status of the job took place or any timeouts have been
       // violated since the previous check. The function used to do so depends
@@ -193,7 +199,7 @@ function pollJob(jobId) {
  * from history;<br>
  * (3) the job was !RUNNING, is still !RUNNING and the time limit for !RUNNING
  * jobs ([maxJobQueuedTime_]{@link
- * scheduler/SchedulerManager#maxJobQueuedTime_}) has been exceeded --> the job
+    * scheduler/SchedulerManager#maxJobQueuedTime_}) has been exceeded --> the job
  * is forcibly terminated and deleted from history;<br>
  * (4) the job was RUNNING, is still RUNNING and the time limit for RUNNING jobs
  * ([maxJobRunningTime_]{@link scheduler/SchedulerManager#maxJobRunningTime_})
@@ -254,13 +260,14 @@ function monitorSingleJob(session, jobStatus, index) {
       resolve({
         jobId: jobId,
         jobName: jobName,
+        sessionName: session.sessionName,
         mainStatus: jobStatus[jobId].mainStatus,
         subStatus: jobStatus[jobId].subStatus,
         exitStatus: null,
         errors: null,
         failed: null,
         description: 'Job switched from ' + prevJobStatus + ' to ' +
-            jobStatus[jobId].mainStatus + '.'
+        jobStatus[jobId].mainStatus + '.'
       });
       // The index of the job in the job history is fetched again in case the
       // array was modified by another job's monitor in the meantime.
@@ -286,6 +293,7 @@ function monitorSingleJob(session, jobStatus, index) {
                   resolve({
                     jobId: jobId,
                     jobName: jobName,
+                    sessionName: session.sessionName,
                     mainStatus: jobStatus[jobId].mainStatus,
                     subStatus: 'DELETED',
                     exitStatus: jobInfo.exitStatus,
@@ -299,9 +307,9 @@ function monitorSingleJob(session, jobStatus, index) {
       // The job exceeded one of the timeouts and is deleted.
       else if (
           jobStatus[jobId].mainStatus !== 'RUNNING' &&
-              currentTime - submitDate > Sec.maxJobQueuedTime_ ||
+          currentTime - submitDate > Sec.maxJobQueuedTime_ ||
           jobStatus[jobId].mainStatus === 'RUNNING' &&
-              currentTime - submitDate > Sec.maxJobRunningTime_) {
+          currentTime - submitDate > Sec.maxJobRunningTime_) {
         Logger.info(
             'Job ' + jobId + ' (' + jobName + ') has exceeded maximum ' +
             jobStatus[jobId].mainStatus + ' runtime.');
@@ -311,6 +319,7 @@ function monitorSingleJob(session, jobStatus, index) {
                   resolve({
                     jobId: jobId,
                     jobName: jobName,
+                    sessionName: session.sessionName,
                     mainStatus: 'COMPLETED',
                     subStatus: 'DELETED',
                     exitStatus: jobStatus[jobId].mainStatus === 'RUNNING' ?
@@ -323,7 +332,7 @@ function monitorSingleJob(session, jobStatus, index) {
                         jobInfo.failed :
                         null,
                     description: 'Maximum ' + jobStatus[jobId].mainStatus +
-                        ' runtime exceeded.',
+                    ' runtime exceeded.',
                   });
                 },
                 (error) => { reject(error); });
@@ -332,6 +341,7 @@ function monitorSingleJob(session, jobStatus, index) {
         resolve({
           jobId: jobId,
           jobName: jobName,
+          sessionName: session.sessionName,
           mainStatus: jobStatus[jobId].mainStatus,
           subStatus: jobStatus[jobId].subStatus,
           exitStatus: null,
@@ -350,6 +360,7 @@ function monitorSingleJob(session, jobStatus, index) {
         resolve({
           jobId: jobId,
           jobName: jobName,
+          sessionName: session.sessionName,
           mainStatus: jobStatus[jobId].mainStatus,
           subStatus: jobStatus[jobId].subStatus,
           exitStatus: jobInfo.exitStatus,
@@ -389,12 +400,12 @@ function monitorSingleJob(session, jobStatus, index) {
  * the job is forcibly terminated and deleted from history;<br>
  * (2) the first task of the job was !RUNNING, is still !RUNNING and the time
  * limit for !RUNNING array jobs ([maxArrayJobQueuedTime_]{@link
- * scheduler/SchedulerManager#maxArrayJobQueuedTime_}) has been exceeded --> the
+    * scheduler/SchedulerManager#maxArrayJobQueuedTime_}) has been exceeded --> the
  * job is forcibly terminated and deleted from history;<br>
  * (3) at least the first task of the job started RUNNING and total execution
  * time of the job has exceeded the time limit for RUNNING array jobs
  * ([maxArrayJobRunningTime_]{@link
- * scheduler/SchedulerManager#maxArrayJobRunningTime_}) --> the job is forcibly
+    * scheduler/SchedulerManager#maxArrayJobRunningTime_}) --> the job is forcibly
  * terminated and deleted from history;<br>
  * (4) the job was !COMPLETED and is now COMPLETED --> the job is deleted from
  * history.<br><br>
@@ -456,6 +467,7 @@ function monitorArrayJob(session, jobStatus, index) {
                 resolve({
                   jobId: jobId,
                   jobName: jobName,
+                  sessionName: session.sessionName,
                   mainStatus: jobStatus[jobId].mainStatus,
                   subStatus: 'DELETED',
                   exitStatus: jobInfo.exitStatus,
@@ -472,7 +484,7 @@ function monitorArrayJob(session, jobStatus, index) {
       // If the first task is still not running after the maximum allotted
       // queued time, the job is deleted and removed from history.
       if (jobStatus[jobId].tasksStatus[firstTaskId].mainStatus !==
-              'COMPLETED' &&
+          'COMPLETED' &&
           jobStatus[jobId].tasksStatus[firstTaskId].mainStatus !== 'RUNNING' &&
           currentTime - submitDate > Sec.maxArrayJobQueuedTime_) {
         Logger.info(
@@ -485,14 +497,15 @@ function monitorArrayJob(session, jobStatus, index) {
                   resolve({
                     jobId: jobId,
                     jobName: jobName,
+                    sessionName: session.sessionName,
                     mainStatus: 'COMPLETED',
                     subStatus: 'DELETED',
                     exitStatus: null,
                     failed: null,
                     errors: null,
                     description: 'Maximum ' +
-                        jobStatus[jobId].tasksStatus[firstTaskId].mainStatus +
-                        ' runtime exceeded.'
+                    jobStatus[jobId].tasksStatus[firstTaskId].mainStatus +
+                    ' runtime exceeded.'
                   });
                 },
                 (error) => { reject(error); });
@@ -535,8 +548,8 @@ function monitorArrayJob(session, jobStatus, index) {
               // runningStart parameter is updated to reflect this assumption.
               taskInfo[taskIndex].runningStart =
                   taskInfo[taskIndex].runningStart === 0 ?
-                  currentTime :
-                  taskInfo[taskIndex].runningStart;
+                      currentTime :
+                      taskInfo[taskIndex].runningStart;
               // The running time of the task is calculated using the current
               // time and the time at which the task switched to RUNNING.
               taskInfo[taskIndex].runningTime =
@@ -591,6 +604,7 @@ function monitorArrayJob(session, jobStatus, index) {
                       resolve({
                         jobId: jobId,
                         jobName: jobName,
+                        sessionName: session.sessionName,
                         mainStatus: 'COMPLETED',
                         subStatus: 'DELETED',
                         exitStatus: jobInfo.exitStatus,
@@ -614,6 +628,7 @@ function monitorArrayJob(session, jobStatus, index) {
         resolve({
           jobId: jobId,
           jobName: jobName,
+          sessionName: session.sessionName,
           mainStatus: jobStatus[jobId].mainStatus,
           subStatus: jobStatus[jobId].subStatus,
           exitStatus: null,
@@ -631,6 +646,7 @@ function monitorArrayJob(session, jobStatus, index) {
         resolve({
           jobId: jobId,
           jobName: jobName,
+          sessionName: session.sessionName,
           mainStatus: jobStatus[jobId].mainStatus,
           subStatus: jobStatus[jobId].subStatus,
           exitStatus: jobInfo.exitStatus,
@@ -694,7 +710,7 @@ function deleteJob(session, jobId, qacctAvailable) {
 
 /**
  * Removes the job specified by the jobId from the [jobs_]{@link
- * scheduler/SchedulerManager#jobs_} array.
+    * scheduler/SchedulerManager#jobs_} array.
  * @param {number} jobId - The id of the job to remove.
  */
 function spliceJobArray(jobId) {

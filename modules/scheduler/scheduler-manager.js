@@ -58,9 +58,9 @@ export const sessionManager = new SessionManager();
  * returns a promise.<br> Said method proceeds to verify whether any of the
  * aforementioned constraints are violated. If they are not, this method calls
  * the [handleJobSubmission]{@link
- * scheduler/SchedulerManager#handleJobSubmission} method which attempts to
+    * scheduler/SchedulerManager#handleJobSubmission} method which attempts to
  * submit the job to the SGE. [handleRequest]{@link
- * scheduler/SchedulerManager#handleRequest} returns a promise which eventually
+    * scheduler/SchedulerManager#handleRequest} returns a promise which eventually
  * resolves into a {@link requestOutcome} object containing several information
  * regarding the outcome of the request.
  * <br><br>
@@ -87,20 +87,20 @@ class SchedulerManager {
     this.inputFile_ = inputFile;
     /** Job history, consisting of the jobs submitted to the SGE and not yet
      * completed or deleted.
-     * @type {Array}
+     * @type {array}
      * @private
      */
     this.jobs_ = [];
     /** User history, consisting of the users who have not exceeded their
      * maximum lifespan ([userLifespan]{@link
-     * scheduler/SchedulerManager#userLifespan_}).
-     * @type {Array}
+        * scheduler/SchedulerManager#userLifespan_}).
+     * @type {array}
      */
     this.users_ = [];
     /** Recent request history by all users, consisting of the request which
      * have not exceeded their maximum lifespan ([requestLifespan]{@link
-     * scheduler/SchedulerManager#requestLifespan_}).
-     * @type {Array}
+        * scheduler/SchedulerManager#requestLifespan_}).
+     * @type {array}
      */
     this.globalRequests_ = [];
     /** Blacklisted users.
@@ -109,12 +109,12 @@ class SchedulerManager {
      */
     this.blacklist_ = [];
     /** Whitelisted users.
-     * @type {Array}
+     * @type {array}
      * @private
      */
     this.whitelist_ = [];
     /** Current setInterval ID of the [monitorUsers]{@link
-     * modules:scheduler/monitors.monitorUsers} function, called in
+        * modules:scheduler/monitors.monitorUsers} function, called in
      * [updateMonitors]{@link scheduler/SchedulerManager.updateMonitors}.
      * @type {number}
      * @default null
@@ -122,7 +122,7 @@ class SchedulerManager {
      */
     this.userPollingIntervalID_ = null;
     /** Current setInterval ID of the [updateLists]{@link
-     * scheduler/SchedulerManager.updateLists} function, called in
+        * scheduler/SchedulerManager.updateLists} function, called in
      * [updateMonitors]{@link scheduler/SchedulerManager.updateMonitors}.
      * @type {number}
      * @default null
@@ -133,13 +133,13 @@ class SchedulerManager {
      * Helper object to initialize class variables to their default values when
      * the constructor is called. Said variables are then updated to their
      * respective values specified in the [input file]{@link
-     * scheduler/SchedulerManager#inputFile_} via
+        * scheduler/SchedulerManager#inputFile_} via
      * [updateInputParameters]{@link
-     * scheduler/SchedulerManager#updateInputParameters}.
+        * scheduler/SchedulerManager#updateInputParameters}.
      * This "preemptive" initialization is necessary since this class is
      * instantiated only once and the class variables are periodically updated
      * during runtime via [updateInputParameters]{@link
-     * scheduler/SchedulerManager#updateInputParameters}.
+        * scheduler/SchedulerManager#updateInputParameters}.
      *
      * @type {Object}
      * @private
@@ -163,7 +163,6 @@ class SchedulerManager {
       jobPollingInterval: 1000,
       userPollingInterval: 1000,
       listPollingInterval: 1000,
-      sessionName: 'session',
     };
 
     // Sets input parameters as specified in the input file. If there is an
@@ -171,13 +170,6 @@ class SchedulerManager {
     this.updateInputParameters();
     // Checks if there are any users to be added to the black/whitelist.
     this.updateLists();
-
-    // Creates a Drmaa session using the specified session name.
-    sessionManager.createSession(this.sessionName_).then( () => {
-      Logger.info('Initialized SGE session ' + this.sessionName_ + '.');
-    }, (error) => {
-      Logger.info(error);
-    });
 
     /*// Polls the user history as often as specified.
     setInterval(monitors.monitorUsers.bind(this), this.userPollingInterval_);
@@ -218,8 +210,7 @@ class SchedulerManager {
    * @property {string} ip - The IP address of the user who submitted the
    * request.
    * @property {string} time - The time at which the request was received.
-   * @property {JobTemplate} jobData - SGE parameters of the submitted job. See
-   * {@link JobTemplate}.
+   * @property {[JobDescription]{@link jobDescription} jobData -  Relevant information regarding a submitted job.
    * @property {string} description - Brief description of the outcome of the
    * request as specified in {@link requestStatus}.
    */
@@ -240,14 +231,15 @@ class SchedulerManager {
    * @property {number} jobId - The unique identifier of the job, determined by
    * the SGE.
    * @property {string} jobName - The name of the job.
+   * @property {string} sessionName - The UUID of the session the job was launched in.
    * @property {number} firstTaskId - The number of the first task of the job if
    * it is a {@link JOBTYPE}.ARRAY job, null otherwise.
    * @property {number} lastTaskId - The number of the last task of the job if
    * it is a {@link JOBTYPE}.ARRAY, null otherwise.
    * @property {number} increment - The step size of the job if it is a {@link
-   * JOBTYPE}.ARRAY job, null otherwise.
+      * JOBTYPE}.ARRAY job, null otherwise.
    * @property {array} taskInfo - Information for each task (see {@link
-   * taskData}) of the job if it is a {@link JOBTYPE}.ARRAY job, null otherwise.
+      * taskData}) of the job if it is a {@link JOBTYPE}.ARRAY job, null otherwise.
    * @property {string} user - The IP address of the user who submitted the
    * request.
    * @property {string} submitDate - The time at which the job was submitted to
@@ -255,7 +247,7 @@ class SchedulerManager {
    * @property {string} totalExecutionTime - The sum of the time spent in the
    * RUNNING state by each task of the job if it is a {@link JOBTYPE}.ARRAY job.
    * @property {string} jobType - the type of the job as specified in {@link
-   * JOBTYPE}.
+      * JOBTYPE}.
    */
 
   /**
@@ -418,13 +410,41 @@ class SchedulerManager {
         // Step size (size of the increments to go from "start" to "end").
         let increment = jobInfo.incr || null;
 
+        /*let jobData = new JobTemplate({
+          remoteCommand: requestData.jobPath.remoteCommand,
+          args: requestData.jobPath.args || [],
+          submitAsHold: requestData.jobPath.submitAsHold || false,
+          jobEnvironment: requestData.jobPath.jobEnvironment || '',
+          workingDirectory: requestData.jobPath.workingDirectory || '',
+          jobCategory: requestData.jobPath.jobCategory || '',
+          nativeSpecification: requestData.jobPath.nativeSpecification || '',
+          email: requestData.jobPath.email || '',
+          blockEmail: requestData.jobPath.blockEmail || true,
+          startTime: requestData.jobPath.startTime || '',
+          jobName: requestData.jobPath.jobName || '',
+          inputPath: requestData.jobPath.inputPath || '',
+          outputPath: requestData.jobPath.outputPath || '',
+          errorPath: requestData.jobPath.errorPath || '',
+          joinFiles: requestData.jobPath.joinFiles || '',
+        });
+
+        // Number of the first task of the job array.
+        let start = requestData.jobPath.start || null;
+        // Number of the last task of the job array.
+        let end = requestData.jobPath.end || null;
+        // Step size (size of the increments to go from "start" to "end").
+        let increment = requestData.jobPath.incr || null;*/
+
         // Determines if the job consists of a single task or multiple ones.
         let jobType = this.checkArrayParams(start, end, increment);
 
-        // Submits the job to the SGE.
-        sessionManager.getSession(this.sessionName_).then((session) => {
-          // A different submission function is called, according to the JOBTYPE
-          // of the job.
+        // Generates a UUID to be used as the session name for this submission.
+        let sessionName = this.generateUUIDV4();
+        // Creates the Drmaa session.
+        sessionManager.createSession(sessionName).then( (session) => {
+          Logger.info('Initialized SGE session ' + sessionName + '.');
+          // Submits the job to the SGE. A different submission function is
+          // called, according to the JOBTYPE of the job.
           let jobFunc = jobType === JOBTYPE.SINGLE ?
               session.runJob(jobData) :
               session.runBulkJobs(jobData, start, end, increment);
@@ -437,8 +457,7 @@ class SchedulerManager {
                     let jobSubmitDate = new Date(job.submission_time).getTime();
                     let taskInfo = [];
                     // If the job is of the ARRAY type, all of its task are
-                    // added
-                    // to the taskInfo array.
+                    // added to the taskInfo array.
                     if (jobType === JOBTYPE.ARRAY) {
                       for (let taskId = start; taskId <= end;
                            taskId += increment) {
@@ -450,7 +469,7 @@ class SchedulerManager {
                           taskId: taskId,
                           // The status of the task.
                           status:
-                              jobStatus[jobId].tasksStatus[taskId].mainStatus,
+                          jobStatus[jobId].tasksStatus[taskId].mainStatus,
                           // Time at which the task switched to the RUNNING
                           // state.
                           runningStart: 0,
@@ -464,6 +483,7 @@ class SchedulerManager {
                     let jobDescription = {
                       jobId: jobId,
                       jobName: job.job_name,
+                      sessionName: sessionName,
                       jobStatus: jobStatus[jobId].mainStatus,
                       firstTaskId: jobType === JOBTYPE.SINGLE ? null : start,
                       lastTaskId: jobType === JOBTYPE.SINGLE ? null : end,
@@ -495,6 +515,9 @@ class SchedulerManager {
                 reject(
                     'Error found in job specifications. Job not submitted to the SGE.');
               });
+        }, (error) => {
+          Logger.info('Error initializing session.');
+          reject('Error initializing session: ' + error);
         });
       } catch (err) {
         Logger.info(
@@ -528,7 +551,8 @@ class SchedulerManager {
   getJobResult() {
     // Parses the ID of the job whose status needs to be monitored.
     let jobId = Array.from(arguments);
-    // Calls
+    // Keeps calling the monitorJob function to monitor the job of id JobId
+    // until the promise resolves or an error occurs.
     return monitors.monitorJob.apply(null, jobId).catch((result) => {
       if (result.hasOwnProperty('error')) return Promise.reject(result.error);
       return this.getJobResult.apply(this, jobId);
@@ -537,12 +561,11 @@ class SchedulerManager {
 
   /**
    * Verifies if a request can be serviced. The result is contained in a {@link
-   * requestStatus} object.
+      * requestStatus} object.
    *
    * @param {requestData} requestData - Object holding request information.
    * @param {number} userIndex - The corresponding index of the users_ array of
-   * the user
-   * submitting the request.
+   * the user submitting the request.
    * @returns {requestStatus} status - Object storing the result of the checks.
    */
   verifyRequest(requestData, userIndex) {
@@ -583,7 +606,7 @@ class SchedulerManager {
       return {
         status: false,
         description: 'Maximum number (' + this.maxConcurrentJobs_ +
-            ') of concurrent jobs already reached. Cannot submit any more jobs at the moment.'
+        ') of concurrent jobs already reached. Cannot submit any more jobs at the moment.'
       };
 
     // If the server is already at capacity, additional requests cannot be
@@ -592,8 +615,8 @@ class SchedulerManager {
       return {
         status: false,
         description: 'Server currently at capacity (' +
-            this.globalRequests_.length +
-            ' global requests present). Cannot service more requests.'
+        this.globalRequests_.length +
+        ' global requests present). Cannot service more requests.'
       };
 
     if (userIndex === -1) return {status: true, description: ''};
@@ -627,8 +650,8 @@ class SchedulerManager {
     return {
       status: false,
       description: 'User ' + user.ip +
-          ' cannot submit more requests right now: there are currently ' +
-          user.requests.length + ' request(s) in the user\'s history.'
+      ' cannot submit more requests right now: there are currently ' +
+      user.requests.length + ' request(s) in the user\'s history.'
     };
   }
 
@@ -712,6 +735,17 @@ class SchedulerManager {
   }
 
   /**
+   * Generates a UUID string.
+   * @returns {string} The generated UUID string.
+   */
+  generateUUIDV4() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      let r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+
+  /**
    * Returns the index of the element of the array corresponding to the user who
    * submitted the input request.
    *
@@ -737,13 +771,13 @@ class SchedulerManager {
    * @param {number} end - The index of the last task.
    * @param {number} increment - The index increment.
    * @returns {string} {@link JOBTYPE}.SINGLE if the check fails, {@link
-   * JOBTYPE}.ARRAY
+      * JOBTYPE}.ARRAY
    * otherwise.
    */
   checkArrayParams(start, end, increment) {
     return (!Number.isInteger(start) || !Number.isInteger(end) ||
-            !Number.isInteger(increment) || start <= 0 || end < start ||
-            start + increment > end) ?
+        !Number.isInteger(increment) || start <= 0 || end < start ||
+        start + increment > end) ?
         JOBTYPE.SINGLE :
         JOBTYPE.ARRAY;
   }
@@ -934,11 +968,6 @@ class SchedulerManager {
     this.listPollingInterval_ =
         this.inputParams_.listPollingInterval * 1000 || 1000;
     this.updateMonitors();
-    /** Name of the Drmaa [session]{@ link Session}.
-     * @type {string}
-     * @default session
-     */
-    this.sessionName_ = this.inputParams_.sessionName || 'session';
   }
 }
 

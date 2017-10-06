@@ -46,6 +46,8 @@ export default {
       remoteCommand: "\"/home/marco/Uni/Tesi/Projects/node-ws-template/sge-tests/simple.sh\"",
       workingDirectory: "/home/marco/Uni/Tesi/Projects/node-ws-template/sge-tests/",
       jobName: 'testJob',
+      nativeSpecification: '',
+      submitAsHold: false,
       start: 1,
       end: 3,
       incr: 1
@@ -55,7 +57,8 @@ export default {
     var requestData = {
       ip: requestIp,
       time: req.time(),
-      jobPath: req.query["jobPath"]
+      jobPath: req.query["jobPath"],
+      //jobPath: jobData,
     };
 
 
@@ -69,63 +72,20 @@ export default {
     let str = '192.168.0.1';
     console.log("test:" + regexp.test(str));*/
 
-
-    // Calls the request handler.
-    /*when(Sec.handleRequest(requestData), (status) => {
-      console.log('jobStatus: ' + status.jobStatus);
-      when(monitors.pollJobs(status.jobId), (jobStatus) => {
-        console.log('jobStatus after pollJobs ' + jobStatus);
-        res.send(200, "Done");
-      });
-    });*/
-    /*function retry(operation, jobId) {
-      when(operation(jobId), (resolve) => {
-        return resolve;
-      }, (reject) => {
-        console.log('current job status ' + reject);
-        setTimeout(retry.bind(null, operation, jobId), 1000);
-      })
-    }
-*/
-/*    function retry(jobId) {
-      try{
-        monitors.pollJobs(jobId).then( (status) => {
-          if(status.mainStatus !== 'COMPLETED') {
-            //console.log('not yet completed ' + status.description);
-            setTimeout(retry.bind(null,jobId), Sec.jobPollingInterval_);
-          }
-          else console.log('Job ' + status.jobId + ': ' + status.mainStatus + ', ' + status.description);
-        });
-      } catch(err) {
-        console.log(err);
-        console.log('Job already erased')
-      }
-    }*/
-
-/*    when(Sec.handleRequest(requestData), (status) => {
-      let def = new defer();
-      when(monitors.monitorJob(status.jobData.jobId, def), (status) => {
-        console.log('Job ' + status.jobId + ': ' + status.mainStatus + ', ' + status.description);
-      }, (error) => {
-        console.log(error);
-      })
-    }, (error) => {
-      Logger.info(error.description);
-    });*/
-    /*when(Sec.handleRequest(requestData), (status) => {
-      when(monitors.getJobResult(status.jobData.jobId), (status) => {
-        console.log('Job ' + status.jobId + ': ' + status.mainStatus + ', ' + status.description);
-      }, (error) => {
-        console.log(error);
-      })
-    }, (error) => {
-      Logger.info(error.description);
-    });*/
     //Sec.handleRequest(requestData).then( (status) => {
-    let handleRequestPromise = Sec.handleRequest(requestData);
+    /*let handleRequestPromise = Sec.handleRequest(requestData);
     handleRequestPromise.then( (status) => {
       Sec.getJobResult(status.jobData.jobId).then( (status) => {
         console.log('Job ' + status.jobId + ': ' + status.mainStatus + '-' + status.subStatus + ', exitCode: ' + status.exitStatus + ', failed: \"' + status.failed + '\", errors: ' + status.errors + ', description: ' + status.description);
+      })
+    }, (error) => {
+      Logger.info(error.description);
+    });*/
+    let handleRequestPromise = Sec.handleRequest(requestData);
+    handleRequestPromise.then( (status) => {
+      console.log('hi ' + status.jobData.sessionName);
+      Sec.getJobResult(status.jobData.jobId, status.jobData.sessionName).then( (status) => {
+        console.log('Job ' + status.jobId + ' of session ' + status.sessionName + ' status: ' + status.mainStatus + '-' + status.subStatus + ', exitCode: ' + status.exitStatus + ', failed: \"' + status.failed + '\", errors: ' + status.errors + ', description: ' + status.description);
       })
     }, (error) => {
       Logger.info(error.description);
