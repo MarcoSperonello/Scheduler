@@ -5,12 +5,12 @@ import {EventEmitter} from "events";
 
 let _refreshInterval = 1000;                    // Refresh interval for the monitor
 /**
- * Class for monitoring job execution completion.
+ * Class for monitoring jobs' completion.
  * @extends EventEmitter
  */
 class JobMonitor extends EventEmitter{
   /**
-   * Initialize monitor's parameters.
+   * Monitor initialization.
    */
   constructor(){
     super();
@@ -22,7 +22,7 @@ class JobMonitor extends EventEmitter{
 
   /**
    * Registers a list of jobs to monitor for completion status.
-   * @param {Job[]} jobs - List of jobs to register for completion update.
+   * @param {Job[]} jobs - List of jobs to monitor.
    * @throws {module:nDrmaaExceptions.InvalidArgumentException} InvalidArgumentException - The array passed does not
    *    contain elements of class Job
    */
@@ -36,7 +36,7 @@ class JobMonitor extends EventEmitter{
   }
 
   /**
-   * Starts the monitor.
+   * Starts monitoring.
    */
   startMonitor(){
     this.monitor = setInterval(() => {
@@ -45,7 +45,7 @@ class JobMonitor extends EventEmitter{
   }
 
   /**
-   * JobCompleted event. Fires when a job has completed its execution.
+   * Fires when a job has completed its execution.
    * Returns the Id of the completed job.
    *
    * @event JobCompleted
@@ -53,7 +53,7 @@ class JobMonitor extends EventEmitter{
    */
 
   /**
-   * JobError event. Fires when a job has encountered an error and could not complete its execution.
+   * Fires when a job has encountered an error and could not complete its execution.
    * Returns the Id of the job in error.
    *
    * @event JobError
@@ -61,7 +61,7 @@ class JobMonitor extends EventEmitter{
    */
 
   /**
-   * qstatError event. Fires when the invocation of command qstat could not be executed due to some error.
+   * Fires when the invocation of command qstat could not be executed due to some error.
    * Returns the error reason.
    *
    * @event qstatError
@@ -69,7 +69,7 @@ class JobMonitor extends EventEmitter{
    */
 
   /**
-   * Get the list of currently active jobs from qstat, and emits event according to the completion status of each
+   * Get the list of currently active jobs from qstat, and emit event according to the completion status of each
    * registered job: if a job is registered but does not show up on the list returned by qstat, it emits a "JobCompleted"
    * event with the id of the job as a message; otherwise, if it appears on the list but its status is marked as "ERROR",
    * emit the event "JobError" along with the id of the job.

@@ -1,6 +1,5 @@
 /**
- * The JobInfo abstract class represents the status for a finished job. It contains the job's id, the job's
- * exit and failed status, and an object with all the raw information collected from the DRMS about the job.
+ * Abstract class representing the status and info of a finished job.
  */
 class JobInfo{
   /**

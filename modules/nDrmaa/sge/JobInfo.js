@@ -1,12 +1,12 @@
 import JobInfo from "../JobInfo";
 
 /**
- * This class provides information about a completed Grid Engine job.
+ * Class providing information about a completed Grid Engine job.
  * @extends JobInfo
  */
 class JobInfoImpl extends JobInfo{
   /**
-   * Inserts the info passed as argument based on the type of job we are dealing with (array or single)
+   * Create a JobInfo object with the info passed in the argument
    * @param {Object} info
    */
   constructor(info) {

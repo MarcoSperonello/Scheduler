@@ -448,11 +448,11 @@ class SessionImpl extends Session{
 
   /**
    * The synchronize() method returns when all jobs specified in jobIds have failed or finished
-   * execution. If jobIds contains JOB_IDS_SESSION_ALL, then this method waits for all jobs submitted during this
+   * execution. If jobIds contains {@link JOB_IDS_SESSION_ALL}, then this method waits for all jobs submitted during this
    * DRMAA session.
    *
    * The caller may specify a timeout, indicating how many milliseconds to wait for this call to complete before
-   * timing out. The special value TIMEOUT_WAIT_FOREVER can be used to wait indefinitely for a result.
+   * timing out. The special value {@link TIMEOUT_WAIT_FOREVER} can be used to wait indefinitely for a result.
    *
    * The promise returned is resolved a with an array of objects, one for each job specified upon method invocation,
    * indicating different information for each job; the array has the following structure:

@@ -26,82 +26,83 @@
 /**
  * Helper function for creating the exceptions.
  * @param exceptionName
- * @param msg
+ * @param {string} description - Error description.
  * @return {Error}
  * @private
  */
-function _createException(exceptionName, msg){
-  let err = new Error(msg);
+function _createException(exceptionName, description){
+  let err = new Error(description);
   err.name = exceptionName;
+  err.reason = description;
   return err;
 }
 
 /**
  * Session initialization failed due to an already existing DRMAA session.
- * @param msg
+ * @param {string} description - Error description.
  * @return {Error}
  * @constructor
  */
-exports.AlreadyActiveSessionException = (msg) => {
-  return _createException("AlreadyActiveSessionException", msg);
+exports.AlreadyActiveSessionException = (description) => {
+  return _createException("AlreadyActiveSessionException", description);
 };
 
 /**
  * DRM system initialization failed.
- * @param msg
+ * @param {string} description - Error description.
  * @return {Error}
  * @constructor
  */
-exports.DrmsInitException = (msg) => {
-  return _createException("DrmsInitException", msg);
+exports.DrmsInitException = (description) => {
+  return _createException("DrmsInitException", description);
 };
 
 /**
  * We have encountered a time-out condition for Session.synchronize() or Session.wait().
- * @param msg
+ * @param {string} description - Error description.
  * @return {Error}
  * @constructor
  */
-exports.ExitTimeoutException = (msg) => {
-  return _createException("ExitTimeoutException", msg);
+exports.ExitTimeoutException = (description) => {
+  return _createException("ExitTimeoutException", description);
 };
 
 /**
  * The input value for an argument is invalid.
- * @param msg
+ * @param {string} description - Error description.
  * @return {Error}
  * @constructor
  */
-exports.InvalidArgumentException = (msg) => {
-  return _createException("InvalidArgumentException", msg);
+exports.InvalidArgumentException = (description) => {
+  return _createException("InvalidArgumentException", description);
 };
 
 /**
  * Specified an invalid Session.
- * @param msg
+ * @param {string} description - Error description.
  * @return {Error}
  * @constructor
  */
-exports.InvalidSessionException = (msg) => {
-  return _createException("InvalidSessionException", msg);
+exports.InvalidSessionException = (description) => {
+  return _createException("InvalidSessionException", description);
 };
 
 /**
  * Requested action failed because there is no active session.
- * @param msg
+ * @param {string} description - Error description.
  * @return {Error}
  * @constructor
  */
-exports.NoActiveSessionException = (msg) => {
-  return _createException("NoActiveSessionException", msg);
+exports.NoActiveSessionException = (description) => {
+  return _createException("NoActiveSessionException", description);
 };
 
 /**
  * This exception is thrown when an unsupported option is passed for a job submission.
- * @param msg
+ * @param {string} description - Error description.
  * @return {Error}
  * @constructor
  */
-exports.UnsupportedAttributeException = (msg) => {
-  return _createException("UnsupportedAttributeException", msg);
+exports.UnsupportedAttributeException = (description) => {
+  return _createException("UnsupportedAttributeException", description);
 };

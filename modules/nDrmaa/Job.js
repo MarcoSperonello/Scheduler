@@ -8,8 +8,8 @@ class Job{
    * Create a Job object
    * @param {number} jobId - The id of the job
    * @param {string} sessionName - Name of the belonging session
-   * @param {JobTemplate} jobTemplate - Template used for creating the job (i.e. job's submission options)
-   * @param {boolean} isJobArray - Whether it's an array job
+   * @param {JobTemplate} jobTemplate - Job's submission options
+   * @param {boolean} isJobArray - Whether the job is an array job
    * @param {?number} jobArrayStart - Starting array job index
    * @param {?number} jobArrayEnd - Ending array job index
    * @param {?number} jobArrayIncr - Increment array job index

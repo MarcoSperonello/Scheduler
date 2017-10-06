@@ -11,7 +11,7 @@ import * as Exception from "../Exceptions";
  * Object containing the name and version of SGE
  * @typedef {Object} DrmsInfo
  * @property {string} drmsName - The name of the DRMS
- * @property {Version} version - Version of DRMS in use (see class {@link Version})
+ * @property {Version} version - Version of DRMS in use.
  */
 
 /**

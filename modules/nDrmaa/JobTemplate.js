@@ -12,23 +12,24 @@ class JobTemplate {
      * Specifies the remote command to execute. The  remote_command
      * must  be  the path of an executable that is available at the
      * job's execution host.   If  the  path  is  relative,  it  is
-     * assumed to be relative to the working directory, usually set
-     * through the drmaa_wd attribute.  If working directory is not
-     * set,  the  path is assumed to be relative to the user's home
-     * directory.
+     * assumed to be relative to the working directory.
+     * If working directory is not set,  the  path is assumed to be
+     * relative to the user's home directory.
      *
-     * The file pointed to by remote_command may either be an  exe-
-     * cutable  binary  or  an  executable script.  If a script, it
+     * The file pointed to by remoteCommand may either be an  executable
+     * binary  or  an  executable script.  If a script, it
      * must include the path to the shell  in  a  #!  line  at  the
      * beginning  of  the  script.
      *
+     * @example remoteCommand: "myTestScript.sh"
      * @type {string}
      */
     this.remoteCommand = "";
 
     /**
      * Specifies the arguments to the job.
-     * Specify like '[arg1, arg2, ...]'
+     *
+     * @example args = ["foo", "bar", 2, arg3]
      * @type {Array}
      */
     this.args = ["pippo", 2];
@@ -43,8 +44,8 @@ class JobTemplate {
      * Specifies  the  job  environment.  Each  environment   value
      * defines  the  remote  environment.  The  value overrides the
      * remote environment values if there is a collision.
-     * Specify like '{a:20, b:40, c:""}'
-     * @type {JSON}
+     * @example jobEnvironment: {a:20, b:40, c:"", d:null}
+     * @type {Object}
      */
     this.jobEnvironment = {};
 
@@ -53,6 +54,7 @@ class JobTemplate {
      * If not set,  the  working directory will default to the
      * user's home directory.
      *
+     * @example workingDirectory: "/path/to/working/directory/"
      * @type {string}
      */
     this.workingDirectory = "";
@@ -63,6 +65,8 @@ class JobTemplate {
      * All options available to qsub command  may  be  used  in  the
      * native_specification,  except for -help, -sync, -t, -verify,
      * and -w.
+     *
+     * @example nativeSpecification: "-now y"
      * @type {string}
      */
     this.nativeSpecification = "";
@@ -70,6 +74,8 @@ class JobTemplate {
     /**
      * Specifies e-mail addresses that are used to report  the  job
      * completion and status.
+     *
+     * @example email: ["john@doe.com", "foo@bar.com"]
      * @type {string[]}
      */
     this.email = [];
@@ -83,32 +89,38 @@ class JobTemplate {
     /**
      * Specifies the earliest time when the job may be eligible  to
      * be run.
-     * The time format is [[[[CC]YY/]MM/]DD] hh:mm[:ss] [{-|+}UU:uu]
-     * where:
-     *  - CC is the first two digits of the year (century-1)
-     *  - YY is the last two digits of the year
-     *  - MM is the two digits of the month [01,12]
-     *  - DD is the two digit day of the month [01,31]
-     *  - hh is the two digit hour of the day [00,23]
-     *  - mm is the two digit minute of the day [00,59]
-     *  - ss is the two digit second of the minute [00,61]
-     *  - UU is the two digit hours since (before) UTC
-     *  - uu is the two digit minutes since (before) UTC
+     * The time format is [[CC]]YY]MMDDhhmm[.SS] where:
+     * <ul>
+     *  <li>CC is the first two digits of the year (century-1)</li>
+     *  <li>YY is the last two digits of the year</li>
+     *  <li>MM is the two digits of the month [01,12]</li>
+     *  <li>DD is the two digit day of the month [01,31]</li>
+     *  <li>hh is the two digit hour of the day [00,23]</li>
+     *  <li>mm is the two digit minute of the day [00,59]</li>
+     *  <li>SS is the two digit second of the minute [00,59]</li>
+     * </ul>
+     * Server's timezone is used.
+     *
+     * @example startTime: "201710061529" // October 6th, 2017, 15:29 local time
      * @type {string}
      */
     this.startTime = '';
 
     /**
      * Specifies the job's name. Setting the job name is equivalent
-     * to use of qsub submit option '-N' followed by the job name.
+     * to using the qsub submit option '-N' followed by the job name.
+     *
+     * @example jobName: "myJobName"
      * @type {string}
      */
     this.jobName = "";
 
     /**
-     * Specifies the standard input of the job.  Unless  set  else-
-     * where, if not explicitly set in the job template, the job is
+     * Specifies the standard input of the job.  Unless  set  elsewhere,
+     * if not explicitly set in the job template, the job is
      * started with an empty input stream.
+     *
+     * @example inputPat: "/path/to/input/"
      * @type {string}
      */
     this.inputPath = "";
@@ -118,6 +130,8 @@ class JobTemplate {
      * set in the job template, the whereabouts of the job's output
      * stream is not defined. If set, this attribute specifies  the
      * network path of the job's output stream file.
+     *
+     * @example inputPat: "/path/to/output/"
      * @type {string}
      */
     this.outputPath = "";
@@ -127,6 +141,8 @@ class JobTemplate {
      * set  in the job template, the whereabouts of the job's error
      * stream is not defined. If set, this attribute specifies  the
      * network path of the job's error stream file.
+     *
+     * @example inputPat: "/path/to/error/"
      * @type {string}
      */
     this.errorPath = "";
