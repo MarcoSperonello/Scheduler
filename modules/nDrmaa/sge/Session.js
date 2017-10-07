@@ -666,6 +666,8 @@ class SessionImpl extends Session{
       let isArrayJob = job["isJobArray"];
       // If we are dealing with an array job, calculate the number of tasks that the job is composed of.
       let numTasksAJ = isArrayJob ? Math.ceil((job["jobArrayEnd"] - job["jobArrayStart"] + 1)/ job["jobArrayIncr"]) : null;
+      // If the array job has only one task, then treat it as a single job.
+      isArrayJob = (numTasksAJ>1);
 
       this.synchronize([jobId], timeout).then((response) => {
         let jobState = response[0].jobStatus;
