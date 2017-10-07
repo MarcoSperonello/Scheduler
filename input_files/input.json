@@ -1,5 +1,5 @@
 {
-	"maxRequestsPerSecUser": 1,
+	"maxRequestsPerSecUser": 3,
 	"maxRequestsPerSecGlobal": 1,
 	"userLifespan": 10,
 	"requestLifespan": 5,

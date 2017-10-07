@@ -14,6 +14,14 @@ import SessionManager from "./nDrmaa/sge/SessionManager";
 
 let sm = new SessionManager();
 
+fs.mkdir('./output/', (error) => {
+  if (!error || error.code === 'EEXIST') {
+    console.log('Created output folder.');
+  } else {
+    console.log('Error creating output folder');
+  }
+});
+
 /**
  * Generates a UUID string.
  * @returns {string} The generated UUID string.
@@ -27,17 +35,40 @@ function generateUUIDV4() {
 
 function writeToFileSystem(folderName, fileName, input) {
   return new Promise( (resolve, reject) => {
-    fs.mkdir('./sessions/' + folderName, (error) => {
+    fs.mkdir('./output/' + folderName, (error) => {
       if (!error || error.code === 'EEXIST') {
-        fs.writeFile('./sessions/' + folderName + '/' + fileName + '.json', JSON.stringify(input, null, '\t'), (error) => {
-          resolve('Written file ./sessions/' + folderName + '/' + fileName + '.json');
-          reject('Could not write file ./sessions/' + folderName + '/' + fileName + '.json: ' + error);
+        fs.writeFile('./output/' + folderName + '/' + fileName + '.json', JSON.stringify(input, null, '\t'), (error) => {
+          resolve('Written file ./output/' + folderName + '/' + fileName + '.json');
+          reject('Could not write file ./output/' + folderName + '/' + fileName + '.json: ' + error);
         })
       } else {
         reject('Error while making directory ' + folderName + ': ' + error);
       }
     });
   });
+}
+
+function configureJobPath(jobPath) {
+  return {
+    remoteCommand: jobPath.remoteCommand,
+    args: jobPath.args || [],
+    submitAsHold: jobPath.submitAsHold || false,
+    jobEnvironment: jobPath.jobEnvironment || '',
+    workingDirectory: jobPath.workingDirectory || '',
+    jobCategory: jobPath.jobCategory || '',
+    nativeSpecification: jobPath.nativeSpecification || '',
+    email: jobPath.email || '',
+    blockEmail: jobPath.blockEmail || true,
+    startTime: jobPath.startTime || '',
+    jobName: jobPath.jobName || '',
+    inputPath: jobPath.inputPath || '',
+    outputPath: jobPath.outputPath || '',
+    errorPath: jobPath.errorPath || '',
+    joinFiles: jobPath.joinFiles || '',
+    start: jobPath.start || null,
+    end: jobPath.end || null,
+    incr: jobPath.incr || null,
+  }
 }
 
 function issueRequest(requestData) {
@@ -94,7 +125,7 @@ export default {
     // Fetches the IP of the client who made the request.
     let requestIp = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
     //console.log('req params ' + req.body.param1);
-    let jobData = {
+   /* let jobData = {
       remoteCommand: "\"/home/marco/Uni/Tesi/Projects/node-ws-template/sge-tests/simple.sh\"",
       workingDirectory: "/home/marco/Uni/Tesi/Projects/node-ws-template/sge-tests/",
       jobName: 'testJob',
@@ -103,65 +134,81 @@ export default {
       start: 1,
       end: 0,
       incr: 1
-    };
+    };*/
 
     let sessionName = generateUUIDV4();
 
     let requestData1 = {
       ip: requestIp,
       time: req.time(),
-      jobPath: {
-        remoteCommand: req.body[0].remoteCommand,
-        workingDirectory: req.body[0].workingDirectory,
-        jobName: req.body[0].jobName,
-      },
+      // jobPath: {
+      //   remoteCommand: req.body[0].remoteCommand,
+      //   workingDirectory: req.body[0].workingDirectory,
+      //   jobName: req.body[0].jobName,
+      // },
+      jobPath: configureJobPath(req.body[0]),
       sessionName: sessionName,
     };
     let requestData2 = {
       ip: requestIp,
       time: req.time(),
-      jobPath: {
+      /*jobPath: {
         remoteCommand: req.body[1].remoteCommand,
         workingDirectory: req.body[1].workingDirectory,
         jobName: req.body[1].jobName,
         start: req.body[1].start,
         end: req.body[1].end,
         incr: req.body[1].incr,
-      },
+      },*/
+      jobPath: configureJobPath(req.body[1]),
       sessionName: sessionName,
     };
 
 
-    /*let requestData = {
+/*    let requestData = {
       ip: requestIp,
       time: req.time(),
       //jobPath: req.query["jobPath"],
-      jobPath: jobData,
+      jobPath: configureJobPath({
+        remoteCommand: "\"/home/marco/Uni/Tesi/Projects/node-ws-template/sge-tests/simple.sh\"",
+        workingDirectory: "/home/marco/Uni/Tesi/Projects/node-ws-template/sge-tests/",
+        jobName: 'testJob',
+        nativeSpecification: '',
+        submitAsHold: false,
+        start: 1,
+        end: 0,
+        incr: 1
+      }),
       sessionName: generateUUIDV4(),
     };*/
 
     sessionManager.createSession(sessionName).then( () => {
       let job1 = issueRequest(requestData1);
       let job2 = issueRequest(requestData2);
-      Promise.all([job1, job2]).then( () => {
+      Promise.all([job1, job2]).then( (statuses) => {
+        res.send(statuses);
         let requestData3 = {
           ip: requestIp,
           time: req.time(),
-          jobPath: {
+         /* jobPath: {
             remoteCommand: req.body[2].remoteCommand,
             workingDirectory: req.body[2].workingDirectory,
             jobName: req.body[2].jobName,
-          },
+          },*/
+          jobPath: configureJobPath(req.body[2]),
           sessionName: sessionName,
         };
         issueRequest(requestData3).then( (status) => {
           console.log('Job ' + status.jobId + ' of session ' + status.sessionName + ' status: ' + status.mainStatus + '-' + status.subStatus + ', exitCode: ' + status.exitStatus + ', failed: \"' + status.failed + '\", errors: ' + status.errors + ', description: ' + status.description);
+          res.send(status);
         }, (error) => {
           Logger.info('Error: ' + error);
         })
+      }, (error) => {
+        res.send(500, error);
       })
     }, (error) => {
-      Logger.info('Could not create session ' + requestData.sessionName + ': ' + error);
+      Logger.info('Could not create session ' + sessionName + ': ' + error);
     });
 
     /*sessionManager.createSession(requestData.sessionName).then( () => {
