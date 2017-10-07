@@ -1,4 +1,4 @@
 {
   "blacklist": [],
-  "whitelist": []
+  "whitelist": ["127\\.([0-9\\.])*"]
 }

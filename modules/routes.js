@@ -1,7 +1,12 @@
 import Handlers from './handlers'
 
 export default {
-  'POST': {},
+  'POST': {
+    'scheduler': {
+      path: '/scheduler',
+      handler: Handlers.handleScheduler
+    }
+  },
   'GET': {
     'root': {
       path: '/',

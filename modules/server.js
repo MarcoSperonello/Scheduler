@@ -44,6 +44,8 @@ export default class WS {
       // enable json parsing ( yields objects :D )
       _server.use(plugins.jsonp());
 
+      _server.use(plugins.bodyParser());
+
       /////////////////////////
       // CUSTOM MIDDLEWARES //
       ////////////////////////

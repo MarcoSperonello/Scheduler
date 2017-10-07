@@ -3,15 +3,67 @@ import * as errors from 'restify-errors';
 import aux from './aux';
 
 // import Db from './database';
+import fs from 'fs';
 import Logger from './logger';
 import {getRoutes,isMonitoring,setMonitor} from './server';
-import {Sec} from "./scheduler/scheduler-manager";
+import {Sec, sessionManager} from "./scheduler/scheduler-manager";
 
 import {when,defer,all} from "promised-io";
 import JobTemplate from "./nDrmaa/JobTemplate";
 import SessionManager from "./nDrmaa/sge/SessionManager";
 
 let sm = new SessionManager();
+
+/**
+ * Generates a UUID string.
+ * @returns {string} The generated UUID string.
+ */
+function generateUUIDV4() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    let r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
+function writeToFileSystem(folderName, fileName, input) {
+  return new Promise( (resolve, reject) => {
+    fs.mkdir('./sessions/' + folderName, (error) => {
+      if (!error || error.code === 'EEXIST') {
+        fs.writeFile('./sessions/' + folderName + '/' + fileName + '.json', JSON.stringify(input, null, '\t'), (error) => {
+          resolve('Written file ./sessions/' + folderName + '/' + fileName + '.json');
+          reject('Could not write file ./sessions/' + folderName + '/' + fileName + '.json: ' + error);
+        })
+      } else {
+        reject('Error while making directory ' + folderName + ': ' + error);
+      }
+    });
+  });
+}
+
+function issueRequest(requestData) {
+  return new Promise( (resolve, reject) => {
+    Sec.handleRequest(requestData).then( (status) => {
+      writeToFileSystem(requestData.sessionName, 'Job ' + status.jobData.jobId + ' requestOutcome', status).then( (success) => {
+        console.log(success);
+      }, (error) => {
+        console.log(error);
+      });
+
+      Sec.getJobResult(status.jobData.jobId, requestData.sessionName).then( (status) => {
+        writeToFileSystem(requestData.sessionName, 'Job ' + status.jobId + ' jobStatusInformation', status).then( (success) => {
+          console.log(success);
+        }, (error) => {
+          console.log(error);
+        });
+        resolve(status);
+      }, (error) => {
+        reject(error.description);
+      });
+    }, (error) => {
+      reject(error.description);
+    });
+  });
+}
 
 export default {
 
@@ -40,8 +92,8 @@ export default {
     req.log.info(`request handler is ${handleScheduler.name}`);
 
     // Fetches the IP of the client who made the request.
-    var requestIp = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
-
+    let requestIp = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+    //console.log('req params ' + req.body.param1);
     let jobData = {
       remoteCommand: "\"/home/marco/Uni/Tesi/Projects/node-ws-template/sge-tests/simple.sh\"",
       workingDirectory: "/home/marco/Uni/Tesi/Projects/node-ws-template/sge-tests/",
@@ -49,17 +101,83 @@ export default {
       nativeSpecification: '',
       submitAsHold: false,
       start: 1,
-      end: 3,
+      end: 0,
       incr: 1
     };
 
-    // Loads request information.
-    var requestData = {
+    let sessionName = generateUUIDV4();
+
+    let requestData1 = {
       ip: requestIp,
       time: req.time(),
-      jobPath: req.query["jobPath"],
-      //jobPath: jobData,
+      jobPath: {
+        remoteCommand: req.body[0].remoteCommand,
+        workingDirectory: req.body[0].workingDirectory,
+        jobName: req.body[0].jobName,
+      },
+      sessionName: sessionName,
     };
+    let requestData2 = {
+      ip: requestIp,
+      time: req.time(),
+      jobPath: {
+        remoteCommand: req.body[1].remoteCommand,
+        workingDirectory: req.body[1].workingDirectory,
+        jobName: req.body[1].jobName,
+        start: req.body[1].start,
+        end: req.body[1].end,
+        incr: req.body[1].incr,
+      },
+      sessionName: sessionName,
+    };
+
+
+    /*let requestData = {
+      ip: requestIp,
+      time: req.time(),
+      //jobPath: req.query["jobPath"],
+      jobPath: jobData,
+      sessionName: generateUUIDV4(),
+    };*/
+
+    sessionManager.createSession(sessionName).then( () => {
+      let job1 = issueRequest(requestData1);
+      let job2 = issueRequest(requestData2);
+      Promise.all([job1, job2]).then( () => {
+        let requestData3 = {
+          ip: requestIp,
+          time: req.time(),
+          jobPath: {
+            remoteCommand: req.body[2].remoteCommand,
+            workingDirectory: req.body[2].workingDirectory,
+            jobName: req.body[2].jobName,
+          },
+          sessionName: sessionName,
+        };
+        issueRequest(requestData3).then( (status) => {
+          console.log('Job ' + status.jobId + ' of session ' + status.sessionName + ' status: ' + status.mainStatus + '-' + status.subStatus + ', exitCode: ' + status.exitStatus + ', failed: \"' + status.failed + '\", errors: ' + status.errors + ', description: ' + status.description);
+        }, (error) => {
+          Logger.info('Error: ' + error);
+        })
+      })
+    }, (error) => {
+      Logger.info('Could not create session ' + requestData.sessionName + ': ' + error);
+    });
+
+    /*sessionManager.createSession(requestData.sessionName).then( () => {
+      issueRequest(requestData).then( (status) => {
+        console.log('Job ' + status.jobId + ' of session ' + status.sessionName + ' status: ' + status.mainStatus + '-' + status.subStatus + ', exitCode: ' + status.exitStatus + ', failed: \"' + status.failed + '\", errors: ' + status.errors + ', description: ' + status.description);
+        issueRequest(requestData).then( (status) => {
+          console.log('Job ' + status.jobId + ' of session ' + status.sessionName + ' status: ' + status.mainStatus + '-' + status.subStatus + ', exitCode: ' + status.exitStatus + ', failed: \"' + status.failed + '\", errors: ' + status.errors + ', description: ' + status.description);
+        }, (error) => {
+          Logger.info('Error: ' + error);
+        });
+      }, (error) => {
+        Logger.info('Error: ' + error);
+      });
+    }, (error) => {
+      Logger.info('Could not create session ' + requestData.sessionName + ': ' + error);
+    });*/
 
 
     //192.168.0.0 ([0-9])+(\.?([0-9])+)*
@@ -72,16 +190,7 @@ export default {
     let str = '192.168.0.1';
     console.log("test:" + regexp.test(str));*/
 
-    //Sec.handleRequest(requestData).then( (status) => {
-    /*let handleRequestPromise = Sec.handleRequest(requestData);
-    handleRequestPromise.then( (status) => {
-      Sec.getJobResult(status.jobData.jobId).then( (status) => {
-        console.log('Job ' + status.jobId + ': ' + status.mainStatus + '-' + status.subStatus + ', exitCode: ' + status.exitStatus + ', failed: \"' + status.failed + '\", errors: ' + status.errors + ', description: ' + status.description);
-      })
-    }, (error) => {
-      Logger.info(error.description);
-    });*/
-    let handleRequestPromise = Sec.handleRequest(requestData);
+/*    let handleRequestPromise = Sec.handleRequest(requestData);
     handleRequestPromise.then( (status) => {
       console.log('hi ' + status.jobData.sessionName);
       Sec.getJobResult(status.jobData.jobId, status.jobData.sessionName).then( (status) => {
@@ -89,7 +198,7 @@ export default {
       })
     }, (error) => {
       Logger.info(error.description);
-    });
+    });*/
 
     res.send(200, "Done");
     //Sec.addJob(req.query["jobfile"]);

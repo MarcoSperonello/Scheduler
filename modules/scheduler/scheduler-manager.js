@@ -202,6 +202,7 @@ class SchedulerManager {
    * @property {string} ip - The IP address of the user.
    * @property {string} time - The time at which the request was received.
    * @property {string} jobPath - Path of the file with the job specifications.
+   * @property {string} sessionName - The UUID of the session the job was launched in.
    */
 
   /**
@@ -334,7 +335,7 @@ class SchedulerManager {
         }
         // Adds the request to the global requests array.
         this.globalRequests_.push(requestData.time);
-        this.registerRequestToDatabase(requestData);
+        //this.registerRequestToDatabase(requestData);
         // Attempts to submit the job to the SGE.
         this.handleJobSubmission(requestData)
             .then(
@@ -384,7 +385,7 @@ class SchedulerManager {
 
       try {
         // Loads job specifications from file.
-        let jobInfo = JSON.parse(fs.readFileSync(requestData.jobPath, 'utf8'));
+        /*let jobInfo = JSON.parse(fs.readFileSync(requestData.jobPath, 'utf8'));
         let jobData = new JobTemplate({
           remoteCommand: jobInfo.remoteCommand,
           args: jobInfo.args || [],
@@ -408,9 +409,9 @@ class SchedulerManager {
         // Number of the last task of the job array.
         let end = jobInfo.end || null;
         // Step size (size of the increments to go from "start" to "end").
-        let increment = jobInfo.incr || null;
+        let increment = jobInfo.incr || null;*/
 
-        /*let jobData = new JobTemplate({
+        let jobData = new JobTemplate({
           remoteCommand: requestData.jobPath.remoteCommand,
           args: requestData.jobPath.args || [],
           submitAsHold: requestData.jobPath.submitAsHold || false,
@@ -433,16 +434,14 @@ class SchedulerManager {
         // Number of the last task of the job array.
         let end = requestData.jobPath.end || null;
         // Step size (size of the increments to go from "start" to "end").
-        let increment = requestData.jobPath.incr || null;*/
+        let increment = requestData.jobPath.incr || null;
 
         // Determines if the job consists of a single task or multiple ones.
         let jobType = this.checkArrayParams(start, end, increment);
 
-        // Generates a UUID to be used as the session name for this submission.
-        let sessionName = this.generateUUIDV4();
         // Creates the Drmaa session.
-        sessionManager.createSession(sessionName).then( (session) => {
-          Logger.info('Initialized SGE session ' + sessionName + '.');
+        sessionManager.getSession(requestData.sessionName).then( (session) => {
+          Logger.info('Initialized SGE session ' + requestData.sessionName + '.');
           // Submits the job to the SGE. A different submission function is
           // called, according to the JOBTYPE of the job.
           let jobFunc = jobType === JOBTYPE.SINGLE ?
@@ -483,7 +482,7 @@ class SchedulerManager {
                     let jobDescription = {
                       jobId: jobId,
                       jobName: job.job_name,
-                      sessionName: sessionName,
+                      sessionName: requestData.sessionName,
                       jobStatus: jobStatus[jobId].mainStatus,
                       firstTaskId: jobType === JOBTYPE.SINGLE ? null : start,
                       lastTaskId: jobType === JOBTYPE.SINGLE ? null : end,
@@ -732,17 +731,6 @@ class SchedulerManager {
   registerRequestToDatabase(requestData) {
     Logger.info('Logging request to database.');
     Db.performInsertOne(requestData, 'test');
-  }
-
-  /**
-   * Generates a UUID string.
-   * @returns {string} The generated UUID string.
-   */
-  generateUUIDV4() {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-      let r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
-      return v.toString(16);
-    });
   }
 
   /**
