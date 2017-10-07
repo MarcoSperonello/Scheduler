@@ -186,7 +186,6 @@ export default {
       let job1 = issueRequest(requestData1);
       let job2 = issueRequest(requestData2);
       Promise.all([job1, job2]).then( (statuses) => {
-        res.send(statuses);
         let requestData3 = {
           ip: requestIp,
           time: req.time(),
@@ -195,13 +194,14 @@ export default {
             workingDirectory: req.body[2].workingDirectory,
             jobName: req.body[2].jobName,
           },*/
-          jobPath: configureJobPath(req.body[2]),
+          jobPath: configureJobPath(req.body[0]),
           sessionName: sessionName,
         };
         issueRequest(requestData3).then( (status) => {
           console.log('Job ' + status.jobId + ' of session ' + status.sessionName + ' status: ' + status.mainStatus + '-' + status.subStatus + ', exitCode: ' + status.exitStatus + ', failed: \"' + status.failed + '\", errors: ' + status.errors + ', description: ' + status.description);
-          res.send(status);
+          res.send(200,status);
         }, (error) => {
+          res.send(500,error);
           Logger.info('Error: ' + error);
         })
       }, (error) => {
@@ -247,7 +247,6 @@ export default {
       Logger.info(error.description);
     });*/
 
-    res.send(200, "Done");
     //Sec.addJob(req.query["jobfile"]);
     //Sec.pollJobs("simple.sh");
     //Sec.handleJobSubmission(requestData);
