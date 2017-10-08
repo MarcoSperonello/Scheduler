@@ -48,28 +48,6 @@ function writeToFileSystem(folderName, fileName, input) {
   });
 }
 
-function configureJobPath(jobPath) {
-  return {
-    remoteCommand: jobPath.remoteCommand,
-    args: jobPath.args || [],
-    submitAsHold: jobPath.submitAsHold || false,
-    jobEnvironment: jobPath.jobEnvironment || '',
-    workingDirectory: jobPath.workingDirectory || '',
-    jobCategory: jobPath.jobCategory || '',
-    nativeSpecification: jobPath.nativeSpecification || '',
-    email: jobPath.email || '',
-    blockEmail: jobPath.blockEmail || true,
-    startTime: jobPath.startTime || '',
-    jobName: jobPath.jobName || '',
-    inputPath: jobPath.inputPath || '',
-    outputPath: jobPath.outputPath || '',
-    errorPath: jobPath.errorPath || '',
-    joinFiles: jobPath.joinFiles || '',
-    start: jobPath.start || null,
-    end: jobPath.end || null,
-    incr: jobPath.incr || null,
-  }
-}
 
 function issueRequest(requestData) {
   return new Promise( (resolve, reject) => {
@@ -141,74 +119,64 @@ export default {
     let requestData1 = {
       ip: requestIp,
       time: req.time(),
-      // jobPath: {
-      //   remoteCommand: req.body[0].remoteCommand,
-      //   workingDirectory: req.body[0].workingDirectory,
-      //   jobName: req.body[0].jobName,
-      // },
-      jobPath: configureJobPath(req.body[0]),
+      jobPath: req.body[0],
       sessionName: sessionName,
     };
     let requestData2 = {
       ip: requestIp,
       time: req.time(),
-      /*jobPath: {
-        remoteCommand: req.body[1].remoteCommand,
-        workingDirectory: req.body[1].workingDirectory,
-        jobName: req.body[1].jobName,
-        start: req.body[1].start,
-        end: req.body[1].end,
-        incr: req.body[1].incr,
-      },*/
-      jobPath: configureJobPath(req.body[1]),
+      jobPath: req.body[1],
       sessionName: sessionName,
     };
 
-
-/*    let requestData = {
+    let requestData3 = {
       ip: requestIp,
       time: req.time(),
-      //jobPath: req.query["jobPath"],
-      jobPath: configureJobPath({
-        remoteCommand: "\"/home/marco/Uni/Tesi/Projects/node-ws-template/sge-tests/simple.sh\"",
-        workingDirectory: "/home/marco/Uni/Tesi/Projects/node-ws-template/sge-tests/",
-        jobName: 'testJob',
-        nativeSpecification: '',
-        submitAsHold: false,
-        start: 1,
-        end: 0,
-        incr: 1
-      }),
-      sessionName: generateUUIDV4(),
-    };*/
+      jobPath: req.body[2],
+      sessionName: sessionName,
+    };
 
-    sessionManager.createSession(sessionName).then( () => {
+    sessionManager.createSession(sessionName).then(() => {
       let job1 = issueRequest(requestData1);
       let job2 = issueRequest(requestData2);
-      Promise.all([job1, job2]).then( (statuses) => {
-        let requestData3 = {
-          ip: requestIp,
-          time: req.time(),
-         /* jobPath: {
-            remoteCommand: req.body[2].remoteCommand,
-            workingDirectory: req.body[2].workingDirectory,
-            jobName: req.body[2].jobName,
-          },*/
-          jobPath: configureJobPath(req.body[0]),
-          sessionName: sessionName,
-        };
-        issueRequest(requestData3).then( (status) => {
-          console.log('Job ' + status.jobId + ' of session ' + status.sessionName + ' status: ' + status.mainStatus + '-' + status.subStatus + ', exitCode: ' + status.exitStatus + ', failed: \"' + status.failed + '\", errors: ' + status.errors + ', description: ' + status.description);
-          res.send(200,status);
+
+      Promise.all([job1, job2])
+        .then((statuses) => {
+          let errorsOccurred = false;
+          let failedJobs = [];
+
+          statuses.forEach((status) =>
+          {
+            if(status.mainStatus!=="COMPLETED" || status.subStatus==="DELETED")
+            {
+              errorsOccurred = true;
+              failedJobs.push(status);
+            }
+          });
+
+          if(!errorsOccurred)
+          {
+            issueRequest(requestData3)
+              .then((status) => {
+                sessionManager.closeSession(sessionName);
+                res.send(200,status);
+              }, (error) => {
+                sessionManager.closeSession(sessionName);
+                res.send(500,error);
+              })
+          }
+          else
+          {
+            // sessionManager.closeSession(sessionName);
+            res.send(500,failedJobs);
+          }
         }, (error) => {
-          res.send(500,error);
-          Logger.info('Error: ' + error);
+          // sessionManager.closeSession(sessionName);
+          res.send(500, error);
         })
-      }, (error) => {
-        res.send(500, error);
-      })
     }, (error) => {
       Logger.info('Could not create session ' + sessionName + ': ' + error);
+      res.send(500,error);
     });
 
     /*sessionManager.createSession(requestData.sessionName).then( () => {

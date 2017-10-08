@@ -2,8 +2,8 @@ import Handlers from './handlers'
 
 export default {
   'POST': {
-    'scheduler': {
-      path: '/scheduler',
+    'submitJob': {
+      path: '/submit',
       handler: Handlers.handleScheduler
     }
   },
@@ -15,10 +15,6 @@ export default {
     'scheduler': {
         path: '/scheduler',
         handler: Handlers.handleScheduler
-    },
-    'submitJob': {
-      path: '/submit',
-      handler: Handlers.handleSubmitJob
     }
   },
 };

@@ -424,23 +424,24 @@ class SchedulerManager {
         // Step size (size of the increments to go from "start" to "end").
         let increment = jobInfo.incr || null;*/
 
-        let jobData = new JobTemplate({
-          remoteCommand: requestData.jobPath.remoteCommand,
-          args: requestData.jobPath.args || [],
-          submitAsHold: requestData.jobPath.submitAsHold || false,
-          jobEnvironment: requestData.jobPath.jobEnvironment || '',
-          workingDirectory: requestData.jobPath.workingDirectory || '',
-          jobCategory: requestData.jobPath.jobCategory || '',
-          nativeSpecification: requestData.jobPath.nativeSpecification || '',
-          email: requestData.jobPath.email || '',
-          blockEmail: requestData.jobPath.blockEmail || true,
-          startTime: requestData.jobPath.startTime || '',
-          jobName: requestData.jobPath.jobName || '',
-          inputPath: requestData.jobPath.inputPath || '',
-          outputPath: requestData.jobPath.outputPath || '',
-          errorPath: requestData.jobPath.errorPath || '',
-          joinFiles: requestData.jobPath.joinFiles || '',
-        });
+        // let jobData = new JobTemplate({
+        //   remoteCommand: requestData.jobPath.remoteCommand,
+        //   args: requestData.jobPath.args || [],
+        //   submitAsHold: requestData.jobPath.submitAsHold || false,
+        //   jobEnvironment: requestData.jobPath.jobEnvironment || '',
+        //   workingDirectory: requestData.jobPath.workingDirectory || '',
+        //   jobCategory: requestData.jobPath.jobCategory || '',
+        //   nativeSpecification: requestData.jobPath.nativeSpecification || '',
+        //   email: requestData.jobPath.email || '',
+        //   blockEmail: requestData.jobPath.blockEmail || true,
+        //   startTime: requestData.jobPath.startTime || '',
+        //   jobName: requestData.jobPath.jobName || '',
+        //   inputPath: requestData.jobPath.inputPath || '',
+        //   outputPath: requestData.jobPath.outputPath || '',
+        //   errorPath: requestData.jobPath.errorPath || '',
+        //   joinFiles: requestData.jobPath.joinFiles || '',
+        // });
+        let jobData = new JobTemplate(requestData.jobPath);
 
         // Number of the first task of the job array.
         let start = requestData.jobPath.start || null;
