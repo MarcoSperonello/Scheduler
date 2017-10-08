@@ -1,0 +1,1455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Class: nDrmaa/Session</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Class: nDrmaa/Session</h1>
+
+    
+
+
+
+
+<section>
+
+<header>
+    
+        <h2><span class="attribs"><span class="type-signature"></span></span>nDrmaa/Session<span class="signature">()</span><span class="type-signature"></span></h2>
+        
+            <div class="class-description">Abstract class representing the operations available for interacting with the DRM.</div>
+        
+    
+</header>
+
+<article>
+    <div class="container-overview">
+    
+        
+
+    
+    <h2>Constructor</h2>
+    
+
+    
+    <h4 class="name" id="nDrmaa/Session"><span class="type-signature"></span>new nDrmaa/Session<span class="signature">()</span><span class="type-signature"></span></h4>
+    
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="nDrmaa_Session.js.html">nDrmaa/Session.js</a>, <a href="nDrmaa_Session.js.html#line48">line 48</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+        <h3 class="subsection-title">Members</h3>
+
+        
+            
+<h4 class="name" id="contact"><span class="type-signature"></span>contact<span class="type-signature"> :string</span></h4>
+
+
+
+
+<div class="description">
+    Contact information.
+</div>
+
+
+
+    <h5>Type:</h5>
+    <ul>
+        <li>
+            
+<span class="param-type">string</span>
+
+
+        </li>
+    </ul>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="nDrmaa_Session.js.html">nDrmaa/Session.js</a>, <a href="nDrmaa_Session.js.html#line64">line 64</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+        
+            
+<h4 class="name" id="jobsMonitor"><span class="type-signature"></span>jobsMonitor<span class="type-signature"> :<a href="JobMonitor.html">JobMonitor</a></span></h4>
+
+
+
+
+<div class="description">
+    Job monitor
+</div>
+
+
+
+    <h5>Type:</h5>
+    <ul>
+        <li>
+            
+<span class="param-type"><a href="JobMonitor.html">JobMonitor</a></span>
+
+
+        </li>
+    </ul>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="nDrmaa_Session.js.html">nDrmaa/Session.js</a>, <a href="nDrmaa_Session.js.html#line70">line 70</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+        
+            
+<h4 class="name" id="sessionName"><span class="type-signature"></span>sessionName<span class="type-signature"> :string</span></h4>
+
+
+
+
+<div class="description">
+    Session name.
+</div>
+
+
+
+    <h5>Type:</h5>
+    <ul>
+        <li>
+            
+<span class="param-type">string</span>
+
+
+        </li>
+    </ul>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="nDrmaa_Session.js.html">nDrmaa/Session.js</a>, <a href="nDrmaa_Session.js.html#line58">line 58</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+        
+    
+
+    
+        <h3 class="subsection-title">Methods</h3>
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="control"><span class="type-signature"></span>control<span class="signature">(jobId, action)</span><span class="type-signature"></span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    Hold, release, suspend, resume, or kill the job identified by jobId.
+If jobId is JOB_IDS_SESSION_ALL, then this routine acts on all jobs submitted during this DRMAA session up to
+the moment control() is called.
+
+The legal values for action and their meanings are:
+ - SUSPEND: stop the job,
+ - RESUME: (re)start the job,
+ - HOLD: put the job on-hold,
+ - RELEASE: release the hold on the job,
+ - TERMINATE: kill the job.
+
+This routine returns once the action has been acknowledged by the DRM system, but does not wait
+until the action has been completed.
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>jobId</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+|
+
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">The id of the job to control, or the constant "JOB_IDS_SESSION_ALL"</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>action</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">The control action to be taken</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="nDrmaa_Session.js.html">nDrmaa/Session.js</a>, <a href="nDrmaa_Session.js.html#line167">line 167</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="getJobProgramStatus"><span class="type-signature"></span>getJobProgramStatus<span class="signature">(jobIds:)</span><span class="type-signature"></span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    Get the program status of the job(s) specified by job id inside the argument jobIds (which is an array of ids).
+The returned object describing the status of the job has two properties: mainStatus and subStatus.
+The subStatus property is used to better distinguish a job that has finished its execution. These are possible
+values for mainStatus, also listing the possible subStatus values for the "COMPLETED" mainStatus:
+
+- QUEUED: job is queued
+- ON_HOLD: job is queued and on hold
+- RUNNING: job is running
+- SUSPENDED: job is suspended
+- ERROR: job is in error state.
+- COMPLETED: job has finished execution
+	  + UNDETERMINED: job execution finished but status cannot be determined
+	  + DONE: job execution finished normally
+ 	+ FAILED: job execution finished, but failed.
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>jobIds:</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">Array.&lt;number></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">the id(s) of the job(s) whose status is to be retrieved</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="nDrmaa_Session.js.html">nDrmaa/Session.js</a>, <a href="nDrmaa_Session.js.html#line117">line 117</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="runBulkJobs"><span class="type-signature"></span>runBulkJobs<span class="signature">(jobTemplate, start, end<span class="signature-attributes">nullable</span>, incr<span class="signature-attributes">nullable</span>)</span><span class="type-signature"></span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    Submit a set of parametric jobs, dependent on the implied loop index, each with attributes defined in the jobTemplate.
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+        <th>Attributes</th>
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>jobTemplate</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><a href="JobTemplate.html">JobTemplate</a></span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">Attributes of each job belonging to the array job to be run.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>start</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">the starting value for the loop index</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>end</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+                    &lt;nullable><br>
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">the terminating value for the loop index</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>incr</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+                    &lt;nullable><br>
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">the value by which to increment the loop index each iteration</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="nDrmaa_Session.js.html">nDrmaa/Session.js</a>, <a href="nDrmaa_Session.js.html#line97">line 97</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="runJob"><span class="type-signature"></span>runJob<span class="signature">(jobTemplate:)</span><span class="type-signature"></span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    Submits a job with attributes defined in the JobTemplate jobTemplate parameter.
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>jobTemplate:</code></td>
+            
+
+            <td class="type">
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">attributes of the job to be run.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="nDrmaa_Session.js.html">nDrmaa/Session.js</a>, <a href="nDrmaa_Session.js.html#line87">line 87</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="synchronize"><span class="type-signature"></span>synchronize<span class="signature">(jobIds, timeout<span class="signature-attributes">nullable</span>)</span><span class="type-signature"></span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    The synchronize() method returns when all jobs specified in jobIds have failed or finished
+execution. If jobIds contains JOB_IDS_SESSION_ALL, then this method waits for all jobs submitted during this
+DRMAA session.
+
+The caller may specify a timeout, indicating how many milliseconds to wait for this call to complete before
+timing out. The special value TIMEOUT_WAIT_FOREVER can be used to wait indefinitely for a result.
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+        <th>Attributes</th>
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>jobIds</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">Array.&lt;number></span>
+|
+
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">The ids of the jobs to synchronize.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>timeout</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+                    &lt;nullable><br>
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">The maximum number of milliseconds to wait for jobs' completion.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="nDrmaa_Session.js.html">nDrmaa/Session.js</a>, <a href="nDrmaa_Session.js.html#line131">line 131</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="wait"><span class="type-signature"></span>wait<span class="signature">(jobId, timeout<span class="signature-attributes">nullable</span>)</span><span class="type-signature"></span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    Wait until a job is complete and the information regarding the job's execution are available.
+Whether the job completes successfully or with a failure status, returns the job information using the command "qacct";
+otherwise if there's an error preventing the job from completing, returns the job information retrieved with the
+command "qstat" in order to be able to access the error reasons.
+
+The caller may use timeout, specifying how many milliseconds to wait for this call to complete before timing out.
+The special value TIMEOUT_WAIT_FOREVER can be uesd to wait indefinitely for a result.
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+        <th>Attributes</th>
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>jobId</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">the id of the job for which to wait</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>timeout</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+                    &lt;nullable><br>
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">amount of time in milliseconds to wait for the job to terminate its execution.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="nDrmaa_Session.js.html">nDrmaa/Session.js</a>, <a href="nDrmaa_Session.js.html#line146">line 146</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+    
+
+    
+
+    
+</article>
+
+</section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-nDrmaaExceptions.html">nDrmaaExceptions</a></li><li><a href="module-scheduler_monitors.html">scheduler/monitors</a></li><li><a href="module-sge-cli.html">sge-cli</a></li></ul><h3>Classes</h3><ul><li><a href="Database.html">Database</a></li><li><a href="Job.html">Job</a></li><li><a href="JobInfo.html">JobInfo</a></li><li><a href="JobInfoImpl.html">JobInfoImpl</a></li><li><a href="JobMonitor.html">JobMonitor</a></li><li><a href="JobTemplate.html">JobTemplate</a></li><li><a href="module-nDrmaaExceptions.AlreadyActiveSessionException.html">AlreadyActiveSessionException</a></li><li><a href="module-nDrmaaExceptions.DrmsInitException.html">DrmsInitException</a></li><li><a href="module-nDrmaaExceptions.ExitTimeoutException.html">ExitTimeoutException</a></li><li><a href="module-nDrmaaExceptions.InvalidArgumentException.html">InvalidArgumentException</a></li><li><a href="module-nDrmaaExceptions.InvalidSessionException.html">InvalidSessionException</a></li><li><a href="module-nDrmaaExceptions.NoActiveSessionException.html">NoActiveSessionException</a></li><li><a href="module-nDrmaaExceptions.UnsupportedAttributeException.html">UnsupportedAttributeException</a></li><li><a href="nDrmaa_Session.html">nDrmaa/Session</a></li><li><a href="SchedulerSecurity.html">SchedulerSecurity</a></li><li><a href="SessionImpl.html">SessionImpl</a></li><li><a href="SessionManager.html">SessionManager</a></li><li><a href="SessionManagerImpl.html">SessionManagerImpl</a></li><li><a href="Version.html">Version</a></li></ul><h3>Events</h3><ul><li><a href="global.html#event:JobCompleted">JobCompleted</a></li><li><a href="global.html#event:JobError">JobError</a></li><li><a href="global.html#event:qstatError">qstatError</a></li></ul><h3>Global</h3><ul><li><a href="global.html#HOLD">HOLD</a></li><li><a href="global.html#JOB_IDS_SESSION_ALL">JOB_IDS_SESSION_ALL</a></li><li><a href="global.html#JOBTYPE">JOBTYPE</a></li><li><a href="global.html#RELEASE">RELEASE</a></li><li><a href="global.html#RESUME">RESUME</a></li><li><a href="global.html#SUSPEND">SUSPEND</a></li><li><a href="global.html#TERMINATE">TERMINATE</a></li><li><a href="global.html#TIMEOUT_WAIT_FOREVER">TIMEOUT_WAIT_FOREVER</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.5.5</a> on Tue Oct 03 2017 11:20:18 GMT+0200 (CEST)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

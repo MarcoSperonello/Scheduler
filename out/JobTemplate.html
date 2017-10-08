@@ -1,0 +1,1338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Class: JobTemplate</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Class: JobTemplate</h1>
+
+    
+
+
+
+
+<section>
+
+<header>
+    
+        <h2><span class="attribs"><span class="type-signature"></span></span>JobTemplate<span class="signature">(params)</span><span class="type-signature"></span></h2>
+        
+            <div class="class-description">Class representing a Job Template.</div>
+        
+    
+</header>
+
+<article>
+    <div class="container-overview">
+    
+        
+
+    
+    <h2>Constructor</h2>
+    
+
+    
+    <h4 class="name" id="JobTemplate"><span class="type-signature"></span>new JobTemplate<span class="signature">(params)</span><span class="type-signature"></span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    Creates a new instance of JobTemplate from the object passed in input.
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>params</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">Object</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="nDrmaa_JobTemplate.js.html">nDrmaa/JobTemplate.js</a>, <a href="nDrmaa_JobTemplate.js.html#line5">line 5</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+    <dt class="tag-see">See:</dt>
+    <dd class="tag-see">
+        <ul>
+            <li><a href="http://gridscheduler.sourceforge.net/htmlman/htmlman3/drmaa_attributes.html">http://gridscheduler.sourceforge.net/htmlman/htmlman3/drmaa_attributes.html</a></li>
+        </ul>
+    </dd>
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+        <h3 class="subsection-title">Members</h3>
+
+        
+            
+<h4 class="name" id="args"><span class="type-signature"></span>args<span class="type-signature"> :Array</span></h4>
+
+
+
+
+<div class="description">
+    Specifies the arguments to the job.
+</div>
+
+
+
+    <h5>Type:</h5>
+    <ul>
+        <li>
+            
+<span class="param-type">Array</span>
+
+
+        </li>
+    </ul>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="nDrmaa_JobTemplate.js.html">nDrmaa/JobTemplate.js</a>, <a href="nDrmaa_JobTemplate.js.html#line35">line 35</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+    <h5>Example</h5>
+    
+    <pre class="prettyprint"><code>args = ["foo", "bar", 2, arg3]</code></pre>
+
+
+
+        
+            
+<h4 class="name" id="blockEmail"><span class="type-signature"></span>blockEmail<span class="type-signature"> :boolean</span></h4>
+
+
+
+
+<div class="description">
+    Specifies whether e-mail sending shall blocked or  not.
+</div>
+
+
+
+    <h5>Type:</h5>
+    <ul>
+        <li>
+            
+<span class="param-type">boolean</span>
+
+
+        </li>
+    </ul>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="nDrmaa_JobTemplate.js.html">nDrmaa/JobTemplate.js</a>, <a href="nDrmaa_JobTemplate.js.html#line87">line 87</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+        
+            
+<h4 class="name" id="email"><span class="type-signature"></span>email<span class="type-signature"> :Array.&lt;string></span></h4>
+
+
+
+
+<div class="description">
+    Specifies e-mail addresses that are used to report  the  job
+completion and status.
+</div>
+
+
+
+    <h5>Type:</h5>
+    <ul>
+        <li>
+            
+<span class="param-type">Array.&lt;string></span>
+
+
+        </li>
+    </ul>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="nDrmaa_JobTemplate.js.html">nDrmaa/JobTemplate.js</a>, <a href="nDrmaa_JobTemplate.js.html#line81">line 81</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+    <h5>Example</h5>
+    
+    <pre class="prettyprint"><code>email: ["john@doe.com", "foo@bar.com"]</code></pre>
+
+
+
+        
+            
+<h4 class="name" id="errorPath"><span class="type-signature"></span>errorPath<span class="type-signature"> :string</span></h4>
+
+
+
+
+<div class="description">
+    Specifies the standard error of the job. If  not  explicitly
+set  in the job template, the whereabouts of the job's error
+stream is not defined. If set, this attribute specifies  the
+network path of the job's error stream file.
+</div>
+
+
+
+    <h5>Type:</h5>
+    <ul>
+        <li>
+            
+<span class="param-type">string</span>
+
+
+        </li>
+    </ul>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="nDrmaa_JobTemplate.js.html">nDrmaa/JobTemplate.js</a>, <a href="nDrmaa_JobTemplate.js.html#line148">line 148</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+    <h5>Example</h5>
+    
+    <pre class="prettyprint"><code>inputPat: "/path/to/error/"</code></pre>
+
+
+
+        
+            
+<h4 class="name" id="inputPath"><span class="type-signature"></span>inputPath<span class="type-signature"> :string</span></h4>
+
+
+
+
+<div class="description">
+    Specifies the standard input of the job.  Unless  set  elsewhere,
+if not explicitly set in the job template, the job is
+started with an empty input stream.
+</div>
+
+
+
+    <h5>Type:</h5>
+    <ul>
+        <li>
+            
+<span class="param-type">string</span>
+
+
+        </li>
+    </ul>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="nDrmaa_JobTemplate.js.html">nDrmaa/JobTemplate.js</a>, <a href="nDrmaa_JobTemplate.js.html#line126">line 126</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+    <h5>Example</h5>
+    
+    <pre class="prettyprint"><code>inputPat: "/path/to/input/"</code></pre>
+
+
+
+        
+            
+<h4 class="name" id="jobEnvironment"><span class="type-signature"></span>jobEnvironment<span class="type-signature"> :Object</span></h4>
+
+
+
+
+<div class="description">
+    Specifies  the  job  environment.  Each  environment   value
+defines  the  remote  environment.  The  value overrides the
+remote environment values if there is a collision.
+</div>
+
+
+
+    <h5>Type:</h5>
+    <ul>
+        <li>
+            
+<span class="param-type">Object</span>
+
+
+        </li>
+    </ul>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="nDrmaa_JobTemplate.js.html">nDrmaa/JobTemplate.js</a>, <a href="nDrmaa_JobTemplate.js.html#line50">line 50</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+    <h5>Example</h5>
+    
+    <pre class="prettyprint"><code>jobEnvironment: {a:20, b:40, c:"", d:null}</code></pre>
+
+
+
+        
+            
+<h4 class="name" id="jobName"><span class="type-signature"></span>jobName<span class="type-signature"> :string</span></h4>
+
+
+
+
+<div class="description">
+    Specifies the job's name. Setting the job name is equivalent
+to using the qsub submit option '-N' followed by the job name.
+</div>
+
+
+
+    <h5>Type:</h5>
+    <ul>
+        <li>
+            
+<span class="param-type">string</span>
+
+
+        </li>
+    </ul>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="nDrmaa_JobTemplate.js.html">nDrmaa/JobTemplate.js</a>, <a href="nDrmaa_JobTemplate.js.html#line116">line 116</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+    <h5>Example</h5>
+    
+    <pre class="prettyprint"><code>jobName: "myJobName"</code></pre>
+
+
+
+        
+            
+<h4 class="name" id="joinFiles"><span class="type-signature"></span>joinFiles<span class="type-signature"> :string</span></h4>
+
+
+
+
+<div class="description">
+    Specifies if the job's error  stream  should  be  intermixed
+with  the  output  stream.  If not explicitly set in the job
+template the attribute defaults to 'n'. Either  'y'  or  'n'
+can  be  specified.
+</div>
+
+
+
+    <h5>Type:</h5>
+    <ul>
+        <li>
+            
+<span class="param-type">string</span>
+
+
+        </li>
+    </ul>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="nDrmaa_JobTemplate.js.html">nDrmaa/JobTemplate.js</a>, <a href="nDrmaa_JobTemplate.js.html#line157">line 157</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+        
+            
+<h4 class="name" id="nativeSpecification"><span class="type-signature"></span>nativeSpecification<span class="type-signature"> :string</span></h4>
+
+
+
+
+<div class="description">
+    Specifies Sun Grid Engine native qsub options which  will
+be  interpreted  as  part  of  the  DRMAA job template.
+All options available to qsub command  may  be  used  in  the
+native_specification,  except for -help, -sync, -t, -verify,
+and -w.
+</div>
+
+
+
+    <h5>Type:</h5>
+    <ul>
+        <li>
+            
+<span class="param-type">string</span>
+
+
+        </li>
+    </ul>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="nDrmaa_JobTemplate.js.html">nDrmaa/JobTemplate.js</a>, <a href="nDrmaa_JobTemplate.js.html#line72">line 72</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+    <h5>Example</h5>
+    
+    <pre class="prettyprint"><code>nativeSpecification: "-now y"</code></pre>
+
+
+
+        
+            
+<h4 class="name" id="outputPath"><span class="type-signature"></span>outputPath<span class="type-signature"> :string</span></h4>
+
+
+
+
+<div class="description">
+    Specifies the standard output of the job. If not  explicitly
+set in the job template, the whereabouts of the job's output
+stream is not defined. If set, this attribute specifies  the
+network path of the job's output stream file.
+</div>
+
+
+
+    <h5>Type:</h5>
+    <ul>
+        <li>
+            
+<span class="param-type">string</span>
+
+
+        </li>
+    </ul>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="nDrmaa_JobTemplate.js.html">nDrmaa/JobTemplate.js</a>, <a href="nDrmaa_JobTemplate.js.html#line137">line 137</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+    <h5>Example</h5>
+    
+    <pre class="prettyprint"><code>inputPat: "/path/to/output/"</code></pre>
+
+
+
+        
+            
+<h4 class="name" id="remoteCommand"><span class="type-signature"></span>remoteCommand<span class="type-signature"> :string</span></h4>
+
+
+
+
+<div class="description">
+    Specifies the remote command to execute. The  remote_command
+must  be  the path of an executable that is available at the
+job's execution host.   If  the  path  is  relative,  it  is
+assumed to be relative to the working directory.
+If working directory is not set,  the  path is assumed to be
+relative to the user's home directory.
+
+The file pointed to by remoteCommand may either be an  executable
+binary  or  an  executable script.  If a script, it
+must include the path to the shell  in  a  #!  line  at  the
+beginning  of  the  script.
+</div>
+
+
+
+    <h5>Type:</h5>
+    <ul>
+        <li>
+            
+<span class="param-type">string</span>
+
+
+        </li>
+    </ul>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="nDrmaa_JobTemplate.js.html">nDrmaa/JobTemplate.js</a>, <a href="nDrmaa_JobTemplate.js.html#line27">line 27</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+    <h5>Example</h5>
+    
+    <pre class="prettyprint"><code>remoteCommand: "myTestScript.sh"</code></pre>
+
+
+
+        
+            
+<h4 class="name" id="startTime"><span class="type-signature"></span>startTime<span class="type-signature"> :string</span></h4>
+
+
+
+
+<div class="description">
+    Specifies the earliest time when the job may be eligible  to
+be run.
+The time format is [[CC]]YY]MMDDhhmm[.SS] where:
+<ul>
+ <li>CC is the first two digits of the year (century-1)</li>
+ <li>YY is the last two digits of the year</li>
+ <li>MM is the two digits of the month [01,12]</li>
+ <li>DD is the two digit day of the month [01,31]</li>
+ <li>hh is the two digit hour of the day [00,23]</li>
+ <li>mm is the two digit minute of the day [00,59]</li>
+ <li>SS is the two digit second of the minute [00,59]</li>
+</ul>
+Server's timezone is used.
+</div>
+
+
+
+    <h5>Type:</h5>
+    <ul>
+        <li>
+            
+<span class="param-type">string</span>
+
+
+        </li>
+    </ul>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="nDrmaa_JobTemplate.js.html">nDrmaa/JobTemplate.js</a>, <a href="nDrmaa_JobTemplate.js.html#line107">line 107</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+    <h5>Example</h5>
+    
+    <pre class="prettyprint"><code>startTime: "201710061529" // October 6th, 2017, 15:29 local time</code></pre>
+
+
+
+        
+            
+<h4 class="name" id="submitAsHold"><span class="type-signature"></span>submitAsHold<span class="type-signature"> :boolean</span></h4>
+
+
+
+
+<div class="description">
+    Specifies whether or not the job should be submitted as hold.
+</div>
+
+
+
+    <h5>Type:</h5>
+    <ul>
+        <li>
+            
+<span class="param-type">boolean</span>
+
+
+        </li>
+    </ul>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="nDrmaa_JobTemplate.js.html">nDrmaa/JobTemplate.js</a>, <a href="nDrmaa_JobTemplate.js.html#line41">line 41</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+        
+            
+<h4 class="name" id="workingDirectory"><span class="type-signature"></span>workingDirectory<span class="type-signature"> :string</span></h4>
+
+
+
+
+<div class="description">
+    Specifies the directory name where the job will be executed.
+If not set,  the  working directory will default to the
+user's home directory.
+</div>
+
+
+
+    <h5>Type:</h5>
+    <ul>
+        <li>
+            
+<span class="param-type">string</span>
+
+
+        </li>
+    </ul>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="nDrmaa_JobTemplate.js.html">nDrmaa/JobTemplate.js</a>, <a href="nDrmaa_JobTemplate.js.html#line60">line 60</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+    <h5>Example</h5>
+    
+    <pre class="prettyprint"><code>workingDirectory: "/path/to/working/directory/"</code></pre>
+
+
+
+        
+    
+
+    
+
+    
+
+    
+</article>
+
+</section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-nDrmaaExceptions.html">nDrmaaExceptions</a></li><li><a href="module-scheduler_monitors.html">scheduler/monitors</a></li><li><a href="module-sge-cli.html">sge-cli</a></li></ul><h3>Classes</h3><ul><li><a href="Database.html">Database</a></li><li><a href="Job.html">Job</a></li><li><a href="JobInfo.html">JobInfo</a></li><li><a href="JobInfoImpl.html">JobInfoImpl</a></li><li><a href="JobMonitor.html">JobMonitor</a></li><li><a href="JobTemplate.html">JobTemplate</a></li><li><a href="module-nDrmaaExceptions.AlreadyActiveSessionException.html">AlreadyActiveSessionException</a></li><li><a href="module-nDrmaaExceptions.DrmsInitException.html">DrmsInitException</a></li><li><a href="module-nDrmaaExceptions.ExitTimeoutException.html">ExitTimeoutException</a></li><li><a href="module-nDrmaaExceptions.InvalidArgumentException.html">InvalidArgumentException</a></li><li><a href="module-nDrmaaExceptions.InvalidSessionException.html">InvalidSessionException</a></li><li><a href="module-nDrmaaExceptions.NoActiveSessionException.html">NoActiveSessionException</a></li><li><a href="module-nDrmaaExceptions.UnsupportedAttributeException.html">UnsupportedAttributeException</a></li><li><a href="scheduler_SchedulerManager.html">scheduler/SchedulerManager</a></li><li><a href="Session.html">Session</a></li><li><a href="SessionImpl.html">SessionImpl</a></li><li><a href="SessionManager.html">SessionManager</a></li><li><a href="SessionManagerImpl.html">SessionManagerImpl</a></li><li><a href="Version.html">Version</a></li></ul><h3>Events</h3><ul><li><a href="global.html#event:JobCompleted">JobCompleted</a></li><li><a href="global.html#event:JobError">JobError</a></li><li><a href="global.html#event:qstatError">qstatError</a></li></ul><h3>Tutorials</h3><ul><li><a href="tutorial-SchedulerManager.html">SchedulerManager</a></li></ul><h3>Global</h3><ul><li><a href="global.html#_getArrayJobStatus">_getArrayJobStatus</a></li><li><a href="global.html#_parseJobArrayStatus">_parseJobArrayStatus</a></li><li><a href="global.html#_parseJobStatus">_parseJobStatus</a></li><li><a href="global.html#_removeListeners">_removeListeners</a></li><li><a href="global.html#generateUUIDV4">generateUUIDV4</a></li><li><a href="global.html#HOLD">HOLD</a></li><li><a href="global.html#JOB_IDS_SESSION_ALL">JOB_IDS_SESSION_ALL</a></li><li><a href="global.html#JOBTYPE">JOBTYPE</a></li><li><a href="global.html#RELEASE">RELEASE</a></li><li><a href="global.html#RESUME">RESUME</a></li><li><a href="global.html#SUSPEND">SUSPEND</a></li><li><a href="global.html#TERMINATE">TERMINATE</a></li><li><a href="global.html#TIMEOUT_WAIT_FOREVER">TIMEOUT_WAIT_FOREVER</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.5.5</a> on Sun Oct 08 2017 15:52:07 GMT+0200 (CEST)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

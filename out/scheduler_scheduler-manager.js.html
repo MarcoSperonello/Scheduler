@@ -1,4 +1,32 @@
-import Db from '../database';
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: scheduler/scheduler-manager.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: scheduler/scheduler-manager.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>import Db from '../database';
 import Logger from '../logger';
 
 import fs from 'fs';
@@ -24,26 +52,26 @@ export const sessionManager = new SessionManager();
 
 /**
  * Class that manages client requests to submit a job to the Sun Grid Engine
- * (SGE).<br><br>
+ * (SGE).&lt;br>&lt;br>
  *
  * Job can either be SINGLE or ARRAY. SINGLE jobs consist of a single task,
- * while ARRAY jobs feature multiple ones.<br>
- * Job submission and handling is bound by the following constraints:<br>
- *  - maximum number of requests per user per time unit<br>
- *  - maximum number of requests per time unit for all users<br>
- *  - blacklisted and whitelisted users<br>
- *  - maximum number of concurrent jobs (in any state)<br>
- *  - maximum allotted runtime, after which the job is forcibly terminated.<br>
- * <br>
+ * while ARRAY jobs feature multiple ones.&lt;br>
+ * Job submission and handling is bound by the following constraints:&lt;br>
+ *  - maximum number of requests per user per time unit&lt;br>
+ *  - maximum number of requests per time unit for all users&lt;br>
+ *  - blacklisted and whitelisted users&lt;br>
+ *  - maximum number of concurrent jobs (in any state)&lt;br>
+ *  - maximum allotted runtime, after which the job is forcibly terminated.&lt;br>
+ * &lt;br>
  * There are two kinds of time limits: the "queued" time limit, which dictates
  * how long a job can be in a non-RUNNING state, and the "running" time limit,
  * used to restrict the time spent in a RUNNING state by a job. SINGLE and ARRAY
  * jobs time limit pairs are different (i.e. the 'queued' and/or 'running' time
- * limit of a SINGLE job can be different than those of a RUNNING job).<br>
+ * limit of a SINGLE job can be different than those of a RUNNING job).&lt;br>
  * These constraints are configured in the input.json file, to be placed in the
- * root of the project directory (temporary arrangement).<br><br>
+ * root of the project directory (temporary arrangement).&lt;br>&lt;br>
  *
- * INSTANTIATION:<br>
+ * INSTANTIATION:&lt;br>
  * The class constructor is called automatically and the input file, whose path
  * is passed to the constructor, is read in order to configure the class
  * parameters. Said file is then read every time a request is received by the
@@ -51,11 +79,11 @@ export const sessionManager = new SessionManager();
  * reconfiguration of input parameters during runtime is supported.
  * Refer to the sample file and the constructor comments for further details
  * regarding the input parameters.
- * <br><br>
- * USAGE:<br>
+ * &lt;br>&lt;br>
+ * USAGE:&lt;br>
  * This class is meant to be accessed by the outside via the
  * [handleRequest]{@link scheduler/SchedulerManager#handleRequest} method, which
- * returns a promise.<br> Said method proceeds to verify whether any of the
+ * returns a promise.&lt;br> Said method proceeds to verify whether any of the
  * aforementioned constraints are violated. If they are not, this method calls
  * the [handleJobSubmission]{@link
     * scheduler/SchedulerManager#handleJobSubmission} method which attempts to
@@ -63,7 +91,7 @@ export const sessionManager = new SessionManager();
     * scheduler/SchedulerManager#handleRequest} returns a promise which eventually
  * resolves into a {@link requestOutcome} object containing several information
  * regarding the outcome of the request.
- * <br><br>
+ * &lt;br>&lt;br>
  * Please refer to the [tutorial]{@tutorial SchedulerManager} for an in-depth
  * explanation.
  *
@@ -271,22 +299,22 @@ class SchedulerManager {
 
   /**
    * Handles a job submission request by a user. If no constraints are violated,
-   * the request is accepted and forwarded to the SGE.<br><br>
+   * the request is accepted and forwarded to the SGE.&lt;br>&lt;br>
    *
    * The promise resolves only if the job could be submitted to the SGE.
    *
    * @param {requestData} requestData - Object containing request information.
    * @returns {Promise}
-   * <ul>
-   *    <li>
-   *      <b>Resolve</b> {{@link requestOutcome}} - Object holding information
+   * &lt;ul>
+   *    &lt;li>
+   *      &lt;b>Resolve&lt;/b> {{@link requestOutcome}} - Object holding information
    *      regarding the request and the submitted job.
-   *    </li>
-   *    <li>
-   *      <b>Reject</b> {{@link requestOutcome}} - Object holding information
+   *    &lt;/li>
+   *    &lt;li>
+   *      &lt;b>Reject&lt;/b> {{@link requestOutcome}} - Object holding information
    *      regarding the request. Its jobData field is null.
-   *    </li>
-   * </ul>
+   *    &lt;/li>
+   * &lt;/ul>
    */
   handleRequest(requestData) {
     return new Promise((resolve, reject) => {
@@ -375,23 +403,23 @@ class SchedulerManager {
   }
 
   /**
-   * Attempts to submit a job to the SGE.<br><br>
+   * Attempts to submit a job to the SGE.&lt;br>&lt;br>
    *
    * The promise is resolved only if the job could be submitted to the SGE, it
    * is otherwise rejected.
    *
    * @param {requestData} requestData - Object containing request information.
    * @returns {Promise}
-   * <ul>
-   *    <li>
-   *      <b>Resolve</b> {{@link jobDescription}} - Object containing several
+   * &lt;ul>
+   *    &lt;li>
+   *      &lt;b>Resolve&lt;/b> {{@link jobDescription}} - Object containing several
    *      information about the job.
-   *    </li>
-   *    <li>
-   *      <b>Reject</b> {string} - A brief description of why the job could not
+   *    &lt;/li>
+   *    &lt;li>
+   *      &lt;b>Reject&lt;/b> {string} - A brief description of why the job could not
    *      be submitted.
-   *    </li>
-   * </ul>
+   *    &lt;/li>
+   * &lt;/ul>
    */
   handleJobSubmission(requestData) {
     return new Promise((resolve, reject) => {
@@ -474,7 +502,7 @@ class SchedulerManager {
                     // If the job is of the ARRAY type, all of its task are
                     // added to the taskInfo array.
                     if (jobType === JOBTYPE.ARRAY) {
-                      for (let taskId = start; taskId <= end;
+                      for (let taskId = start; taskId &lt;= end;
                            taskId += increment) {
                         console.log(
                             'task ' + taskId + ' status: ' +
@@ -549,19 +577,19 @@ class SchedulerManager {
    * error occurs.
    *
    * @returns {Promise}
-   * <ul>
-   *    <li>
-   *      <b>Resolve</b> {[jobStatusInformation]{@link
+   * &lt;ul>
+   *    &lt;li>
+   *      &lt;b>Resolve&lt;/b> {[jobStatusInformation]{@link
    *      module:scheduler/monitors~jobStatusInformation}} -
    *      Object containing several information about the job successfully
    *      submitted to the SGE.
-   *    </li>
-   *    <li>
-   *      <b>Reject</b> {[jobStatusError]{@link
+   *    &lt;/li>
+   *    &lt;li>
+   *      &lt;b>Reject&lt;/b> {[jobStatusError]{@link
    *      module:scheduler/monitors~jobStatusError}} - Information regarding the
    *      failure to read the result of the job computation.
-   *    </li>
-   * </ul>
+   *    &lt;/li>
+   * &lt;/ul>
    */
   getJobResult() {
     // Parses the ID of the job whose status needs to be monitored.
@@ -650,7 +678,7 @@ class SchedulerManager {
     let user = this.users_[userIndex];
 
     // If the user's request history is not full, the request can be serviced.
-    if (user.requestAmount < this.maxRequestsPerSecUser_)
+    if (user.requestAmount &lt; this.maxRequestsPerSecUser_)
       return {status: true, description: ''};
 
     // If there are expired user requests, they are pruned and the current
@@ -756,7 +784,7 @@ class SchedulerManager {
    */
   generateUUIDV4() {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-      let r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+      let r = Math.random() * 16 | 0, v = c == 'x' ? r : (r &amp; 0x3 | 0x8);
       return v.toString(16);
     });
   }
@@ -803,7 +831,7 @@ class SchedulerManager {
    */
   checkArrayParams(start, end, increment) {
     return (!Number.isInteger(start) || !Number.isInteger(end) ||
-        !Number.isInteger(increment) || start <= 0 || end < start ||
+        !Number.isInteger(increment) || start &lt;= 0 || end &lt; start ||
         start + increment > end) ?
         JOBTYPE.SINGLE :
         JOBTYPE.ARRAY;
@@ -875,7 +903,7 @@ class SchedulerManager {
   }
 
   /**
-   * Attempts to read the input file and update the input parameters.<br>
+   * Attempts to read the input file and update the input parameters.&lt;br>
    * Time related parameters are multiplied by 1000 in order to convert seconds
    * to milliseconds.
    */
@@ -999,3 +1027,26 @@ class SchedulerManager {
 }
 
 export const Sec = new SchedulerManager('./input_files/input.json');
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-nDrmaaExceptions.html">nDrmaaExceptions</a></li><li><a href="module-scheduler_monitors.html">scheduler/monitors</a></li><li><a href="module-sge-cli.html">sge-cli</a></li></ul><h3>Classes</h3><ul><li><a href="Database.html">Database</a></li><li><a href="Job.html">Job</a></li><li><a href="JobInfo.html">JobInfo</a></li><li><a href="JobInfoImpl.html">JobInfoImpl</a></li><li><a href="JobMonitor.html">JobMonitor</a></li><li><a href="JobTemplate.html">JobTemplate</a></li><li><a href="module-nDrmaaExceptions.AlreadyActiveSessionException.html">AlreadyActiveSessionException</a></li><li><a href="module-nDrmaaExceptions.DrmsInitException.html">DrmsInitException</a></li><li><a href="module-nDrmaaExceptions.ExitTimeoutException.html">ExitTimeoutException</a></li><li><a href="module-nDrmaaExceptions.InvalidArgumentException.html">InvalidArgumentException</a></li><li><a href="module-nDrmaaExceptions.InvalidSessionException.html">InvalidSessionException</a></li><li><a href="module-nDrmaaExceptions.NoActiveSessionException.html">NoActiveSessionException</a></li><li><a href="module-nDrmaaExceptions.UnsupportedAttributeException.html">UnsupportedAttributeException</a></li><li><a href="scheduler_SchedulerManager.html">scheduler/SchedulerManager</a></li><li><a href="Session.html">Session</a></li><li><a href="SessionImpl.html">SessionImpl</a></li><li><a href="SessionManager.html">SessionManager</a></li><li><a href="SessionManagerImpl.html">SessionManagerImpl</a></li><li><a href="Version.html">Version</a></li></ul><h3>Events</h3><ul><li><a href="global.html#event:JobCompleted">JobCompleted</a></li><li><a href="global.html#event:JobError">JobError</a></li><li><a href="global.html#event:qstatError">qstatError</a></li></ul><h3>Tutorials</h3><ul><li><a href="tutorial-SchedulerManager.html">SchedulerManager</a></li></ul><h3>Global</h3><ul><li><a href="global.html#_getArrayJobStatus">_getArrayJobStatus</a></li><li><a href="global.html#_parseJobArrayStatus">_parseJobArrayStatus</a></li><li><a href="global.html#_parseJobStatus">_parseJobStatus</a></li><li><a href="global.html#_removeListeners">_removeListeners</a></li><li><a href="global.html#generateUUIDV4">generateUUIDV4</a></li><li><a href="global.html#HOLD">HOLD</a></li><li><a href="global.html#JOB_IDS_SESSION_ALL">JOB_IDS_SESSION_ALL</a></li><li><a href="global.html#JOBTYPE">JOBTYPE</a></li><li><a href="global.html#RELEASE">RELEASE</a></li><li><a href="global.html#RESUME">RESUME</a></li><li><a href="global.html#SUSPEND">SUSPEND</a></li><li><a href="global.html#TERMINATE">TERMINATE</a></li><li><a href="global.html#TIMEOUT_WAIT_FOREVER">TIMEOUT_WAIT_FOREVER</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.5.5</a> on Sun Oct 08 2017 15:52:07 GMT+0200 (CEST)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>
