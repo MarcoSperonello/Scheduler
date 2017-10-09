@@ -60,7 +60,8 @@ export const sessionManager = new SessionManager();
  * the [handleJobSubmission]{@link
     * scheduler/SchedulerManager#handleJobSubmission} method which attempts to
  * submit the job to the SGE. [handleRequest]{@link
-    * scheduler/SchedulerManager#handleRequest} returns a promise which eventually
+    * scheduler/SchedulerManager#handleRequest} returns a promise which
+ * eventually
  * resolves into a {@link requestOutcome} object containing several information
  * regarding the outcome of the request.
  * <br><br>
@@ -87,12 +88,11 @@ class SchedulerManager {
     this.inputFile_ = inputFile;
     /** Job history, consisting of the jobs submitted to the SGE and not yet
      * completed or deleted.
-     * @type {array}
+     * @type {Object}
      * @private
      */
-    this.jobs_ = [];
+    this.jobs_ = {};
     /** Counts the number of jobs which have not yet been submitted to the SGE.
-     *
      * @type {number}
      * @private
      */
@@ -199,7 +199,7 @@ class SchedulerManager {
           }
           console.log('\n');
         }, 5000);*/
-    console.log('job size ' + this.jobs_.length);
+    console.log('job size ' + Object.keys(this.jobs_).length);
   }
 
   /**
@@ -207,8 +207,7 @@ class SchedulerManager {
    * @typedef {Object} requestData
    * @property {string} ip - The IP address of the user.
    * @property {string} time - The time at which the request was received.
-   * @property {string} jobPath - Path of the file with the job specifications.
-   * @property {string} sessionName - The UUID of the session the job was launched in.
+   * @property {Object} jobPath - Job specifications.
    */
 
   /**
@@ -217,7 +216,8 @@ class SchedulerManager {
    * @property {string} ip - The IP address of the user who submitted the
    * request.
    * @property {string} time - The time at which the request was received.
-   * @property {[JobDescription]{@link jobDescription} jobData -  Relevant information regarding a submitted job.
+   * @property {[JobDescription]{@link jobDescription} jobData -  Relevant
+   * information regarding a submitted job.
    * @property {string} description - Brief description of the outcome of the
    * request as specified in {@link requestStatus}.
    */
@@ -238,7 +238,8 @@ class SchedulerManager {
    * @property {number} jobId - The unique identifier of the job, determined by
    * the SGE.
    * @property {string} jobName - The name of the job.
-   * @property {string} sessionName - The UUID of the session the job was launched in.
+   * @property {string} sessionName - The UUID of the session the job was
+   * launched in.
    * @property {number} firstTaskId - The number of the first task of the job if
    * it is a {@link JOBTYPE}.ARRAY job, null otherwise.
    * @property {number} lastTaskId - The number of the last task of the job if
@@ -246,7 +247,8 @@ class SchedulerManager {
    * @property {number} increment - The step size of the job if it is a {@link
       * JOBTYPE}.ARRAY job, null otherwise.
    * @property {array} taskInfo - Information for each task (see {@link
-      * taskData}) of the job if it is a {@link JOBTYPE}.ARRAY job, null otherwise.
+      * taskData}) of the job if it is a {@link JOBTYPE}.ARRAY job, null
+   * otherwise.
    * @property {string} user - The IP address of the user who submitted the
    * request.
    * @property {string} submitDate - The time at which the job was submitted to
@@ -276,6 +278,7 @@ class SchedulerManager {
    * The promise resolves only if the job could be submitted to the SGE.
    *
    * @param {requestData} requestData - Object containing request information.
+   * @param {Session} session - The name of the session to launch the job in.
    * @returns {Promise}
    * <ul>
    *    <li>
@@ -288,23 +291,23 @@ class SchedulerManager {
    *    </li>
    * </ul>
    */
-  handleRequest(requestData) {
+  handleRequest(requestData, session) {
     return new Promise((resolve, reject) => {
       // The counter is incremented because the job has still not been submitted
       // to the SGE, nor has the request been rejected.
       this.pendingJobsCounter_++;
 
-      // Removes the :ffff: prefix from the ip address, if present.
+      // Removes the :*: prefix from the ip address, if present.
       requestData.ip = requestData.ip.replace(/^.*:/, '');
 
-      // Fetches the index in the users array corresponding to that of the user
+      // Fetches the index in the users_ array corresponding to that of the user
       // who submitted the request.
-      let userIndex = this.findUserIndex(this.users_, requestData);
+      let userIndex = this.users_.findIndex(
+          (elem) => { return elem.ip === requestData.ip; });
+
       Logger.info(
           'Request received by ' + requestData.ip + ' at ' +
-          //new Date(requestData.time) + '.');
-          //new Date().getTime() + '.');
-          requestData.time + '.');
+          new Date(requestData.time) + '.');
 
       // If a long enough time has passed since the last read of the input file,
       // it is read again and the input parameters are updated.
@@ -347,9 +350,9 @@ class SchedulerManager {
         // Adds the request to the global requests array.
         this.globalRequests_.push(requestData.time);
 
-        //this.registerRequestToDatabase(requestData);
+        // this.registerRequestToDatabase(requestData);
         // Attempts to submit the job to the SGE.
-        this.handleJobSubmission(requestData)
+        this.handleJobSubmission(requestData, session)
             .then(
                 (jobData) => {
                   requestOutcome.jobData = jobData;
@@ -381,6 +384,7 @@ class SchedulerManager {
    * is otherwise rejected.
    *
    * @param {requestData} requestData - Object containing request information.
+   * @param {Session} session - The name of the session to launch the job in.
    * @returns {Promise}
    * <ul>
    *    <li>
@@ -393,54 +397,10 @@ class SchedulerManager {
    *    </li>
    * </ul>
    */
-  handleJobSubmission(requestData) {
+  handleJobSubmission(requestData, session) {
     return new Promise((resolve, reject) => {
 
       try {
-        // Loads job specifications from file.
-        /*let jobInfo = JSON.parse(fs.readFileSync(requestData.jobPath, 'utf8'));
-        let jobData = new JobTemplate({
-          remoteCommand: jobInfo.remoteCommand,
-          args: jobInfo.args || [],
-          submitAsHold: jobInfo.submitAsHold || false,
-          jobEnvironment: jobInfo.jobEnvironment || '',
-          workingDirectory: jobInfo.workingDirectory || '',
-          jobCategory: jobInfo.jobCategory || '',
-          nativeSpecification: jobInfo.nativeSpecification || '',
-          email: jobInfo.email || '',
-          blockEmail: jobInfo.blockEmail || true,
-          startTime: jobInfo.startTime || '',
-          jobName: jobInfo.jobName || '',
-          inputPath: jobInfo.inputPath || '',
-          outputPath: jobInfo.outputPath || '',
-          errorPath: jobInfo.errorPath || '',
-          joinFiles: jobInfo.joinFiles || '',
-        });
-
-        // Number of the first task of the job array.
-        let start = jobInfo.start || null;
-        // Number of the last task of the job array.
-        let end = jobInfo.end || null;
-        // Step size (size of the increments to go from "start" to "end").
-        let increment = jobInfo.incr || null;*/
-
-        // let jobData = new JobTemplate({
-        //   remoteCommand: requestData.jobPath.remoteCommand,
-        //   args: requestData.jobPath.args || [],
-        //   submitAsHold: requestData.jobPath.submitAsHold || false,
-        //   jobEnvironment: requestData.jobPath.jobEnvironment || '',
-        //   workingDirectory: requestData.jobPath.workingDirectory || '',
-        //   jobCategory: requestData.jobPath.jobCategory || '',
-        //   nativeSpecification: requestData.jobPath.nativeSpecification || '',
-        //   email: requestData.jobPath.email || '',
-        //   blockEmail: requestData.jobPath.blockEmail || true,
-        //   startTime: requestData.jobPath.startTime || '',
-        //   jobName: requestData.jobPath.jobName || '',
-        //   inputPath: requestData.jobPath.inputPath || '',
-        //   outputPath: requestData.jobPath.outputPath || '',
-        //   errorPath: requestData.jobPath.errorPath || '',
-        //   joinFiles: requestData.jobPath.joinFiles || '',
-        // });
         let jobData = new JobTemplate(requestData.jobPath);
 
         // Number of the first task of the job array.
@@ -453,93 +413,87 @@ class SchedulerManager {
         // Determines if the job consists of a single task or multiple ones.
         let jobType = this.checkArrayParams(start, end, increment);
 
-        // Creates the Drmaa session.
-        sessionManager.getSession(requestData.sessionName).then( (session) => {
-          Logger.info('Initialized SGE session ' + requestData.sessionName + '.');
-          // Submits the job to the SGE. A different submission function is
-          // called, according to the JOBTYPE of the job.
-          let jobFunc = jobType === JOBTYPE.SINGLE ?
-              session.runJob(jobData) :
-              session.runBulkJobs(jobData, start, end, increment);
-          jobFunc.then(
-              (jobId) => {
-                // The counter is decreased because the job has been submitted.
-                this.pendingJobsCounter_--;
+        // Submits the job to the SGE. A different submission function is
+        // called, according to the JOBTYPE of the job.
+        let jobFunction = jobType === JOBTYPE.SINGLE ?
+            session.runJob(jobData) :
+            session.runBulkJobs(jobData, start, end, increment);
+        jobFunction.then(
+            (jobId) => {
+              // The counter is decreased because the job has been submitted.
+              this.pendingJobsCounter_--;
 
-                // Fetches the date and time of submission of the job.
-                session.getJobProgramStatus([jobId]).then((jobStatus) => {
-                  sgeClient.qstat(jobId).then((job) => {
-                    // Converts the date to an ms-from-epoch format.
-                    let jobSubmitDate = new Date(job.submission_time).getTime();
-                    let taskInfo = [];
-                    // If the job is of the ARRAY type, all of its task are
-                    // added to the taskInfo array.
-                    if (jobType === JOBTYPE.ARRAY) {
-                      for (let taskId = start; taskId <= end;
-                           taskId += increment) {
-                        console.log(
-                            'task ' + taskId + ' status: ' +
-                            jobStatus[jobId].tasksStatus[taskId].mainStatus);
-                        taskInfo.push({
-                          // The ID of the task.
-                          taskId: taskId,
-                          // The status of the task.
-                          status:
-                          jobStatus[jobId].tasksStatus[taskId].mainStatus,
-                          // Time at which the task switched to the RUNNING
-                          // state.
-                          runningStart: 0,
-                          // Time the task has spent in the RUNNING state.
-                          runningTime: 0,
-                        })
-                      }
+              // Fetches the date and time of submission of the job.
+              session.getJobProgramStatus([jobId]).then((jobStatus) => {
+                sgeClient.qstat(jobId).then((job) => {
+                  // Converts the date to an ms-from-epoch format.
+                  let jobSubmitDate = new Date(job.submission_time).getTime();
+                  let taskInfo = [];
+                  // If the job is of the ARRAY type, all of its task are
+                  // added to the taskInfo array.
+                  if (jobType === JOBTYPE.ARRAY) {
+                    for (let taskId = start; taskId <= end;
+                         taskId += increment) {
+                      console.log(
+                          'task ' + taskId + ' status: ' +
+                          jobStatus[jobId].tasksStatus[taskId].mainStatus);
+                      taskInfo.push({
+                        // The ID of the task.
+                        taskId: taskId,
+                        // The status of the task.
+                        status: jobStatus[jobId].tasksStatus[taskId].mainStatus,
+                        // Time at which the task switched to the RUNNING
+                        // state.
+                        runningStart: 0,
+                        // Time the task has spent in the RUNNING state.
+                        runningTime: 0,
+                      })
                     }
+                  }
 
-                    // Adds the job to the job history.
-                    let jobDescription = {
-                      jobId: jobId,
-                      jobName: job.job_name,
-                      sessionName: requestData.sessionName,
-                      jobStatus: jobStatus[jobId].mainStatus,
-                      firstTaskId: jobType === JOBTYPE.SINGLE ? null : start,
-                      lastTaskId: jobType === JOBTYPE.SINGLE ? null : end,
-                      increment: jobType === JOBTYPE.SINGLE ? null : increment,
-                      taskInfo: taskInfo,
-                      user: requestData.ip,
-                      submitDate: jobSubmitDate,
-                      // Total execution time of a job array (the sum of the
-                      // runningTimes of all tasks).
-                      totalExecutionTime: 0,
-                      jobType: jobType,
-                    };
-                    // Adds the job to the job array.
-                    this.jobs_.push(jobDescription);
-                    Logger.info(
-                        'Added job ' + jobId + ' (' + job.job_name + ') on ' +
-                        new Date(jobSubmitDate));
-                    Logger.info(
-                        'Added job ' + jobId + ' (' + job.job_name +
-                        ') to job history. Current job history size: ' +
-                        this.jobs_.length + '.');
-                    resolve(jobDescription);
-                  });
+                  // Adds the job to the job history.
+                  let jobDescription = {
+                    jobId: jobId,
+                    jobName: job.job_name,
+                    sessionName: requestData.sessionName,
+                    jobStatus: jobStatus[jobId].mainStatus,
+                    firstTaskId: jobType === JOBTYPE.SINGLE ? null : start,
+                    lastTaskId: jobType === JOBTYPE.SINGLE ? null : end,
+                    increment: jobType === JOBTYPE.SINGLE ? null : increment,
+                    taskInfo: taskInfo,
+                    user: requestData.ip,
+                    submitDate: jobSubmitDate,
+                    // Total execution time of an ARRAY job (the sum of the
+                    // runningTimes of all tasks).
+                    totalExecutionTime: 0,
+                    jobType: jobType,
+                  };
+                  // Adds the job to the jobs object_.
+                  this.jobs_[jobId] = jobDescription;
+                  Logger.info(
+                      'Added job ' + jobId + ' (' + job.job_name + ') on ' +
+                      new Date(jobSubmitDate));
+                  Logger.info(
+                      'Added job ' + jobId + ' (' + job.job_name +
+                      ') to job history. Current job history size: ' +
+                      Object.keys(this.jobs_).length + '.');
+                  resolve(jobDescription);
                 });
-              },
-              () => {
-                Logger.info(
-                    'Error found in job specifications. Job not submitted to the SGE.');
-                reject(
-                    'Error found in job specifications. Job not submitted to the SGE.');
               });
-        }, (error) => {
-          Logger.info('Error initializing session.');
-          reject('Error initializing session: ' + error);
-        });
-      } catch (err) {
+            },
+            (error) => {
+              Logger.info(
+                  'Error found in job specifications. Job not submitted to the SGE.');
+              reject(
+                  'Error found in job specifications. Job not submitted to the SGE: ' +
+                  error);
+            });
+      } catch (error) {
         Logger.info(
             'Error reading job specifications from file. Job not submitted to the SGE.');
         reject(
-            'Error reading job specifications from file. Job not submitted to the SGE.');
+            'Error reading job specifications from file. Job not submitted to the SGE: ' +
+            error);
       }
     });
   }
@@ -565,10 +519,11 @@ class SchedulerManager {
    * </ul>
    */
   getJobResult() {
-    // Parses the ID of the job whose status needs to be monitored.
+    // Parses the ID and the session of the job whose status needs to be
+    // monitored.
     let jobId = Array.from(arguments);
-    // Keeps calling the monitorJob function to monitor the job of id JobId
-    // until the promise resolves or an error occurs.
+    // Keeps calling the monitorJob function to monitor the job until the
+    // promise resolves or an error occurs.
     return monitors.monitorJob.apply(null, jobId).catch((result) => {
       if (result.hasOwnProperty('error')) return Promise.reject(result.error);
       return this.getJobResult.apply(this, jobId);
@@ -586,15 +541,9 @@ class SchedulerManager {
    */
   verifyRequest(requestData, userIndex) {
     let checkResult = this.checkUserRequests(requestData, userIndex);
-    if (!checkResult.status)
+    if (!checkResult.status) {
       return {status: false, description: checkResult.description};
-    /*    if (this.jobs_.length >= this.maxConcurrentJobs_)
-          return {
-            status: false,
-            description: 'Maximum number (' + this.maxConcurrentJobs_ +
-                ') of concurrent jobs already reached. Cannot submit any more
-       jobs at the moment.'
-          };*/
+    }
     return {status: true, description: 'All checks passed.'};
   }
 
@@ -618,22 +567,24 @@ class SchedulerManager {
     // If the user is whitelisted, the request is accepted.
     if (this.isWhitelisted(requestData)) return {status: true, description: ''};
 
+    let jobLength = Object.keys(this.jobs_).length;
     // If the number of pending job requests plus the number of current jobs
     // being handled by the SGE is bigger than the maximum number of concurrent
     // jobs, there is the risk that said constraint might be violated, so the
     // request is rejected.
-    if (this.pendingJobsCounter_ + this.jobs_.length > this.maxConcurrentJobs_) {
+    if (this.pendingJobsCounter_ + jobLength > this.maxConcurrentJobs_) {
       return {
         status: false,
-        description: 'Cannot submit the job without guaranteeing that the maxConcurrentJobs_ limit will not be exceeded.',
+        description:
+            'Cannot submit the job without guaranteeing that the maxConcurrentJobs_ limit will not be exceeded.',
       };
-    } else { console.log('check passed');}
+    }
 
-    if (this.jobs_.length >= this.maxConcurrentJobs_)
+    if (jobLength >= this.maxConcurrentJobs_)
       return {
         status: false,
         description: 'Maximum number (' + this.maxConcurrentJobs_ +
-        ') of concurrent jobs already reached. Cannot submit any more jobs at the moment.'
+            ') of concurrent jobs already reached. Cannot submit any more jobs at the moment.'
       };
 
     // If the server is already at capacity, additional requests cannot be
@@ -642,8 +593,8 @@ class SchedulerManager {
       return {
         status: false,
         description: 'Server currently at capacity (' +
-        this.globalRequests_.length +
-        ' global requests present). Cannot service more requests.'
+            this.globalRequests_.length +
+            ' global requests present). Cannot service more requests.'
       };
 
     if (userIndex === -1) return {status: true, description: ''};
@@ -677,8 +628,8 @@ class SchedulerManager {
     return {
       status: false,
       description: 'User ' + user.ip +
-      ' cannot submit more requests right now: there are currently ' +
-      user.requests.length + ' request(s) in the user\'s history.'
+          ' cannot submit more requests right now: there are currently ' +
+          user.requests.length + ' request(s) in the user\'s history.'
     };
   }
 
@@ -691,7 +642,6 @@ class SchedulerManager {
    */
   checkGlobalRequests(requestData) {
     // Pruning of expired global requests, if any.
-    // console.log("globalRequests_.length: " + this.globalRequests_.length);
     for (let i = this.globalRequests_.length - 1; i >= 0; i--) {
       if (requestData.time - this.globalRequests_[i] > this.requestLifespan_) {
         this.globalRequests_.splice(0, i + 1);
@@ -774,21 +724,6 @@ class SchedulerManager {
   }
 
   /**
-   * Returns the index of the element of the array corresponding to the user who
-   * submitted the input request.
-   *
-   * @param {array} userArray - The array the user who submitted the request is
-   * stored in.
-   * @param {requestData} requestData - Object holding request information.
-   * @returns {number} The index of the element corresponding to the user who
-   * submitted the request; -1 if the user is not found.
-   */
-  findUserIndex(userArray, requestData) {
-    return userArray.findIndex(
-        (elem) => { return elem.ip === requestData.ip; });
-  }
-
-  /**
    * Verifies if the start, end and increment parameters for an array job are
    * valid.
    * If there are no logical errors but the sum of the start and increment
@@ -804,8 +739,8 @@ class SchedulerManager {
    */
   checkArrayParams(start, end, increment) {
     return (!Number.isInteger(start) || !Number.isInteger(end) ||
-        !Number.isInteger(increment) || start <= 0 || end < start ||
-        start + increment > end) ?
+            !Number.isInteger(increment) || start <= 0 || end < start ||
+            start + increment > end) ?
         JOBTYPE.SINGLE :
         JOBTYPE.ARRAY;
   }

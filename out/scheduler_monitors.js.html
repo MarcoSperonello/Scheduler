@@ -88,8 +88,7 @@ export function monitorUsers() {
  * or ERROR state, otherwise it is rejected.
  *
  * @param {number} jobId - The id of the job to monitor.
- * @param {string} sessionName - The UUID of the {@link Session} the job was
- * launched in.
+ * @param {Session} session - The name of the session the job belongs to.
  * @returns {Promise}
  * &lt;ul>
  *    &lt;li>
@@ -107,12 +106,12 @@ export function monitorUsers() {
  * Note: the exitStatus, failed and errors fields are always null if the job was
  * terminated while !RUNNING (i.e. while QUEUED/ON_HOLD).
  */
-export function monitorJob(jobId, sessionName) {
+export function monitorJob(jobId, session) {
   return new Promise((resolve, reject) => {
     setTimeout(() => {
         // Keeps checking the status of the job until it is completed or an
         // error occurs.
-        pollJob(jobId, sessionName).then(
+        pollJob(jobId, session).then(
             (status) => {
               // The job is not COMPLETED or in ERROR, the function is called
               // again after the specified time.
@@ -143,8 +142,7 @@ export function monitorJob(jobId, sessionName) {
  * it is rejected.
  *
  * @param {number} jobId - The id of the job to monitor.
- * @param {string} sessionName - The UUID of the {@link Session} the job was
- * launched in.
+ * @param {Session} session - The name of the session the job belongs to.
  * @returns {Promise}
  * &lt;ul>
  *    &lt;li>
@@ -159,24 +157,14 @@ export function monitorJob(jobId, sessionName) {
  *    &lt;/li>
  * &lt;/ul>
  */
-function pollJob(jobId, sessionName) {
+function pollJob(jobId, session) {
   return new Promise((resolve, reject) => {
+    try {
 
-    // Attempts to find the job with the id corresponding to the one passed to
-    // the function.
-    let index = Sec.jobs_.findIndex((elem) => { return elem.jobId === jobId; });
+      // Name and type of the job.
+      let jobName = Sec.jobs_[jobId].jobName;
+      let jobType = Sec.jobs_[jobId].jobType;
 
-    // If no such job is present in the job history, the function simply
-    // returns. The resulting error will be caught and handled by monitorJob.
-    if (index === -1) {
-      reject('Job ' + jobId + ' already removed from history.');
-    }
-
-    // Name and type of the job.
-    let jobName = Sec.jobs_[index].jobName;
-    let jobType = Sec.jobs_[index].jobType;
-
-    sessionManager.getSession(sessionName).then((session) => {
       // Fetches the status of the specified job and verifies if any meaningful
       // changes to the status of the job took place or any timeouts have been
       // violated since the previous check. The function used to do so depends
@@ -204,11 +192,13 @@ function pollJob(jobId, sessionName) {
                 'Error reading status for job ' + jobId + ' (' + jobName +
                 ').');
             reject(error);
+
           });
-    }, (error) => {
-      Logger.info('Error fetching session ' + sessionName + '.');
-      reject('Error fetching session ' + sessionName + ':' + error);
-    });
+    } catch (error) {
+      Logger.info(
+          'Error reading status for job ' + jobId + '.');
+      reject(error);
+    }
   });
 }
 
@@ -228,7 +218,7 @@ function pollJob(jobId, sessionName) {
  * from history;&lt;br>
  * (3) the job was !RUNNING, is still !RUNNING and the time limit for !RUNNING
  * jobs ([maxJobQueuedTime_]{@link
-    * scheduler/SchedulerManager#maxJobQueuedTime_}) has been exceeded --> the job
+ * scheduler/SchedulerManager#maxJobQueuedTime_}) has been exceeded --> the job
  * is forcibly terminated and deleted from history;&lt;br>
  * (4) the job was RUNNING, is still RUNNING and the time limit for RUNNING jobs
  * ([maxJobRunningTime_]{@link scheduler/SchedulerManager#maxJobRunningTime_})
@@ -269,13 +259,10 @@ function monitorSingleJob(session, jobStatus, jobId) {
   return new Promise((resolve, reject) => {
     try {
       // Relevant job information are stored in local variables in order to minimize
-      // the number of accesses to the jobs_ array.
-      let index = Sec.jobs_.findIndex((elem) => {
-        return elem.jobId === jobId;
-      });
-      let jobName = Sec.jobs_[index].jobName;
-      let prevJobStatus = Sec.jobs_[index].jobStatus;
-      let submitDate = Sec.jobs_[index].submitDate;
+      // the number of accesses to the jobs_ object.
+      let jobName = Sec.jobs_[jobId].jobName;
+      let prevJobStatus = Sec.jobs_[jobId].jobStatus;
+      let submitDate = Sec.jobs_[jobId].submitDate;
 
       // If the job has not yet been completed but its status changed from
       // ON-HOLD/QUEUED to RUNNING, said status is updated to the current
@@ -299,14 +286,9 @@ function monitorSingleJob(session, jobStatus, jobId) {
           description: 'Job switched from ' + prevJobStatus + ' to ' +
           jobStatus[jobId].mainStatus + '.'
         });
-        // The index of the job in the job history is fetched again in case the
-        // array was modified by another job's monitor in the meantime.
-        let index =
-            Sec.jobs_.findIndex((elem) => {
-              return elem.jobId === jobId;
-            });
-        Sec.jobs_[index].jobStatus = jobStatus[jobId].mainStatus;
-        Sec.jobs_[index].submitDate = new Date().getTime();
+
+        Sec.jobs_[jobId].jobStatus = jobStatus[jobId].mainStatus;
+        Sec.jobs_[jobId].submitDate = new Date().getTime();
       }
 
       // Terminates and removes from history jobs which are in ERROR state or
@@ -319,7 +301,7 @@ function monitorSingleJob(session, jobStatus, jobId) {
           Logger.info(
               'Job ' + jobId + ' (' + jobName + ') is in ' +
               jobStatus[jobId].mainStatus + ' state.');
-          deleteJob(session, jobId, true)
+          deleteErrorJob(session, jobId)
               .then(
                   (jobInfo) => {
                     resolve({
@@ -359,9 +341,8 @@ function monitorSingleJob(session, jobStatus, jobId) {
                       exitStatus: jobStatus[jobId].mainStatus === 'RUNNING' ?
                           jobInfo.exitStatus :
                           null,
-                      errors: jobStatus[jobId].mainStatus === 'RUNNING' ?
-                          jobInfo.errors :
-                          null,
+                      errors: ['Maximum ' + jobStatus[jobId].mainStatus +
+                      ' runtime exceeded.'],
                       failed: jobStatus[jobId].mainStatus === 'RUNNING' ?
                           jobInfo.failed :
                           null,
@@ -400,11 +381,11 @@ function monitorSingleJob(session, jobStatus, jobId) {
             mainStatus: jobStatus[jobId].mainStatus,
             subStatus: jobStatus[jobId].subStatus,
             exitStatus: jobInfo.exitStatus,
-            errors: jobInfo.errors || null,
-            failed: jobInfo.failed || null,
+            errors: jobInfo.errors,
+            failed: jobInfo.failed,
             description: 'Job completed within allotted runtimes.'
           });
-          spliceJobArray(jobId);
+          removeJobFromHistory(jobId);
         }, (error) => {
           reject('Could not read job status: ' + error);
         });
@@ -479,22 +460,21 @@ function monitorArrayJob(session, jobStatus, jobId) {
   return new Promise((resolve, reject) => {
     try {
     // Relevant job information are stored in local variables in order to
-    // minimize the number of accesses to the jobs_ array.
-    let index = Sec.jobs_.findIndex((elem) => { return elem.jobId === jobId; });
-    let jobName = Sec.jobs_[index].jobName;
-    let submitDate = Sec.jobs_[index].submitDate;
-    let taskInfo = Sec.jobs_[index].taskInfo;
-    let firstTaskId = Sec.jobs_[index].firstTaskId;
-    let lastTaskId = Sec.jobs_[index].lastTaskId;
-    let increment = Sec.jobs_[index].increment;
-    let totalExecutionTime = Sec.jobs_[index].totalExecutionTime;
+    // minimize the number of accesses to the jobs_ object.
+    let jobName = Sec.jobs_[jobId].jobName;
+    let submitDate = Sec.jobs_[jobId].submitDate;
+    let taskInfo = Sec.jobs_[jobId].taskInfo;
+    let firstTaskId = Sec.jobs_[jobId].firstTaskId;
+    let lastTaskId = Sec.jobs_[jobId].lastTaskId;
+    let increment = Sec.jobs_[jobId].increment;
+    let totalExecutionTime = Sec.jobs_[jobId].totalExecutionTime;
 
     // One or more of the job's tasks are in ERROR. The whole job is deleted.
     if (jobStatus[jobId].mainStatus === 'ERROR') {
       Logger.info(
           'Job ' + jobId + ' (' + jobName + ') is in ' +
           jobStatus[jobId].mainStatus + ' state.');
-      deleteJob(session, jobId, true)
+      deleteErrorJob(session, jobId)
           .then(
               (jobInfo) => {
                 resolve({
@@ -535,7 +515,9 @@ function monitorArrayJob(session, jobStatus, jobId) {
                     subStatus: 'DELETED',
                     exitStatus: null,
                     failed: null,
-                    errors: null,
+                    errors: ['Maximum ' +
+                    jobStatus[jobId].tasksStatus[firstTaskId].mainStatus +
+                    ' runtime exceeded.'],
                     description: 'Maximum ' +
                     jobStatus[jobId].tasksStatus[firstTaskId].mainStatus +
                     ' runtime exceeded.'
@@ -642,7 +624,7 @@ function monitorArrayJob(session, jobStatus, jobId) {
                         subStatus: 'DELETED',
                         exitStatus: jobInfo.exitStatus,
                         failed: jobInfo.failed,
-                        errors: jobInfo.errors,
+                        errors: ['Maximum RUNNING runtime exceeded.'],
                         description: 'Maximum RUNNING runtime exceeded.',
                       });
                     },
@@ -652,10 +634,8 @@ function monitorArrayJob(session, jobStatus, jobId) {
         }
         // Updates the taskInfo and totalExecutionTime fields of the job in the
         // job history.
-        let index =
-            Sec.jobs_.findIndex((elem) => { return elem.jobId === jobId; });
-        Sec.jobs_[index].taskInfo = taskInfo;
-        Sec.jobs_[index].totalExecutionTime = totalExecutionTime;
+        Sec.jobs_[jobId].taskInfo = taskInfo;
+        Sec.jobs_[jobId].totalExecutionTime = totalExecutionTime;
 
         // The job is still running.
         resolve({
@@ -683,11 +663,11 @@ function monitorArrayJob(session, jobStatus, jobId) {
           mainStatus: jobStatus[jobId].mainStatus,
           subStatus: jobStatus[jobId].subStatus,
           exitStatus: jobInfo.exitStatus,
-          errors: jobInfo.errors || null,
-          failed: jobInfo.failed || null,
+          errors: jobInfo.errors,
+          failed: jobInfo.failed,
           description: 'Job completed within allotted runtimes.'
         });
-        spliceJobArray(jobId);
+        removeJobFromHistory(jobId);
       }, (error) => {
         reject('Could not read job status: ' + error);
       });
@@ -726,17 +706,24 @@ function monitorArrayJob(session, jobStatus, jobId) {
  */
 function deleteJob(session, jobId, qacctAvailable) {
   return new Promise((resolve, reject) => {
+    try{
     session.control(jobId, session.TERMINATE)
         .then(
             () => {
+              let jobName = Sec.jobs_[jobId].jobName;
               Logger.info('Job ' + jobId + ' terminated.');
               if (qacctAvailable) {
                 session.wait(jobId).then((jobInfo) => {
-                  spliceJobArray(jobId);
+                  removeJobFromHistory(jobId);
                   resolve(jobInfo);
-                })
+                }, (error) => {
+                  Logger.info(
+                      'Error waiting for ' + jobId + ' (' + jobName +
+                      ') to return information.');
+                  reject(error);
+                });
               } else {
-                spliceJobArray(jobId);
+                removeJobFromHistory(jobId);
                 resolve();
               }
             },
@@ -744,27 +731,73 @@ function deleteJob(session, jobId, qacctAvailable) {
               Logger.info('Could not terminate job ' + jobId + '. \n' + error);
               reject(error);
             });
+  } catch(error) {
+      Logger.info('Error fetching job ' + jobId + 'from job history.');
+      reject('Error fetching job ' + jobId + 'from job history: ' + error);
+    }
   });
 }
 
 /**
- * Removes the job specified by the jobId from the [jobs_]{@link
-    * scheduler/SchedulerManager#jobs_} array.
- * @param {number} jobId - The id of the job to remove.
+ * Deletes the job in ERROR state specified by the jobId parameter and removes it from the job history.&lt;br>&lt;br>
+ *
+ * The promise resolves if the job could be deleted.
+ *
+ * @param {Session} session - The name of the Drmaa session the job
+ * belongs to.
+ * @param {number} jobId - The id of the job to terminate and remove from
+ * history.
+ * @returns {Promise}
+ * &lt;ul>
+ *    &lt;li>
+ *      &lt;b>Resolve&lt;/b> {{@link JobInfo}} - Object containing several
+ *      information about the deleted job.
+ *    &lt;/li>
+ *    &lt;li>
+ *      &lt;b>Reject&lt;/b> {string} - A dump of the error if the status of the job
+ *      could not be deleted.
+ *    &lt;/li>
+ * &lt;/ul>
  */
-function spliceJobArray(jobId) {
-  try {
-    let index = Sec.jobs_.findIndex((elem) => {
-      return elem.jobId === jobId;
+function deleteErrorJob(session, jobId) {
+  return new Promise((resolve, reject) => {
+    try {
+    let jobName = Sec.jobs_[jobId].jobName;
+    session.wait(jobId).then((jobInfo) => {
+      session.control(jobId, session.TERMINATE)
+          .then( () => {
+            removeJobFromHistory(jobId);
+            resolve(jobInfo);
+      }, (error) => {
+        Logger.info('Could not terminate job ' + jobId + ': ' + error);
+        reject(error);
+      });
+    }, (error) => {
+      Logger.info(
+          'Error waiting for ' + jobId + ' (' + jobName +
+          ') to return information.');
+      reject(error);
     });
-    let jobName = Sec.jobs_[index].jobName;
-    Sec.jobs_.splice(index, 1);
-    Logger.info(
-        'Removed job ' + jobId + ' (' + jobName +
-        ') from job history. Current job history size: ' + Sec.jobs_.length +
-        '.');
   } catch(error) {
-    Logger.info('Error: could not remove job ' + jobId + ' from job history.');
+      Logger.info('Error fetching job ' + jobId + 'from job history.');
+      reject('Error fetching job ' + jobId + 'from job history: ' + error);
+    }
+  });
+}
+
+/**
+ * Removes the job specified by jobId from the job history ([jobs_]{@link
+ * scheduler/SchedulerManager#jobs_}).
+ * @param {number} jobId - the id of the job to remove.
+ */
+function removeJobFromHistory(jobId) {
+  if (delete Sec.jobs_[jobId]) {
+    Logger.info(
+        'Removed job ' + jobId + ' from job history. Current job history size: ' + Object.keys(Sec.jobs_).length +
+        '.');
+  } else {
+    Logger.info(
+        'Could not delete job ' + jobId + ' from job history.');
   }
 }
 </code></pre>
@@ -783,7 +816,7 @@ function spliceJobArray(jobId) {
 <br class="clear">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.5.5</a> on Sun Oct 08 2017 15:52:07 GMT+0200 (CEST)
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.5.5</a> on Mon Oct 09 2017 14:19:28 GMT+0200 (CEST)
 </footer>
 
 <script> prettyPrint(); </script>
