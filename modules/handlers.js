@@ -49,30 +49,30 @@ function writeToFileSystem(folderName, fileName, input) {
 }
 
 
-function issueRequest(requestData, session) {
-  return new Promise( (resolve, reject) => {
-    Sec.handleRequest(requestData, session).then( (status) => {
-      writeToFileSystem(session.sessionName, 'Job ' + status.jobData.jobId + ' requestOutcome', status).then( (success) => {
-        console.log(success);
-      }, (error) => {
-        console.log(error);
-      });
-
-      Sec.getJobResult(status.jobData.jobId, session).then( (status) => {
-        writeToFileSystem(session.sessionName, 'Job ' + status.jobId + ' jobStatusInformation', status).then( (success) => {
-          console.log(success);
-        }, (error) => {
-          console.log(error);
-        });
-        resolve(status);
-      }, (error) => {
-        reject(error);
-      });
-    }, (error) => {
-      reject(error);
-    });
-  });
-}
+// function issueRequest(requestData, session) {
+//   return new Promise( (resolve, reject) => {
+//     Sec.handleRequest(requestData, session).then( (status) => {
+//       writeToFileSystem(session.sessionName, 'Job ' + status.jobData.jobId + ' requestOutcome', status).then( (success) => {
+//         console.log(success);
+//       }, (error) => {
+//         console.log(error);
+//       });
+//
+//       Sec.getJobResult(status.jobData.jobId, session).then( (status) => {
+//         writeToFileSystem(session.sessionName, 'Job ' + status.jobId + ' jobStatusInformation', status).then( (success) => {
+//           console.log(success);
+//         }, (error) => {
+//           console.log(error);
+//         });
+//         resolve(status);
+//       }, (error) => {
+//         reject(error);
+//       });
+//     }, (error) => {
+//       reject(error);
+//     });
+//   });
+// }
 
 export default {
 
@@ -97,202 +97,162 @@ export default {
     return next()
   },
 
-  handleSchedulerTest: function handleSchedulerTest(req, res, next) {
-    req.log.info(`request handler is ${handleSchedulerTest.name}`);
-    let requestIp = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
-
-    let sessionName = generateUUIDV4();
-    let requestData = {
-      ip: requestIp,
-      time: req.time(),
-      //jobData: req.query["jobData"],
-      jobData: {
-        remoteCommand: "/home/marco/Uni/Tesi/Projects/node-ws-template/sge-tests/simple.sh",
-        workingDirectory: "/home/marco/Uni/Tesi/Projects/node-ws-template/sge-tests/",
-        jobName: 'testJob',
-      },
-    };
-
-    let requestDataArray = {
-      ip: requestIp,
-      time: req.time(),
-      //jobData: req.query["jobData"],
-      jobData: {
-        remoteCommand: "/home/marco/Uni/Tesi/Projects/node-ws-template/sge-tests/simple.sh",
-        workingDirectory: "/home/marco/Uni/Tesi/Projects/node-ws-template/sge-tests/",
-        jobName: 'testJob',
-        nativeSpecification: '',
-        submitAsHold: false,
-        start: 1,
-        end: 4,
-        incr: 1
-      },
-    };
-
-    /*sessionManager.createSession(sessionName).then( (session) => {
-      issueRequest(requestData, session).then( (status) => {
-        console.log('Job ' + status.jobId + ' of session ' + status.sessionName + ' status: ' + status.mainStatus + '-' + status.subStatus + ', exitCode: ' + status.exitStatus + ', failed: \"' + status.failed + '\", errors: ' + status.errors + ', description: ' + status.description);
-      }, (error) => {
-        Logger.info('Error: ' + error.errors);
-      });
-    }, (error) => {
-      Logger.info('Could not create session ' + sessionName + ': ' + error);
-    });*/
-    sessionManager.createSession(sessionName).then( (session) => {
-      Sec.handleRequest(requestData, session).then( (status) => {
-        console.log('Request outcome: ' + status.description );
-        Sec.getJobResult(status.jobData.jobId, session).then( (status) => {
-          console.log('Job ' + status.jobId + ' of session ' + status.sessionName + ' status: ' + status.mainStatus + '-' + status.subStatus + ', exitCode: ' + status.exitStatus + ', failed: \"' + status.failed + '\", errors: ' + status.errors + ', description: ' + status.description);
-        }, (error) => {
-          console.log('Error: ' + error.errors);
-        });
-      }, (error) => {
-        console.log('Error: ' + error.errors);
-      });
-    }, (error) => {
-      console.log('Could not create session ' + sessionName + ': ' + error);
-    });
-    /*    sessionManager.createSession(sessionName).then( (session) => {
-        let job1 = issueRequest(requestDataArray, session);
-        let job2 = issueRequest(requestData, session);
-        Promise.all([job1, job2]).then( (status) => {
-          console.log('Job ' + status[0].jobId + ' of session ' + status[0].sessionName + ' status: ' + status[0].mainStatus + '-' + status[0].subStatus + ', exitCode: ' + status[0].exitStatus + ', failed: \"' + status[0].failed + '\", errors: ' + status[0].errors + ', description: ' + status[0].description);
-          console.log('Job ' + status[1].jobId + ' of session ' + status[1].sessionName + ' status: ' + status[1].mainStatus + '-' + status[1].subStatus + ', exitCode: ' + status[1].exitStatus + ', failed: \"' + status[0].failed + '\", errors: ' + status[1].errors + ', description: ' + status[1].description);
-        }, (error) => {
-          console.log('Error in promise.all: ' + error);
-        })
-      }, (error) => {
-        Logger.info('Could not create session ' + sessionName + ': ' + error);
-      });*/
-
-    res.send(200, 'done');
-    return next()
-  },
-
-
-  handleScheduler: function handleScheduler(req, res, next) {
-    req.log.info(`request handler is ${handleScheduler.name}`);
+  handleJobSubmission: function handleJobSubmission(req, res, next) {
+    req.log.info(`request handler is ${handleJobSubmission.name}`);
 
     // Fetches the IP of the client who made the request.
     let requestIp = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
-    //console.log('req params ' + req.body.param1);
-   /* let jobData = {
-      remoteCommand: "\"/home/marco/Uni/Tesi/Projects/node-ws-template/sge-tests/simple.sh\"",
-      workingDirectory: "/home/marco/Uni/Tesi/Projects/node-ws-template/sge-tests/",
-      jobName: 'testJob',
-      nativeSpecification: '',
-      submitAsHold: false,
-      start: 1,
-      end: 0,
-      incr: 1
-    };*/
+    let hasAttachedSession = !!(req.body.hasOwnProperty("session") && req.body.session)
+    let sessionName = hasAttachedSession ? req.body.session : generateUUIDV4();
+    let sessionPromise = hasAttachedSession ? sessionManager.getSession(sessionName) : sessionManager.createSession(sessionName);
+    let submissionPromise = [];
 
-    let sessionName = generateUUIDV4();
 
-    let requestData1 = {
-      ip: requestIp,
-      time: req.time(),
-      jobData: req.body[0]
-    };
-    let requestData2 = {
-      ip: requestIp,
-      time: req.time(),
-      jobData: req.body[1]
-    };
+    sessionPromise.then((session) => {
+      req.body.jobTemplates.forEach((jobTemplate) => {
+        submissionPromise.push(
+          Sec.handleRequest({
+            ip: requestIp,
+            time: req.time(),
+            jobData: jobTemplate
+          }, session)
+        );
+      });
 
-    let requestData3 = {
-      ip: requestIp,
-      time: req.time(),
-      jobData: req.body[2]
-    };
-
-    sessionManager.createSession(sessionName).then((session) => {
-      let job1 = issueRequest(requestData1, session);
-      let job2 = issueRequest(requestData2, session);
-
-      Promise.all([job1, job2])
-        .then((statuses) => {
-          let errorsOccurred = false;
-          let failedJobs = [];
-
-          statuses.forEach((status) =>
-          {
-            if(status.mainStatus!=="COMPLETED" || status.subStatus==="DELETED")
-            {
-              errorsOccurred = true;
-              failedJobs.push(status);
-            }
+      Promise.all(submissionPromise).then((statuses) => {
+        statuses.forEach((status) => {
+          writeToFileSystem(session.sessionName, 'Job ' + status.jobData.jobId + ' requestOutcome', status).then( (success) => {
+            console.log(success);
+          }, (error) => {
+            console.log(error);
           });
+        });
+        res.send(200, {statuses: statuses, session: sessionName});
+      }, (error) => {
+        res.send(500, [error]);
+      });
 
-          if(!errorsOccurred)
-          {
-            issueRequest(requestData3, session)
-              .then((status) => {
-                if(status.mainStatus!=="COMPLETED" || status.subStatus==="DELETED")
-                  res.send(500, [status]);
-                else
-                  res.send(200,[status]);
-                sessionManager.closeSession(sessionName);
-              }, (error) => {
-                sessionManager.closeSession(sessionName);
-                res.send(500,[error]);
-              })
-          }
-          else
-          {
-            sessionManager.closeSession(sessionName);
-            res.send(500,failedJobs);
-          }
-        }, (error) => {
-          sessionManager.closeSession(sessionName);
-          res.send(500, [error]);
-        })
+
+
+
+
+
+      // let job1 = issueRequest(requestData[0], session);
+      // let job2 = issueRequest(requestData[1], session);
+      //
+      // Promise.all([job1, job2])
+      //   .then((statuses) => {
+      //     let errorsOccurred = false;
+      //     let failedJobs = [];
+      //
+      //     statuses.forEach((status) =>
+      //     {
+      //       if(status.mainStatus!=="COMPLETED" || status.subStatus==="DELETED")
+      //       {
+      //         errorsOccurred = true;
+      //         failedJobs.push(status);
+      //       }
+      //     });
+      //
+      //     if(!errorsOccurred)
+      //     {
+      //       issueRequest(requestData[2], session)
+      //         .then((status) => {
+      //           if(status.mainStatus!=="COMPLETED" || status.subStatus==="DELETED")
+      //             res.send(500, [status]);
+      //           else
+      //             res.send(200,[status]);
+      //           sessionManager.closeSession(sessionName);
+      //         }, (error) => {
+      //           sessionManager.closeSession(sessionName);
+      //           res.send(500,[error]);
+      //         })
+      //     }
+      //     else
+      //     {
+      //       sessionManager.closeSession(sessionName);
+      //       res.send(500,failedJobs);
+      //     }
+      //   }, (error) => {
+      //     sessionManager.closeSession(sessionName);
+      //     res.send(500, [error]);
+      //   })
     }, (error) => {
       Logger.info('Could not create session ' + sessionName + ': ' + error);
       res.send(500,error);
     });
 
-    /*sessionManager.createSession(requestData.sessionName).then( () => {
-      issueRequest(requestData).then( (status) => {
-        console.log('Job ' + status.jobId + ' of session ' + status.sessionName + ' status: ' + status.mainStatus + '-' + status.subStatus + ', exitCode: ' + status.exitStatus + ', failed: \"' + status.failed + '\", errors: ' + status.errors + ', description: ' + status.description);
-        issueRequest(requestData).then( (status) => {
-          console.log('Job ' + status.jobId + ' of session ' + status.sessionName + ' status: ' + status.mainStatus + '-' + status.subStatus + ', exitCode: ' + status.exitStatus + ', failed: \"' + status.failed + '\", errors: ' + status.errors + ', description: ' + status.description);
-        }, (error) => {
-          Logger.info('Error: ' + error);
+    return next()
+  },
+
+  handleJobExecution: function handleJobExecution(req, res, next) {
+    req.log.info(`request handler is ${handleJobExecution.name}`);
+
+    if(!req.body.session)
+    {
+      res.send(500, [new Error("Must include a session in the argument!")]);
+      return next();
+    }
+    let sessionName = req.body.session;
+    let getJobResultPromises = [];
+
+    sessionManager.getSession(sessionName).then((session) => {
+
+      req.body.statuses.forEach((status) => {
+        getJobResultPromises.push(Sec.getJobResult(status.jobData.jobId, session));
+      });
+
+      Promise.all(getJobResultPromises).then((statuses) => {
+        let errorsOccurred = false;
+        let failedJobs = [];
+
+        statuses.forEach((status) =>
+        {
+          if(status.mainStatus!=="COMPLETED" || status.subStatus==="DELETED")
+          {
+            errorsOccurred = true;
+            failedJobs.push(status);
+          }
+        });
+
+        if(!errorsOccurred)
+          res.send(200, {statuses: statuses});
+        else
+          res.send(500, statuses);
+
+        statuses.forEach((status) => {
+          writeToFileSystem(session.sessionName, 'Job ' + status.jobId + ' requestOutcome', status).then( (success) => {
+            console.log(success);
+          }, (error) => {
+            console.log(error);
+          });
         });
       }, (error) => {
-        Logger.info('Error: ' + error);
+        res.send(500, [error]);
       });
+
     }, (error) => {
-      Logger.info('Could not create session ' + requestData.sessionName + ': ' + error);
-    });*/
+      res.send(500, [error]);
+    });
 
-
-    //192.168.0.0 ([0-9])+(\.?([0-9])+)*
-    //192.*
-
-    //let regexp = new RegExp('([0-9])+(\\.?([0-9])+)*');
-    //let str = '192.';
-/*    let pattern = '192*';
-    let regexp = new RegExp(pattern);
-    let str = '192.168.0.1';
-    console.log("test:" + regexp.test(str));*/
-
-/*    let handleRequestPromise = Sec.handleRequest(requestData);
-    handleRequestPromise.then( (status) => {
-      console.log('hi ' + status.jobData.sessionName);
-      Sec.getJobResult(status.jobData.jobId, status.jobData.sessionName).then( (status) => {
-        console.log('Job ' + status.jobId + ' of session ' + status.sessionName + ' status: ' + status.mainStatus + '-' + status.subStatus + ', exitCode: ' + status.exitStatus + ', failed: \"' + status.failed + '\", errors: ' + status.errors + ', description: ' + status.description);
-      })
-    }, (error) => {
-      Logger.info(error.description);
-    });*/
-
-    //Sec.addJob(req.query["jobfile"]);
-    //Sec.pollJobs("simple.sh");
-    //Sec.handleJobSubmission(requestData);
 
     return next()
+  },
+
+  handleSessionDeletion: function handleSessionDeletion(req, res, next) {
+    req.log.info(`request handler is ${handleSessionDeletion.name}`);
+    if(!req.body.session)
+    {
+      res.send(500, [new Error("Must include a session in the argument!")]);
+      return next();
+    }
+    let sessionName = req.body.session;
+
+    sessionManager.closeSession(sessionName).then(() => {
+      res.send(200, true);
+    }, (error) => {
+      res.send(500, error);
+    });
   },
 
   handleSubmitJob: function handleSubmitJob(req, res, next) {

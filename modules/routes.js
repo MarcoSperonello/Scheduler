@@ -4,21 +4,21 @@ export default {
   'POST': {
     'submitJob': {
       path: '/submit',
-      handler: Handlers.handleScheduler
+      handler: Handlers.handleJobSubmission
+    },
+    'waitJob': {
+      path: '/wait',
+      handler: Handlers.handleJobExecution
+    },
+    'closeSession': {
+      path: '/closeSession',
+      handler: Handlers.handleSessionDeletion
     }
   },
   'GET': {
     'root': {
       path: '/',
       handler: Handlers.handleRoot
-    },
-    'scheduler': {
-      path: '/scheduler',
-      handler: Handlers.handleScheduler
-    },
-    'schedulerTest': {
-      path: '/schedulerTest',
-      handler: Handlers.handleSchedulerTest
-    },
+    }
   },
 };
