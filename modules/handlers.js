@@ -97,6 +97,79 @@ export default {
     return next()
   },
 
+  handleSchedulerTest: function handleSchedulerTest(req, res, next) {
+    req.log.info(`request handler is ${handleSchedulerTest.name}`);
+    let requestIp = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+
+    let sessionName = generateUUIDV4();
+    let requestData = {
+      ip: requestIp,
+      time: req.time(),
+      //jobData: req.query["jobData"],
+      jobData: {
+        remoteCommand: "/home/marco/Uni/Tesi/Projects/node-ws-template/sge-tests/simple.sh",
+        workingDirectory: "/home/marco/Uni/Tesi/Projects/node-ws-template/sge-tests/",
+        jobName: 'testJob',
+      },
+    };
+
+    let requestDataArray = {
+      ip: requestIp,
+      time: req.time(),
+      //jobData: req.query["jobData"],
+      jobData: {
+        remoteCommand: "/home/marco/Uni/Tesi/Projects/node-ws-template/sge-tests/simple.sh",
+        workingDirectory: "/home/marco/Uni/Tesi/Projects/node-ws-template/sge-tests/",
+        jobName: 'testJob',
+        nativeSpecification: '',
+        submitAsHold: false,
+        start: 1,
+        end: 4,
+        incr: 1
+      },
+    };
+
+    /*sessionManager.createSession(sessionName).then( (session) => {
+      issueRequest(requestData, session).then( (status) => {
+        console.log('Job ' + status.jobId + ' of session ' + status.sessionName + ' status: ' + status.mainStatus + '-' + status.subStatus + ', exitCode: ' + status.exitStatus + ', failed: \"' + status.failed + '\", errors: ' + status.errors + ', description: ' + status.description);
+      }, (error) => {
+        Logger.info('Error: ' + error.errors);
+      });
+    }, (error) => {
+      Logger.info('Could not create session ' + sessionName + ': ' + error);
+    });*/
+    sessionManager.createSession(sessionName).then( (session) => {
+      Sec.handleRequest(requestData, session).then( (status) => {
+        console.log('Request outcome: ' + status.description );
+        Sec.getJobResult(status.jobData.jobId, session).then( (status) => {
+          console.log('Job ' + status.jobId + ' of session ' + status.sessionName + ' status: ' + status.mainStatus + '-' + status.subStatus + ', exitCode: ' + status.exitStatus + ', failed: \"' + status.failed + '\", errors: ' + status.errors + ', description: ' + status.description);
+        }, (error) => {
+          console.log('Error: ' + error.errors);
+        });
+      }, (error) => {
+        console.log('Error: ' + error.errors);
+      });
+    }, (error) => {
+      console.log('Could not create session ' + sessionName + ': ' + error);
+    });
+    /*    sessionManager.createSession(sessionName).then( (session) => {
+        let job1 = issueRequest(requestDataArray, session);
+        let job2 = issueRequest(requestData, session);
+        Promise.all([job1, job2]).then( (status) => {
+          console.log('Job ' + status[0].jobId + ' of session ' + status[0].sessionName + ' status: ' + status[0].mainStatus + '-' + status[0].subStatus + ', exitCode: ' + status[0].exitStatus + ', failed: \"' + status[0].failed + '\", errors: ' + status[0].errors + ', description: ' + status[0].description);
+          console.log('Job ' + status[1].jobId + ' of session ' + status[1].sessionName + ' status: ' + status[1].mainStatus + '-' + status[1].subStatus + ', exitCode: ' + status[1].exitStatus + ', failed: \"' + status[0].failed + '\", errors: ' + status[1].errors + ', description: ' + status[1].description);
+        }, (error) => {
+          console.log('Error in promise.all: ' + error);
+        })
+      }, (error) => {
+        Logger.info('Could not create session ' + sessionName + ': ' + error);
+      });*/
+
+    res.send(200, 'done');
+    return next()
+  },
+
+
   handleScheduler: function handleScheduler(req, res, next) {
     req.log.info(`request handler is ${handleScheduler.name}`);
 
@@ -119,18 +192,18 @@ export default {
     let requestData1 = {
       ip: requestIp,
       time: req.time(),
-      jobPath: req.body[0]
+      jobData: req.body[0]
     };
     let requestData2 = {
       ip: requestIp,
       time: req.time(),
-      jobPath: req.body[1]
+      jobData: req.body[1]
     };
 
     let requestData3 = {
       ip: requestIp,
       time: req.time(),
-      jobPath: req.body[2]
+      jobData: req.body[2]
     };
 
     sessionManager.createSession(sessionName).then((session) => {

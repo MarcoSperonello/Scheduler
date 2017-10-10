@@ -13,8 +13,12 @@ export default {
       handler: Handlers.handleRoot
     },
     'scheduler': {
-        path: '/scheduler',
-        handler: Handlers.handleScheduler
-    }
+      path: '/scheduler',
+      handler: Handlers.handleScheduler
+    },
+    'schedulerTest': {
+      path: '/schedulerTest',
+      handler: Handlers.handleSchedulerTest
+    },
   },
 };

@@ -99,7 +99,7 @@ class SchedulerManager {
     this.pendingJobsCounter_ = 0;
     /** User history, consisting of the users who have not exceeded their
      * maximum lifespan ([userLifespan]{@link
-     * scheduler/SchedulerManager#userLifespan_}).
+        * scheduler/SchedulerManager#userLifespan_}).
      * @type {array}
      */
     this.users_ = [];
@@ -155,51 +155,31 @@ class SchedulerManager {
     this.inputParams_ = {
       maxRequestsPerSecUser: 2,
       maxRequestsPerSecGlobal: 4,
-      userLifespan: 1000000,
-      requestLifespan: 5000,
+      userLifespan: 10,
+      requestLifespan: 5,
       maxConcurrentJobs: 1,
-      maxJobRunningTime: 10000,
-      maxJobQueuedTime: 10000,
-      maxArrayJobRunningTime: 10000,
-      maxArrayJobQueuedTime: 10000,
+      maxJobRunningTime: 10,
+      maxJobQueuedTime: 10,
+      maxArrayJobRunningTime: 10,
+      maxArrayJobQueuedTime: 10,
       localListPath: '',
       globalListPath: '',
-      minimumInputUpdateInterval: 5000,
+      minimumInputUpdateInterval: 5,
       lastInputFileUpdate: 0,
-      jobPollingInterval: 1000,
-      userPollingInterval: 1000,
-      listPollingInterval: 1000,
+      jobPollingInterval: 1,
+      userPollingInterval: 1,
+      listPollingInterval: 1,
     };
 
     // Sets input parameters as specified in the input file. If there is an
     // error reading the input file, default parameters are set.
     this.updateInputParameters();
-    // Checks if there are any users to be added to the black/whitelist.
-    this.updateLists();
 
-    /*// Polls the user history as often as specified.
-    setInterval(monitors.monitorUsers.bind(this), this.userPollingInterval_);
-    // Updates the black/whitelists as often as specified.
-    setInterval(this.updateLists.bind(this), this.listPollingInterval_);*/
-
-    /*
-    setInterval(function() {
-      console.log("this.maxRequestsPerSecUser_ " +
-   this.maxRequestsPerSecUser_);
-      console.log("this.maxRequestsPerSecGlobal_ " +
-   this.maxRequestsPerSecGlobal_);
-      console.log("userLifeSpan_ " + this.userLifespan_);
-      console.log('localListPath_ ' + this.localListPath_);
-    }.bind(this), 1000);
-    */
-
-    /*    setInterval( () => {
-          for (let user of this.blacklist_) {
-            Logger.info('blacklisted user ' + user);
-          }
-          console.log('\n');
-        }, 5000);*/
-    console.log('job size ' + Object.keys(this.jobs_).length);
+    /*setInterval( () => {
+      for (let user of this.whitelist_) {
+        console.log('whitelisted user ' + user);
+      }
+    }, 5000);*/
   }
 
   /**
@@ -207,7 +187,7 @@ class SchedulerManager {
    * @typedef {Object} requestData
    * @property {string} ip - The IP address of the user.
    * @property {string} time - The time at which the request was received.
-   * @property {Object} jobPath - Job specifications.
+   * @property {Object} jobData - Job specifications.
    */
 
   /**
@@ -219,7 +199,10 @@ class SchedulerManager {
    * @property {[JobDescription]{@link jobDescription} jobData -  Relevant
    * information regarding a submitted job.
    * @property {string} description - Brief description of the outcome of the
-   * request as specified in {@link requestStatus}.
+   * request (accepted or rejected).
+   * @property {string} errors - Brief description of why the request
+   * cannot be serviced as specified in {@link requestStatus}; empty if it can
+   * be serviced.
    */
 
   /**
@@ -228,7 +211,7 @@ class SchedulerManager {
    * @typedef {Object} requestStatus
    * @property {boolean} status - True if no constraints have been violated by
    * the user request.
-   * @property {string} description - Brief description of why the request
+   * @property {string} errors - Brief description of why the request
    * cannot be serviced, empty if it can be serviced.
    */
 
@@ -362,7 +345,8 @@ class SchedulerManager {
                 },
                 (error) => {
                   this.pendingJobsCounter_--;
-                  requestOutcome.description = error;
+                  requestOutcome.description = 'Request rejected.';
+                  requestOutcome.errors = error;
                   reject(requestOutcome);
                 });
       }
@@ -370,8 +354,8 @@ class SchedulerManager {
       else {
         // The counter is decreased because the request has been rejected.
         this.pendingJobsCounter_--;
-        requestOutcome.description =
-            'Request denied: ' + verifyOutcome.description;
+        requestOutcome.description = 'Request rejected.';
+        requestOutcome.errors = verifyOutcome.errors;
         reject(requestOutcome);
       }
 
@@ -402,14 +386,14 @@ class SchedulerManager {
     return new Promise((resolve, reject) => {
 
       try {
-        let jobData = new JobTemplate(requestData.jobPath);
+        let jobData = new JobTemplate(requestData.jobData);
 
         // Number of the first task of the job array.
-        let start = requestData.jobPath.start || null;
+        let start = requestData.jobData.start || null;
         // Number of the last task of the job array.
-        let end = requestData.jobPath.end || null;
+        let end = requestData.jobData.end || null;
         // Step size (size of the increments to go from "start" to "end").
-        let increment = requestData.jobPath.incr || null;
+        let increment = requestData.jobData.incr || null;
 
         // Determines if the job consists of a single task or multiple ones.
         let jobType = this.checkArrayParams(start, end, increment);
@@ -522,14 +506,15 @@ class SchedulerManager {
     // Keeps calling the monitorJob function to monitor the job until the
     // promise resolves or an error occurs.
     return monitors.monitorJob.apply(null, jobId).catch((result) => {
-      if (result.hasOwnProperty('error')) return Promise.reject(result.error);
+      if (result.hasOwnProperty('monitoringError'))
+        return Promise.reject(result);
       return this.getJobResult.apply(this, jobId);
     })
   }
 
   /**
    * Verifies if a request can be serviced. The result is contained in a {@link
-      * requestStatus} object.
+   * requestStatus} object.
    *
    * @param {requestData} requestData - Object holding request information.
    * @param {number} userIndex - The corresponding index of the users_ array of
@@ -537,32 +522,15 @@ class SchedulerManager {
    * @returns {requestStatus} status - Object storing the result of the checks.
    */
   verifyRequest(requestData, userIndex) {
-    let checkResult = this.checkUserRequests(requestData, userIndex);
-    if (!checkResult.status) {
-      return {status: false, description: checkResult.description};
-    }
-    return {status: true, description: 'All checks passed.'};
-  }
-
-  /**
-   * Verifies whether any request-per-time-unit constraints would be violated by
-   * the input request.
-   *
-   * @param {requestData} requestData - Object holding request information.
-   * @param {number} userIndex - The users_ array index of the user who
-   * submitted the request.
-   * @returns {requestStatus} Object storing the result of the checks.
-   */
-  checkUserRequests(requestData, userIndex) {
     // If the user is blacklisted, the request is rejected.
     if (this.isBlacklisted(requestData))
       return {
         status: false,
-        description: 'User ' + requestData.ip + ' is blacklisted'
+        errors: 'User ' + requestData.ip + ' is blacklisted'
       };
 
     // If the user is whitelisted, the request is accepted.
-    if (this.isWhitelisted(requestData)) return {status: true, description: ''};
+    if (this.isWhitelisted(requestData)) return {status: true, errors: ''};
 
     let jobLength = Object.keys(this.jobs_).length;
     // If the number of pending job requests plus the number of current jobs
@@ -572,15 +540,15 @@ class SchedulerManager {
     if (this.pendingJobsCounter_ + jobLength > this.maxConcurrentJobs_) {
       return {
         status: false,
-        description:
-            'Cannot submit the job without guaranteeing that the maxConcurrentJobs_ limit will not be exceeded.',
+        errors:
+            'Cannot submit the job without guaranteeing that the maxConcurrentJobs limit will not be exceeded.',
       };
     }
 
     if (jobLength >= this.maxConcurrentJobs_)
       return {
         status: false,
-        description: 'Maximum number (' + this.maxConcurrentJobs_ +
+        errors: 'Maximum number (' + this.maxConcurrentJobs_ +
             ') of concurrent jobs already reached. Cannot submit any more jobs at the moment.'
       };
 
@@ -589,18 +557,17 @@ class SchedulerManager {
     if (!this.checkGlobalRequests(requestData))
       return {
         status: false,
-        description: 'Server currently at capacity (' +
-            this.globalRequests_.length +
+        errors: 'Server currently at capacity (' + this.globalRequests_.length +
             ' global requests present). Cannot service more requests.'
       };
 
-    if (userIndex === -1) return {status: true, description: ''};
+    if (userIndex === -1) return {status: true, errors: ''};
 
     let user = this.users_[userIndex];
 
     // If the user's request history is not full, the request can be serviced.
     if (user.requestAmount < this.maxRequestsPerSecUser_)
-      return {status: true, description: ''};
+      return {status: true, errors: ''};
 
     // If there are expired user requests, they are pruned and the current
     // request can be serviced.
@@ -612,7 +579,7 @@ class SchedulerManager {
         // + " request history. "
         //    + "There are currently " + user.requests.length + " request(s) in
         //    the user's history.");
-        return {status: true, description: ''};
+        return {status: true, errors: ''};
       }
     }
 
@@ -624,9 +591,9 @@ class SchedulerManager {
             user.requests.length + ' request(s) in the user\'s history.');*/
     return {
       status: false,
-      description: 'User ' + user.ip +
-          ' cannot submit more requests right now: there are currently ' +
-          user.requests.length + ' request(s) in the user\'s history.'
+      errors: 'User ' + user.ip + ' cannot submit more requests right now: ' +
+          user.requests.length + ' request(s) currently present' +
+          ' in the user\'s history.'
     };
   }
 
@@ -699,19 +666,7 @@ class SchedulerManager {
   }
 
   /**
-   * Generates a UUID string.
-   * @returns {string} The generated UUID string.
-   */
-  generateUUIDV4() {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-      let r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
-      return v.toString(16);
-    });
-  }
-
-
-  /**
-   * Logs a request (ip and timestamp) to database.
+   * Logs a request to database.
    *
    * @param {requestData} requestData - Object holding request information.
    */
@@ -768,42 +723,48 @@ class SchedulerManager {
    */
   updateLists() {
     if (this.localListPath_ !== '') {
-      try {
-        let localList =
-            JSON.parse(fs.readFileSync(this.localListPath_, 'utf8'));
-        if (localList.hasOwnProperty('whitelist'))
-          this.whitelist_ = localList.whitelist;
-        if (localList.hasOwnProperty('blacklist'))
-          this.blacklist_ = localList.blacklist;
-        // Removes duplicates.
-        this.whitelist_ = Array.from(new Set(this.whitelist_));
-        this.blacklist_ = Array.from(new Set(this.blacklist_));
-      } catch (err) {
-        Logger.info(
-            'Error while reading local lists file ' + this.localListPath_ +
-            '.');
-      }
+      fs.readFile(this.localListPath_, (error, data) => {
+        if (error) {
+          Logger.info(
+              'Error while reading local lists file ' + this.localListPath_ +
+              '.');
+        } else {
+          let localList = JSON.parse(data);
+          if (localList.hasOwnProperty('whitelist')) {
+            this.whitelist_ = localList.whitelist;
+          }
+          if (localList.hasOwnProperty('blacklist')) {
+            this.blacklist_ = localList.blacklist;
+          }
+          // Removes duplicates.
+          this.whitelist_ = Array.from(new Set(this.whitelist_));
+          this.blacklist_ = Array.from(new Set(this.blacklist_));
+        }
+      });
     }
 
     if (this.globalListPath_ !== '') {
-      try {
-        let globalList =
-            JSON.parse(fs.readFileSync(this.globalListPath_, 'utf8'));
-        if (globalList.hasOwnProperty('whitelist')) {
-          // Joins the global whitelist with the local one, removing duplicates.
-          this.whitelist_ =
-              Array.from(new Set(this.whitelist_.concat(globalList.whitelist)));
+      fs.readFile(this.globalListPath_, (error, data) => {
+        if (error) {
+          Logger.info(
+              'Error while reading local lists file ' + this.globalListPath_ +
+              '.');
+        } else {
+          let globalList = JSON.parse(data);
+          if (globalList.hasOwnProperty('whitelist')) {
+            // Joins the global whitelist with the local one, removing
+            // duplicates.
+            this.whitelist_ = Array.from(
+                new Set(this.whitelist_.concat(globalList.whitelist)));
+          }
+          if (globalList.hasOwnProperty('blacklist')) {
+            // Joins the global blacklist with the local one, removing
+            // duplicates.
+            this.blacklist_ = Array.from(
+                new Set(this.blacklist_.concat(globalList.blacklist)));
+          }
         }
-        if (globalList.hasOwnProperty('blacklist')) {
-          // Joins the global blacklist with the local one, removing duplicates.
-          this.blacklist_ =
-              Array.from(new Set(this.blacklist_.concat(globalList.blacklist)));
-        }
-      } catch (err) {
-        Logger.info(
-            'Error while reading global lists file ' + this.globalListPath_ +
-            '.');
-      }
+      });
     }
   }
 
@@ -813,121 +774,127 @@ class SchedulerManager {
    * to milliseconds.
    */
   updateInputParameters() {
-    try {
-      this.inputParams_ = JSON.parse(fs.readFileSync(this.inputFile_, 'utf8'));
-      Logger.info('Successfully read input file ' + this.inputFile_ + '.');
-    } catch (err) {
-      Logger.info(
-          'Error while reading input file ' + this.inputFile_ +
-          '. Using default parameters.');
-    }
-    /** Max number of requests per user per time unit ([requestLifespan]{@link
-        * scheduler/SchedulerManager#requestLifespan_}) for a single users.
-     * @type {number}
-     * @default 2
-     * @private
-     */
-    this.maxRequestsPerSecUser_ = this.inputParams_.maxRequestsPerSecUser || 2;
-    /** Max number of requests per user per time unit ([requestLifespan]{@link
-        * scheduler/SchedulerManager#requestLifespan_}) for all users.
-     * @type {number}
-     * @default 4
-     * @private
-     */
-    this.maxRequestsPerSecGlobal_ =
-        this.inputParams_.maxRequestsPerSecGlobal || 4;
-    /** Maximum time (in ms) allowed to pass after the most recent request
-     * of a user before the user is removed from history.
-     * @type {number}
-     * @default 100000
-     * @private
-     */
-    this.userLifespan_ = this.inputParams_.userLifespan * 1000 || 1000000;
-    /** Time (in ms) after which a request can be removed from history.
-     * @type {number}
-     * @default 5000
-     * @private
-     */
-    this.requestLifespan_ = this.inputParams_.requestLifespan * 1000 || 5000;
-    /** Maximum number of concurrent jobs (either RUNNING, QUEUED, ON_HOLD...).
-     * @type {number}
-     * @default 1
-     * @private
-     */
-    this.maxConcurrentJobs_ = this.inputParams_.maxConcurrentJobs || 1;
-    /** Time (in ms) after which a RUNNING job can be forcibly stopped.
-     * @type {number}
-     * @default 10000
-     * @private
-     */
-    this.maxJobRunningTime_ =
-        this.inputParams_.maxJobRunningTime * 1000 || 10000;
-    /** Time (in ms) after which a QUEUED job can be forcibly stopped.
-     * @type {number}
-     * @default 10000
-     */
-    this.maxJobQueuedTime_ = this.inputParams_.maxJobQueuedTime * 1000 || 10000;
-    /** Time (in ms) after which an array job whose first task is RUNNING can
-     * be forcibly stopped.
-     * @type {number}
-     * @default 10000
-     */
-    this.maxArrayJobRunningTime_ =
-        this.inputParams_.maxArrayJobRunningTime * 1000 || 10000;
-    /** Time (in ms) after which an array job whose first task is QUEUED can
-     * be forcibly stopped.
-     * @type {number}
-     * @default 10000
-     */
-    this.maxArrayJobQueuedTime_ =
-        this.inputParams_.maxArrayJobQueuedTime * 1000 || 10000;
-    /** Path of the local black/whitelist file.
-     * @type {string}
-     * @default ''
-     */
-    this.localListPath_ = this.inputParams_.localListPath || '';
-    /** Path of the global black/whitelist file.
-     * @type {string}
-     * @default ''
-     * @private
-     */
-    this.globalListPath_ = this.inputParams_.globalListPath || '';
-    /** Minimum time (in ms) between two consecutive input file reads.
-     * @type {number}
-     * @default 5000
-     * @private
-     */
-    this.minimumInputUpdateInterval_ =
-        this.inputParams_.minimumInputUpdateInterval * 1000 || 10000;
-    /** Time (in ms) of the last input file read.
-     * @type {number}
-     * @default 0
-     * @private
-     */
-    this.lastInputFileUpdate_ = new Date().getTime();
+    fs.readFile(this.inputFile_, (error, data) => {
+      if (error) {
+        Logger.info(
+            'Error while reading input file ' + this.inputFile_ +
+            '. using default parameters.');
+      } else {
+        Logger.info('Successfully read input file ' + this.inputFile_ + '.');
+        this.inputParams_ = JSON.parse(data);
+      }
 
-    /** Time (in ms) interval between two consecutive job history polls.
-     * @type {number}
-     * @default 1000
-     * @private
-     */
-    this.jobPollingInterval_ =
-        this.inputParams_.jobPollingInterval * 1000 || 1000;
-    /** Time (in ms) interval between two consecutive user history polls.
-     * @type {number}
-     * @default 1000
-     */
-    this.userPollingInterval_ =
-        this.inputParams_.userPollingInterval * 1000 || 1000;
-    /** Time (in ms) interval between two consecutive black/whitelist file
-     * reads.
-     * @type {number}
-     * @default 1000
-     * @private
-     */
-    this.listPollingInterval_ =
-        this.inputParams_.listPollingInterval * 1000 || 1000;
-    this.updateMonitors();
+      /** Max number of requests per user per time unit ([requestLifespan]{@link
+          * scheduler/SchedulerManager#requestLifespan_}) for a single users.
+       * @type {number}
+       * @default 2
+       * @private
+       */
+      this.maxRequestsPerSecUser_ =
+          this.inputParams_.maxRequestsPerSecUser || 2;
+      /** Max number of requests per user per time unit ([requestLifespan]{@link
+          * scheduler/SchedulerManager#requestLifespan_}) for all users.
+       * @type {number}
+       * @default 4
+       * @private
+       */
+      this.maxRequestsPerSecGlobal_ =
+          this.inputParams_.maxRequestsPerSecGlobal || 4;
+      /** Maximum time (in ms) allowed to pass after the most recent request
+       * of a user before the user is removed from history.
+       * @type {number}
+       * @default 100000
+       * @private
+       */
+      this.userLifespan_ = this.inputParams_.userLifespan * 1000 || 1000000;
+      /** Time (in ms) after which a request can be removed from history.
+       * @type {number}
+       * @default 5000
+       * @private
+       */
+      this.requestLifespan_ = this.inputParams_.requestLifespan * 1000 || 5000;
+      /** Maximum number of concurrent jobs (either RUNNING, QUEUED,
+       * ON_HOLD...).
+       * @type {number}
+       * @default 1
+       * @private
+       */
+      this.maxConcurrentJobs_ = this.inputParams_.maxConcurrentJobs || 1;
+      /** Time (in ms) after which a RUNNING job can be forcibly stopped.
+       * @type {number}
+       * @default 10000
+       * @private
+       */
+      this.maxJobRunningTime_ =
+          this.inputParams_.maxJobRunningTime * 1000 || 10000;
+      /** Time (in ms) after which a QUEUED job can be forcibly stopped.
+       * @type {number}
+       * @default 10000
+       */
+      this.maxJobQueuedTime_ =
+          this.inputParams_.maxJobQueuedTime * 1000 || 10000;
+      /** Time (in ms) after which an array job whose first task is RUNNING can
+       * be forcibly stopped.
+       * @type {number}
+       * @default 10000
+       */
+      this.maxArrayJobRunningTime_ =
+          this.inputParams_.maxArrayJobRunningTime * 1000 || 10000;
+      /** Time (in ms) after which an array job whose first task is QUEUED can
+       * be forcibly stopped.
+       * @type {number}
+       * @default 10000
+       */
+      this.maxArrayJobQueuedTime_ =
+          this.inputParams_.maxArrayJobQueuedTime * 1000 || 10000;
+      /** Path of the local black/whitelist file.
+       * @type {string}
+       * @default ''
+       */
+      this.localListPath_ = this.inputParams_.localListPath || '';
+      /** Path of the global black/whitelist file.
+       * @type {string}
+       * @default ''
+       * @private
+       */
+      this.globalListPath_ = this.inputParams_.globalListPath || '';
+      /** Minimum time (in ms) between two consecutive input file reads.
+       * @type {number}
+       * @default 5000
+       * @private
+       */
+      this.minimumInputUpdateInterval_ =
+          this.inputParams_.minimumInputUpdateInterval * 1000 || 10000;
+      /** Time (in ms) of the last input file read.
+       * @type {number}
+       * @default 0
+       * @private
+       */
+      this.lastInputFileUpdate_ = new Date().getTime();
+
+      /** Time (in ms) interval between two consecutive job history polls.
+       * @type {number}
+       * @default 1000
+       * @private
+       */
+      this.jobPollingInterval_ =
+          this.inputParams_.jobPollingInterval * 1000 || 1000;
+      /** Time (in ms) interval between two consecutive user history polls.
+       * @type {number}
+       * @default 1000
+       */
+      this.userPollingInterval_ =
+          this.inputParams_.userPollingInterval * 1000 || 1000;
+      /** Time (in ms) interval between two consecutive black/whitelist file
+       * reads.
+       * @type {number}
+       * @default 1000
+       * @private
+       */
+      this.listPollingInterval_ =
+          this.inputParams_.listPollingInterval * 1000 || 1000;
+      this.updateMonitors();
+    });
   }
 }
 

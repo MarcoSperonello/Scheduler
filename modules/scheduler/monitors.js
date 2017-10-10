@@ -46,9 +46,9 @@ export function monitorUsers() {
 /**
  * Relevant information regarding the failure to read the status of a job.
  * @typedef {Object} jobStatusError
- * @property {string} error - The dump of the error.
- * @property {string} description - A statement to inform the user of this
- * object that an error occurred.
+ * @property {string} monitoringError - A statement to inform the user of this
+ * object that an error occurred during the monitoring process.
+ * @property {string} errors - The dump of the error.
  */
 
 /**
@@ -101,8 +101,9 @@ export function monitorJob(jobId, session) {
                 console.log(
                     'Error reading status for job ' + jobId + ': ' + error);
                 reject({
-                  error: error,
-                  description: 'Error reading status for job ' + jobId + '.',
+                  monitoringError:
+                      'Error reading status for job ' + jobId + '.',
+                  errors: error,
                 });
               });
     }, Sec.jobPollingInterval_);
@@ -341,22 +342,23 @@ function monitorSingleJob(session, jobStatus, jobId) {
         Logger.info(
             'Job ' + jobId + ' (' + jobName +
             ') already terminated execution.');
-        session.wait(jobId).then(
-            (jobInfo) => {
-              resolve({
-                jobId: jobId,
-                jobName: jobName,
-                sessionName: session.sessionName,
-                mainStatus: jobStatus[jobId].mainStatus,
-                subStatus: jobStatus[jobId].subStatus,
-                exitStatus: jobInfo.exitStatus,
-                errors: jobInfo.errors,
-                failed: jobInfo.failed,
-                description: 'Job completed within allotted runtimes.'
-              });
-              removeJobFromHistory(jobId);
-            },
-            (error) => { reject('Could not read job status: ' + error); });
+        session.wait(jobId, 60000)
+            .then(
+                (jobInfo) => {
+                  resolve({
+                    jobId: jobId,
+                    jobName: jobName,
+                    sessionName: session.sessionName,
+                    mainStatus: jobStatus[jobId].mainStatus,
+                    subStatus: jobStatus[jobId].subStatus,
+                    exitStatus: jobInfo.exitStatus,
+                    errors: jobInfo.errors,
+                    failed: jobInfo.failed,
+                    description: 'Job completed within allotted runtimes.'
+                  });
+                },
+                (error) => { reject('Could not read job status: ' + error); });
+        removeJobFromHistory(jobId);
       }
     } catch (error) {
       Logger.info('Error fetching job ' + jobId + 'from job history.');
@@ -631,22 +633,23 @@ function monitorArrayJob(session, jobStatus, jobId) {
         Logger.info(
             'Job ' + jobId + ' (' + jobName +
             ') already terminated execution.');
-        session.wait(jobId).then(
-            (jobInfo) => {
-              resolve({
-                jobId: jobId,
-                jobName: jobName,
-                sessionName: session.sessionName,
-                mainStatus: jobStatus[jobId].mainStatus,
-                subStatus: jobStatus[jobId].subStatus,
-                exitStatus: jobInfo.exitStatus,
-                errors: jobInfo.errors,
-                failed: jobInfo.failed,
-                description: 'Job completed within allotted runtimes.'
-              });
-              removeJobFromHistory(jobId);
-            },
-            (error) => { reject('Could not read job status: ' + error); });
+        session.wait(jobId, 60000)
+            .then(
+                (jobInfo) => {
+                  resolve({
+                    jobId: jobId,
+                    jobName: jobName,
+                    sessionName: session.sessionName,
+                    mainStatus: jobStatus[jobId].mainStatus,
+                    subStatus: jobStatus[jobId].subStatus,
+                    exitStatus: jobInfo.exitStatus,
+                    errors: jobInfo.errors,
+                    failed: jobInfo.failed,
+                    description: 'Job completed within allotted runtimes.'
+                  });
+                },
+                (error) => { reject('Could not read job status: ' + error); });
+        removeJobFromHistory(jobId);
       }
     } catch (error) {
       Logger.info('Error fetching job ' + jobId + 'from job history.');
@@ -689,17 +692,18 @@ function deleteJob(session, jobId, qacctAvailable) {
                 let jobName = Sec.jobs_[jobId].jobName;
                 Logger.info('Job ' + jobId + ' terminated.');
                 if (qacctAvailable) {
-                  session.wait(jobId).then(
-                      (jobInfo) => {
-                        removeJobFromHistory(jobId);
-                        resolve(jobInfo);
-                      },
-                      (error) => {
-                        Logger.info(
-                            'Error waiting for ' + jobId + ' (' + jobName +
-                            ') to return information.');
-                        reject(error);
-                      });
+                  session.wait(jobId, 60000)
+                      .then(
+                          (jobInfo) => {
+                            removeJobFromHistory(jobId);
+                            resolve(jobInfo);
+                          },
+                          (error) => {
+                            Logger.info(
+                                'Error waiting for ' + jobId + ' (' + jobName +
+                                ') to return information.');
+                            reject(error);
+                          });
                 } else {
                   removeJobFromHistory(jobId);
                   resolve();
@@ -743,26 +747,28 @@ function deleteErrorJob(session, jobId) {
   return new Promise((resolve, reject) => {
     try {
       let jobName = Sec.jobs_[jobId].jobName;
-      session.wait(jobId).then(
-          (jobInfo) => {
-            session.control(jobId, session.TERMINATE)
-                .then(
-                    () => {
-                      removeJobFromHistory(jobId);
-                      resolve(jobInfo);
-                    },
-                    (error) => {
-                      Logger.info(
-                          'Could not terminate job ' + jobId + ': ' + error);
-                      reject(error);
-                    });
-          },
-          (error) => {
-            Logger.info(
-                'Error waiting for ' + jobId + ' (' + jobName +
-                ') to return information.');
-            reject(error);
-          });
+      session.wait(jobId, 60000)
+          .then(
+              (jobInfo) => {
+                session.control(jobId, session.TERMINATE)
+                    .then(
+                        () => {
+                          removeJobFromHistory(jobId);
+                          resolve(jobInfo);
+                        },
+                        (error) => {
+                          Logger.info(
+                              'Could not terminate job ' + jobId + ': ' +
+                              error);
+                          reject(error);
+                        });
+              },
+              (error) => {
+                Logger.info(
+                    'Error waiting for ' + jobId + ' (' + jobName +
+                    ') to return information.');
+                reject(error);
+              });
     } catch (error) {
       Logger.info('Error fetching job ' + jobId + 'from job history.');
       reject('Error fetching job ' + jobId + 'from job history: ' + error);

@@ -731,7 +731,7 @@ The returned global job status can have the following values:
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="nDrmaa_sge_Session.js.html">nDrmaa/sge/Session.js</a>, <a href="nDrmaa_sge_Session.js.html#line925">line 925</a>
+        <a href="nDrmaa_sge_Session.js.html">nDrmaa/sge/Session.js</a>, <a href="nDrmaa_sge_Session.js.html#line926">line 926</a>
     </li></ul></dd>
     
 
@@ -953,6 +953,163 @@ is in error state for the whole job to be marked as in error.
 
 
 <div class="description">
+    Helper method for parsing a job's status starting from the letters displayed in "qstat" result.
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>jobStatus</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">The status of a job retrieved from SGE with the command "qstat".</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="nDrmaa_sge_Session.js.html">nDrmaa/sge/Session.js</a>, <a href="nDrmaa_sge_Session.js.html#line862">line 862</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    - one of the following extended statuses: QUEUED, ON_HOLD, RUNNING, SUSPENDED, ERROR
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">string</span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="_parseJobStatus"><span class="type-signature">(private) </span>_parseJobStatus<span class="signature">(jobStatus)</span><span class="type-signature"> &rarr; {string}</span></h4>
+    
+
+    
+
+
+
+<div class="description">
     Helper method for retrieving the status of a job
 </div>
 
@@ -1074,163 +1231,6 @@ is in error state for the whole job to be marked as in error.
         
 <div class="param-desc">
     - a more explicative status.
-</div>
-
-
-
-<dl>
-    <dt>
-        Type
-    </dt>
-    <dd>
-        
-<span class="param-type">string</span>
-
-
-    </dd>
-</dl>
-
-    
-
-
-
-
-
-        
-            
-
-    
-
-    
-    <h4 class="name" id="_parseJobStatus"><span class="type-signature">(private) </span>_parseJobStatus<span class="signature">(jobStatus)</span><span class="type-signature"> &rarr; {string}</span></h4>
-    
-
-    
-
-
-
-<div class="description">
-    Helper method for parsing a job's status starting from the letters displayed in "qstat" result.
-</div>
-
-
-
-
-
-
-
-
-
-    <h5>Parameters:</h5>
-    
-
-<table class="params">
-    <thead>
-    <tr>
-        
-        <th>Name</th>
-        
-
-        <th>Type</th>
-
-        
-
-        
-
-        <th class="last">Description</th>
-    </tr>
-    </thead>
-
-    <tbody>
-    
-
-        <tr>
-            
-                <td class="name"><code>jobStatus</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last">The status of a job retrieved from SGE with the command "qstat".</td>
-        </tr>
-
-    
-    </tbody>
-</table>
-
-
-
-
-
-
-<dl class="details">
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="nDrmaa_sge_Session.js.html">nDrmaa/sge/Session.js</a>, <a href="nDrmaa_sge_Session.js.html#line861">line 861</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-
-
-<h5>Returns:</h5>
-
-        
-<div class="param-desc">
-    - one of the following extended statuses: QUEUED, ON_HOLD, RUNNING, SUSPENDED, ERROR
 </div>
 
 
@@ -1401,7 +1401,7 @@ is in error state for the whole job to be marked as in error.
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="nDrmaa_sge_Session.js.html">nDrmaa/sge/Session.js</a>, <a href="nDrmaa_sge_Session.js.html#line973">line 973</a>
+        <a href="nDrmaa_sge_Session.js.html">nDrmaa/sge/Session.js</a>, <a href="nDrmaa_sge_Session.js.html#line974">line 974</a>
     </li></ul></dd>
     
 
@@ -1748,7 +1748,7 @@ is in error state for the whole job to be marked as in error.
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="nDrmaa_sge_Session.js.html">nDrmaa/sge/Session.js</a>, <a href="nDrmaa_sge_Session.js.html#line733">line 733</a>
+        <a href="nDrmaa_sge_Session.js.html">nDrmaa/sge/Session.js</a>, <a href="nDrmaa_sge_Session.js.html#line734">line 734</a>
     </li></ul></dd>
     
 
@@ -2244,7 +2244,8 @@ the SGE.</td>
 
             
 
-            <td class="description last">The UUID of the session the job was launched in.</td>
+            <td class="description last">The UUID of the session the job was
+launched in.</td>
         </tr>
 
     
@@ -2338,7 +2339,8 @@ it is a <a href="global.html#JOBTYPE">JOBTYPE</a>.ARRAY, null otherwise.</td>
 
             
 
-            <td class="description last">Information for each task (see <a href="global.html#taskData">taskData</a>) of the job if it is a <a href="global.html#JOBTYPE">JOBTYPE</a>.ARRAY job, null otherwise.</td>
+            <td class="description last">Information for each task (see <a href="global.html#taskData">taskData</a>) of the job if it is a <a href="global.html#JOBTYPE">JOBTYPE</a>.ARRAY job, null
+otherwise.</td>
         </tr>
 
     
@@ -2472,7 +2474,7 @@ RUNNING state by each task of the job if it is a <a href="global.html#JOBTYPE">J
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="scheduler_scheduler-manager.js.html">scheduler/scheduler-manager.js</a>, <a href="scheduler_scheduler-manager.js.html#line233">line 233</a>
+        <a href="scheduler_scheduler-manager.js.html">scheduler/scheduler-manager.js</a>, <a href="scheduler_scheduler-manager.js.html#line218">line 218</a>
     </li></ul></dd>
     
 
@@ -2824,7 +2826,7 @@ RUNNING state by each task of the job if it is a <a href="global.html#JOBTYPE">J
 
         <tr>
             
-                <td class="name"><code>jobPath</code></td>
+                <td class="name"><code>jobData</code></td>
             
 
             <td class="type">
@@ -2879,7 +2881,7 @@ RUNNING state by each task of the job if it is a <a href="global.html#JOBTYPE">J
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="scheduler_scheduler-manager.js.html">scheduler/scheduler-manager.js</a>, <a href="scheduler_scheduler-manager.js.html#line204">line 204</a>
+        <a href="scheduler_scheduler-manager.js.html">scheduler/scheduler-manager.js</a>, <a href="scheduler_scheduler-manager.js.html#line185">line 185</a>
     </li></ul></dd>
     
 
@@ -3006,7 +3008,8 @@ request.</td>
 
             
 
-            <td class="description last">jobDescription} jobData -  Relevant information regarding a submitted job.</td>
+            <td class="description last">jobDescription} jobData -  Relevant
+information regarding a submitted job.</td>
         </tr>
 
     
@@ -3030,7 +3033,32 @@ request.</td>
             
 
             <td class="description last">Brief description of the outcome of the
-request as specified in <a href="global.html#requestStatus">requestStatus</a>.</td>
+request (accepted or rejected).</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>errors</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Brief description of why the request
+cannot be serviced as specified in <a href="global.html#requestStatus">requestStatus</a>; empty if it can
+be serviced.</td>
         </tr>
 
     
@@ -3069,7 +3097,7 @@ request as specified in <a href="global.html#requestStatus">requestStatus</a>.</
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="scheduler_scheduler-manager.js.html">scheduler/scheduler-manager.js</a>, <a href="scheduler_scheduler-manager.js.html#line212">line 212</a>
+        <a href="scheduler_scheduler-manager.js.html">scheduler/scheduler-manager.js</a>, <a href="scheduler_scheduler-manager.js.html#line193">line 193</a>
     </li></ul></dd>
     
 
@@ -3163,7 +3191,7 @@ the user request.</td>
 
         <tr>
             
-                <td class="name"><code>description</code></td>
+                <td class="name"><code>errors</code></td>
             
 
             <td class="type">
@@ -3219,7 +3247,7 @@ cannot be serviced, empty if it can be serviced.</td>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="scheduler_scheduler-manager.js.html">scheduler/scheduler-manager.js</a>, <a href="scheduler_scheduler-manager.js.html#line223">line 223</a>
+        <a href="scheduler_scheduler-manager.js.html">scheduler/scheduler-manager.js</a>, <a href="scheduler_scheduler-manager.js.html#line208">line 208</a>
     </li></ul></dd>
     
 
@@ -3415,7 +3443,7 @@ state.</td>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="scheduler_scheduler-manager.js.html">scheduler/scheduler-manager.js</a>, <a href="scheduler_scheduler-manager.js.html#line258">line 258</a>
+        <a href="scheduler_scheduler-manager.js.html">scheduler/scheduler-manager.js</a>, <a href="scheduler_scheduler-manager.js.html#line245">line 245</a>
     </li></ul></dd>
     
 
@@ -3893,7 +3921,7 @@ Returns the error reason.
 <br class="clear">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.5.5</a> on Mon Oct 09 2017 14:19:28 GMT+0200 (CEST)
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.5.5</a> on Tue Oct 10 2017 15:20:47 GMT+0200 (CEST)
 </footer>
 
 <script> prettyPrint(); </script>
