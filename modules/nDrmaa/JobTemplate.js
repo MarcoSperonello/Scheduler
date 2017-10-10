@@ -29,10 +29,10 @@ class JobTemplate {
     /**
      * Specifies the arguments to the job.
      *
-     * @example args = ["foo", "bar", 2, arg3]
+     * @example args = ["foo", "bar", 2]
      * @type {Array}
      */
-    this.args = ["pippo", 2];
+    this.args = [];
 
     /**
      * Specifies whether or not the job should be submitted as hold.
@@ -52,7 +52,7 @@ class JobTemplate {
     /**
      * Specifies the directory name where the job will be executed.
      * If not set,  the  working directory will default to the
-     * user's home directory.
+     * process' working directory.
      *
      * @example workingDirectory: "/path/to/working/directory/"
      * @type {string}

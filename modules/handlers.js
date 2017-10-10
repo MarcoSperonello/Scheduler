@@ -49,27 +49,27 @@ function writeToFileSystem(folderName, fileName, input) {
 }
 
 
-function issueRequest(requestData) {
+function issueRequest(requestData, session) {
   return new Promise( (resolve, reject) => {
-    Sec.handleRequest(requestData).then( (status) => {
-      writeToFileSystem(requestData.sessionName, 'Job ' + status.jobData.jobId + ' requestOutcome', status).then( (success) => {
+    Sec.handleRequest(requestData, session).then( (status) => {
+      writeToFileSystem(session.sessionName, 'Job ' + status.jobData.jobId + ' requestOutcome', status).then( (success) => {
         console.log(success);
       }, (error) => {
         console.log(error);
       });
 
-      Sec.getJobResult(status.jobData.jobId, requestData.sessionName).then( (status) => {
-        writeToFileSystem(requestData.sessionName, 'Job ' + status.jobId + ' jobStatusInformation', status).then( (success) => {
+      Sec.getJobResult(status.jobData.jobId, session).then( (status) => {
+        writeToFileSystem(session.sessionName, 'Job ' + status.jobId + ' jobStatusInformation', status).then( (success) => {
           console.log(success);
         }, (error) => {
           console.log(error);
         });
         resolve(status);
       }, (error) => {
-        reject(error.description);
+        reject(error);
       });
     }, (error) => {
-      reject(error.description);
+      reject(error);
     });
   });
 }
@@ -119,26 +119,23 @@ export default {
     let requestData1 = {
       ip: requestIp,
       time: req.time(),
-      jobPath: req.body[0],
-      sessionName: sessionName,
+      jobPath: req.body[0]
     };
     let requestData2 = {
       ip: requestIp,
       time: req.time(),
-      jobPath: req.body[1],
-      sessionName: sessionName,
+      jobPath: req.body[1]
     };
 
     let requestData3 = {
       ip: requestIp,
       time: req.time(),
-      jobPath: req.body[2],
-      sessionName: sessionName,
+      jobPath: req.body[2]
     };
 
-    sessionManager.createSession(sessionName).then(() => {
-      let job1 = issueRequest(requestData1);
-      let job2 = issueRequest(requestData2);
+    sessionManager.createSession(sessionName).then((session) => {
+      let job1 = issueRequest(requestData1, session);
+      let job2 = issueRequest(requestData2, session);
 
       Promise.all([job1, job2])
         .then((statuses) => {
@@ -156,23 +153,26 @@ export default {
 
           if(!errorsOccurred)
           {
-            issueRequest(requestData3)
+            issueRequest(requestData3, session)
               .then((status) => {
+                if(status.mainStatus!=="COMPLETED" || status.subStatus==="DELETED")
+                  res.send(500, [status]);
+                else
+                  res.send(200,[status]);
                 sessionManager.closeSession(sessionName);
-                res.send(200,status);
               }, (error) => {
                 sessionManager.closeSession(sessionName);
-                res.send(500,error);
+                res.send(500,[error]);
               })
           }
           else
           {
-            // sessionManager.closeSession(sessionName);
+            sessionManager.closeSession(sessionName);
             res.send(500,failedJobs);
           }
         }, (error) => {
-          // sessionManager.closeSession(sessionName);
-          res.send(500, error);
+          sessionManager.closeSession(sessionName);
+          res.send(500, [error]);
         })
     }, (error) => {
       Logger.info('Could not create session ' + sessionName + ': ' + error);

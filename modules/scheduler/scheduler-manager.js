@@ -361,6 +361,7 @@ class SchedulerManager {
                   resolve(requestOutcome);
                 },
                 (error) => {
+                  this.pendingJobsCounter_--;
                   requestOutcome.description = error;
                   reject(requestOutcome);
                 });
@@ -484,16 +485,12 @@ class SchedulerManager {
             (error) => {
               Logger.info(
                   'Error found in job specifications. Job not submitted to the SGE.');
-              reject(
-                  'Error found in job specifications. Job not submitted to the SGE: ' +
-                  error);
+              reject(error);
             });
       } catch (error) {
         Logger.info(
             'Error reading job specifications from file. Job not submitted to the SGE.');
-        reject(
-            'Error reading job specifications from file. Job not submitted to the SGE: ' +
-            error);
+        reject(error);
       }
     });
   }
@@ -739,7 +736,7 @@ class SchedulerManager {
    */
   checkArrayParams(start, end, increment) {
     return (!Number.isInteger(start) || !Number.isInteger(end) ||
-            !Number.isInteger(increment) || start <= 0 || end < start ||
+            !Number.isInteger(increment) || start <= 0 ||
             start + increment > end) ?
         JOBTYPE.SINGLE :
         JOBTYPE.ARRAY;

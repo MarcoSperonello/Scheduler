@@ -693,7 +693,9 @@ class SessionImpl extends Session{
 
                   // If we are dealing with an array job, make sure that qacct returned the information
                   // for all the job's tasks, otherwise we need to do some more polling.
-                  if(!isArrayJob || (isArrayJob && Object.keys(jobInfo).length === numTasksAJ)) {
+                  if(!isArrayJob ||
+                    (isArrayJob &&
+                      (Object.keys(jobInfo).length === numTasksAJ || _deletedJobs.includes(jobId)))) {
 
                     // Stop the monitor and resolve the promise with the job's info if all the info regarding
                     // this job (or array job's tasks) were retrieved from qacct
@@ -701,7 +703,6 @@ class SessionImpl extends Session{
                     let toReturn = new JobInfo(jobInfo);        // Job info to return
                     // If job is in error state, add the error reasons returned by synchronize.
                     if(jobState.mainStatus === "ERROR") toReturn.errors = response[0].errors;
-                    if(_deletedJobs.includes(jobId)) toReturn.deleted = true;
                     resolve(toReturn);
                   }
                 }

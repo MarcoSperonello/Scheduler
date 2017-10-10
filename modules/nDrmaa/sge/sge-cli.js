@@ -119,7 +119,7 @@ export function qstat(jobId){
  */
 export function qsub(jobTemplate, start, end, incr){
   return new Promise((resolve, reject) => {
-    // Options for the exec fuctions; set the working directory specified in the jobTemplate.
+    // Options for the exec function; set the working directory specified in the jobTemplate.
     const opts = {
       cwd: jobTemplate.workingDirectory
     };
@@ -134,7 +134,7 @@ export function qsub(jobTemplate, start, end, incr){
     // console.log("Executing command: " + command);
 
     exec(command, opts, (err, stdout, stderr) => {
-      if (err) { reject(err) ; return; }
+      if (err) { reject(stderr) ; return; }
       resolve({stdout: stdout, stderr: stderr});
     });
   });
@@ -262,7 +262,8 @@ export function control(jobIds, action) {
 function _parseQsubOptions(jobTemplate){
   let opts = [];
   Object.keys(jobTemplate).forEach(function(key) {
-    if (!jobTemplate[key]) {
+    if (!jobTemplate[key] ||
+        (Object.keys(jobTemplate[key]).length === 0 && jobTemplate[key].constructor === Object)) {
       return;
     }
 
