@@ -5,10 +5,10 @@ import aux from './aux';
 // import Db from './database';
 import fs from 'fs';
 import Logger from './logger';
-import {getRoutes,isMonitoring,setMonitor} from './server';
+import {getRoutes} from './server';
 import {Sec, sessionManager} from "./scheduler/scheduler-manager";
+import {removeJobFromHistory} from "./scheduler/monitors";
 
-import {when,defer,all} from "promised-io";
 import JobTemplate from "./nDrmaa/JobTemplate";
 import SessionManager from "./nDrmaa/sge/SessionManager";
 
@@ -191,64 +191,46 @@ export default {
         );
       });
 
-      Promise.all(submissionPromise).then((statuses) => {
-        statuses.forEach((status) => {
-          writeToFileSystem(session.sessionName, 'Job ' + status.jobData.jobId + ' requestOutcome', status).then( (success) => {
-            console.log(success);
-          }, (error) => {
-            console.log(error);
+      Promise.all(submissionPromise.map(p => p.catch(e => e)))
+        .then((statuses) => {
+          let errorsOccurred = false;
+          let failedStatuses = [];
+
+          statuses.forEach((status) => {
+            if(status.errors)
+            {
+              failedStatuses.push(status);
+              errorsOccurred = true;
+            }
+            else
+            {
+              writeToFileSystem(session.sessionName, 'Job ' + status.jobData.jobId + ' requestOutcome', status).then( (success) => {
+                console.log(success);
+              }, (error) => {
+                console.log(error);
+              });
+            }
           });
+
+          if(errorsOccurred)
+          {
+            statuses.forEach((status) => {
+              if(!status.errors)
+                removeJobFromHistory(status.jobData.jobId)
+            });
+            res.send(500, failedStatuses);
+            sessionManager.closeSession(sessionName);
+          }
+          else
+            res.send(200, {statuses: statuses, session: sessionName});
+        })
+
+        .catch((error) => {
+          console.log(error);
+          sessionManager.closeSession(sessionName);
+          res.send(500, error);
         });
-        res.send(200, {statuses: statuses, session: sessionName});
-      }, (error) => {
-        res.send(500, [error]);
-      });
 
-
-
-
-
-
-      // let job1 = issueRequest(requestData[0], session);
-      // let job2 = issueRequest(requestData[1], session);
-      //
-      // Promise.all([job1, job2])
-      //   .then((statuses) => {
-      //     let errorsOccurred = false;
-      //     let failedJobs = [];
-      //
-      //     statuses.forEach((status) =>
-      //     {
-      //       if(status.mainStatus!=="COMPLETED" || status.subStatus==="DELETED")
-      //       {
-      //         errorsOccurred = true;
-      //         failedJobs.push(status);
-      //       }
-      //     });
-      //
-      //     if(!errorsOccurred)
-      //     {
-      //       issueRequest(requestData[2], session)
-      //         .then((status) => {
-      //           if(status.mainStatus!=="COMPLETED" || status.subStatus==="DELETED")
-      //             res.send(500, [status]);
-      //           else
-      //             res.send(200,[status]);
-      //           sessionManager.closeSession(sessionName);
-      //         }, (error) => {
-      //           sessionManager.closeSession(sessionName);
-      //           res.send(500,[error]);
-      //         })
-      //     }
-      //     else
-      //     {
-      //       sessionManager.closeSession(sessionName);
-      //       res.send(500,failedJobs);
-      //     }
-      //   }, (error) => {
-      //     sessionManager.closeSession(sessionName);
-      //     res.send(500, [error]);
-      //   })
     }, (error) => {
       Logger.info('Could not create session ' + sessionName + ': ' + error);
       res.send(500,error);
@@ -274,32 +256,40 @@ export default {
         getJobResultPromises.push(Sec.getJobResult(status.jobData.jobId, session));
       });
 
-      Promise.all(getJobResultPromises).then((statuses) => {
-        let errorsOccurred = false;
-        let failedJobs = [];
+      Promise.all(getJobResultPromises)
+        .then((statuses) => {
+          let errorsOccurred = false;
+          let failedJobs = [];
 
-        statuses.forEach((status) =>
-        {
-          if(status.mainStatus!=="COMPLETED" || status.subStatus==="DELETED")
+          statuses.forEach((status) =>
           {
-            errorsOccurred = true;
-            failedJobs.push(status);
-          }
-        });
-
-        if(!errorsOccurred)
-          res.send(200, {statuses: statuses});
-        else
-          res.send(500, statuses);
-
-        statuses.forEach((status) => {
-          writeToFileSystem(session.sessionName, 'Job ' + status.jobId + ' requestOutcome', status).then( (success) => {
-            console.log(success);
-          }, (error) => {
-            console.log(error);
+            if(status.mainStatus!=="COMPLETED" || status.subStatus==="DELETED")
+            {
+              errorsOccurred = true;
+              failedJobs.push(status);
+            }
           });
-        });
+
+          if(!errorsOccurred){
+            if(req.body.closeSession)
+              sessionManager.closeSession(sessionName);
+            res.send(200, {statuses: statuses});
+          }
+          else
+          {
+            sessionManager.closeSession(sessionName);
+            res.send(500, statuses);
+          }
+
+          statuses.forEach((status) => {
+            writeToFileSystem(session.sessionName, 'Job ' + status.jobId + ' requestOutcome', status).then( (success) => {
+              console.log(success);
+            }, (error) => {
+              console.log(error);
+            });
+          });
       }, (error) => {
+        sessionManager.closeSession(sessionName);
         res.send(500, [error]);
       });
 
@@ -309,22 +299,6 @@ export default {
 
 
     return next()
-  },
-
-  handleSessionDeletion: function handleSessionDeletion(req, res, next) {
-    req.log.info(`request handler is ${handleSessionDeletion.name}`);
-    if(!req.body.session)
-    {
-      res.send(500, [new Error("Must include a session in the argument!")]);
-      return next();
-    }
-    let sessionName = req.body.session;
-
-    sessionManager.closeSession(sessionName).then(() => {
-      res.send(200, true);
-    }, (error) => {
-      res.send(500, error);
-    });
   },
 
   handleSubmitJob: function handleSubmitJob(req, res, next) {

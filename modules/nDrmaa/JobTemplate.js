@@ -5,7 +5,7 @@
 class JobTemplate {
   /**
    * Creates a new instance of JobTemplate from the object passed in input.
-   * @param {Object} params
+   * @param {!Object} params
    */
   constructor(params){
     /**
@@ -22,7 +22,7 @@ class JobTemplate {
      * beginning  of  the  script.
      *
      * @example remoteCommand: "myTestScript.sh"
-     * @type {string}
+     * @type {!string}
      */
     this.remoteCommand = "";
 

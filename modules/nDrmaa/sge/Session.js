@@ -53,6 +53,10 @@ class SessionImpl extends Session{
         reject(new Exception.InvalidArgumentException("Job Template must be an instance of JobTemplate"));
       }
 
+      if(!jobTemplate.remoteCommand)
+        reject(new Exception.InvalidArgumentException("Job template provided must contain at least the " +
+          "'remoteCommand' property"));
+
       sge.qsub(jobTemplate).then((res) => {
         let id = res.stdout.split(" ")[2];
         _jobs[id] = new Job(id, this.sessionName, jobTemplate);
@@ -95,8 +99,12 @@ class SessionImpl extends Session{
         return;
       }
 
+      if(!jobTemplate.remoteCommand)
+        reject(new Exception.InvalidArgumentException("Job template provided must contain at least the " +
+          "'remoteCommand' property"));
+
       if(!start)
-        reject(Exception.InvalidArgumentException("Missing starting index for array job"));
+        reject(new Exception.InvalidArgumentException("Missing starting index for array job"));
 
       else if(start<=0)
         reject(new Exception.InvalidArgumentException("Invalid start index: cannot be negative or zero."));

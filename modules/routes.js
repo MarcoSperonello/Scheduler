@@ -9,10 +9,6 @@ export default {
     'waitJob': {
       path: '/wait',
       handler: Handlers.handleJobExecution
-    },
-    'closeSession': {
-      path: '/closeSession',
-      handler: Handlers.handleSessionDeletion
     }
   },
   'GET': {

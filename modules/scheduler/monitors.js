@@ -781,7 +781,7 @@ function deleteErrorJob(session, jobId) {
  * scheduler/SchedulerManager#jobs_}).
  * @param {number} jobId - the id of the job to remove.
  */
-function removeJobFromHistory(jobId) {
+export function removeJobFromHistory(jobId) {
   if (delete Sec.jobs_[jobId]) {
     Logger.info(
         'Removed job ' + jobId +
