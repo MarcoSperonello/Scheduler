@@ -305,6 +305,7 @@ class SchedulerManager {
         time: requestData.time,
         jobData: null,
         description: '',
+        errors: null,
       };
 
       // Checks whether any constraints are violated.
@@ -409,62 +410,76 @@ class SchedulerManager {
               this.pendingJobsCounter_--;
 
               // Fetches the date and time of submission of the job.
-              session.getJobProgramStatus([jobId]).then((jobStatus) => {
-                sgeClient.qstat(jobId).then((job) => {
-                  // Converts the date to an ms-from-epoch format.
-                  let jobSubmitDate = new Date(job.submission_time).getTime();
-                  let taskInfo = [];
-                  // If the job is of the ARRAY type, all of its task are
-                  // added to the taskInfo array.
-                  if (jobType === JOBTYPE.ARRAY) {
-                    for (let taskId = start; taskId <= end;
-                         taskId += increment) {
-                      console.log(
-                          'task ' + taskId + ' status: ' +
-                          jobStatus[jobId].tasksStatus[taskId].mainStatus);
-                      taskInfo.push({
-                        // The ID of the task.
-                        taskId: taskId,
-                        // The status of the task.
-                        status: jobStatus[jobId].tasksStatus[taskId].mainStatus,
-                        // Time at which the task switched to the RUNNING
-                        // state.
-                        runningStart: 0,
-                        // Time the task has spent in the RUNNING state.
-                        runningTime: 0,
-                      })
-                    }
-                  }
+              session.getJobProgramStatus([jobId]).then(
+                  (jobStatus) => {
+                    sgeClient.qstat(jobId).then(
+                        (job) => {
+                          // Converts the date to an ms-from-epoch format.
+                          let jobSubmitDate =
+                              new Date(job.submission_time).getTime();
+                          let taskInfo = [];
+                          // If the job is of the ARRAY type, all of its task
+                          // are
+                          // added to the taskInfo array.
+                          if (jobType === JOBTYPE.ARRAY) {
+                            for (let taskId = start; taskId <= end;
+                                 taskId += increment) {
+                              console.log(
+                                  'task ' + taskId + ' status: ' +
+                                  jobStatus[jobId]
+                                      .tasksStatus[taskId]
+                                      .mainStatus);
+                              taskInfo.push({
+                                // The ID of the task.
+                                taskId: taskId,
+                                // The status of the task.
+                                status: jobStatus[jobId]
+                                            .tasksStatus[taskId]
+                                            .mainStatus,
+                                // Time at which the task switched to the
+                                // RUNNING
+                                // state.
+                                runningStart: 0,
+                                // Time the task has spent in the RUNNING state.
+                                runningTime: 0,
+                              })
+                            }
+                          }
 
-                  // Adds the job to the job history.
-                  let jobDescription = {
-                    jobId: jobId,
-                    jobName: job.job_name,
-                    sessionName: requestData.sessionName,
-                    jobStatus: jobStatus[jobId].mainStatus,
-                    firstTaskId: jobType === JOBTYPE.SINGLE ? null : start,
-                    lastTaskId: jobType === JOBTYPE.SINGLE ? null : end,
-                    increment: jobType === JOBTYPE.SINGLE ? null : increment,
-                    taskInfo: taskInfo,
-                    user: requestData.ip,
-                    submitDate: jobSubmitDate,
-                    // Total execution time of an ARRAY job (the sum of the
-                    // runningTimes of all tasks).
-                    totalExecutionTime: 0,
-                    jobType: jobType,
-                  };
-                  // Adds the job to the jobs object_.
-                  this.jobs_[jobId] = jobDescription;
-                  Logger.info(
-                      'Added job ' + jobId + ' (' + job.job_name + ') on ' +
-                      new Date(jobSubmitDate));
-                  Logger.info(
-                      'Added job ' + jobId + ' (' + job.job_name +
-                      ') to job history. Current job history size: ' +
-                      Object.keys(this.jobs_).length + '.');
-                  resolve(jobDescription);
-                });
-              });
+                          // Adds the job to the job history.
+                          let jobDescription = {
+                            jobId: jobId,
+                            jobName: job.job_name,
+                            sessionName: requestData.sessionName,
+                            jobStatus: jobStatus[jobId].mainStatus,
+                            firstTaskId: jobType === JOBTYPE.SINGLE ? null :
+                                                                      start,
+                            lastTaskId: jobType === JOBTYPE.SINGLE ? null : end,
+                            increment: jobType === JOBTYPE.SINGLE ? null :
+                                                                    increment,
+                            taskInfo: taskInfo,
+                            user: requestData.ip,
+                            submitDate: jobSubmitDate,
+                            // Total execution time of an ARRAY job (the sum of
+                            // the
+                            // runningTimes of all tasks).
+                            totalExecutionTime: 0,
+                            jobType: jobType,
+                          };
+                          // Adds the job to the jobs object_.
+                          this.jobs_[jobId] = jobDescription;
+                          Logger.info(
+                              'Added job ' + jobId + ' (' + job.job_name +
+                              ') on ' + new Date(jobSubmitDate));
+                          Logger.info(
+                              'Added job ' + jobId + ' (' + job.job_name +
+                              ') to job history. Current job history size: ' +
+                              Object.keys(this.jobs_).length + '.');
+                          resolve(jobDescription);
+                        },
+                        (error) => { reject(error); });
+                  },
+                  (error) => { reject(error); });
             },
             (error) => {
               Logger.info(
@@ -473,7 +488,7 @@ class SchedulerManager {
             });
       } catch (error) {
         Logger.info(
-            'Error reading job specifications from file. Job not submitted to the SGE.');
+            'Error reading job specifications. Job not submitted to the SGE.');
         reject(error);
       }
     });
@@ -533,24 +548,21 @@ class SchedulerManager {
     if (this.isWhitelisted(requestData)) return {status: true, errors: ''};
 
     let jobLength = Object.keys(this.jobs_).length;
+
     // If the number of pending job requests plus the number of current jobs
     // being handled by the SGE is bigger than the maximum number of concurrent
-    // jobs, there is the risk that said constraint might be violated, so the
-    // request is rejected.
+    // jobs, there is the risk (or the certainty, if the current number of jobs
+    // in the SGE is already equal to the maximum number of concurrent jobs)
+    // that said constraint might be violated, so the request is rejected.
     if (this.pendingJobsCounter_ + jobLength > this.maxConcurrentJobs_) {
       return {
         status: false,
-        errors:
+        errors: jobLength === this.maxConcurrentJobs_ ?
+            'Maximum number (' + this.maxConcurrentJobs_ +
+                ') of concurrent jobs already reached. Cannot submit any more jobs at the moment.' :
             'Cannot submit the job without guaranteeing that the maxConcurrentJobs limit will not be exceeded.',
       };
     }
-
-    if (jobLength >= this.maxConcurrentJobs_)
-      return {
-        status: false,
-        errors: 'Maximum number (' + this.maxConcurrentJobs_ +
-            ') of concurrent jobs already reached. Cannot submit any more jobs at the moment.'
-      };
 
     // If the server is already at capacity, additional requests cannot be
     // serviced.

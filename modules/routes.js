@@ -19,6 +19,10 @@ export default {
     'root': {
       path: '/',
       handler: Handlers.handleRoot
-    }
+    },
+    'schedulerTest': {
+      path: '/schedulerTest',
+      handler: Handlers.handleSchedulerTest
+    },
   },
 };
