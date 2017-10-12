@@ -6,8 +6,7 @@ import aux from './aux';
 import fs from 'fs';
 import Logger from './logger';
 import {getRoutes} from './server';
-import {Sec, sessionManager} from "./scheduler/scheduler-manager";
-import {removeJobFromHistory} from "./scheduler/monitors";
+import {Scheduler, sessionManager} from "./scheduler/scheduler-manager";
 
 import JobTemplate from "./nDrmaa/JobTemplate";
 import SessionManager from "./nDrmaa/sge/SessionManager";
@@ -51,14 +50,14 @@ function writeToFileSystem(folderName, fileName, input) {
 
  function issueRequest(requestData, session) {
    return new Promise( (resolve, reject) => {
-     Sec.handleRequest(requestData, session).then( (status) => {
+     Scheduler.handleRequest(requestData, session).then( (status) => {
        writeToFileSystem(session.sessionName, 'Job ' + status.jobData.jobId + ' requestOutcome', status).then( (success) => {
          console.log(success);
        }, (error) => {
          console.log(error);
        });
 
-       Sec.getJobResult(status.jobData.jobId, session).then( (status) => {
+       Scheduler.getJobResult(status.jobData.jobId, session).then( (status) => {
          writeToFileSystem(session.sessionName, 'Job ' + status.jobId + ' jobStatusInformation', status).then( (success) => {
            console.log(success);
          }, (error) => {
@@ -139,9 +138,9 @@ export default {
       Logger.info('Could not create session ' + sessionName + ': ' + error);
     });*/
 /*    sessionManager.createSession(sessionName).then( (session) => {
-      Sec.handleRequest(requestData, session).then( (status) => {
+      Scheduler.handleRequest(requestData, session).then( (status) => {
         console.log('Request outcome: ' + status.description );
-        Sec.getJobResult(status.jobData.jobId, session).then( (status) => {
+        Scheduler.getJobResult(status.jobData.jobId, session).then( (status) => {
           console.log('Job ' + status.jobId + ' of session ' + status.sessionName + ' status: ' + status.mainStatus + '-' + status.subStatus + ', exitCode: ' + status.exitStatus + ', failed: \"' + status.failed + '\", errors: ' + status.errors + ', description: ' + status.description);
         }, (error) => {
           console.log('Error: ' + error.errors);
@@ -183,7 +182,7 @@ export default {
     sessionPromise.then((session) => {
       req.body.jobTemplates.forEach((jobTemplate) => {
         submissionPromise.push(
-          Sec.handleRequest({
+          Scheduler.handleRequest({
             ip: requestIp,
             time: req.time(),
             jobData: jobTemplate
@@ -216,7 +215,7 @@ export default {
           {
             statuses.forEach((status) => {
               if(!status.errors)
-                removeJobFromHistory(status.jobData.jobId)
+                Scheduler.removeJobFromHistory(status.jobData.jobId)
             });
             res.send(500, failedStatuses);
             sessionManager.closeSession(sessionName);
@@ -253,7 +252,7 @@ export default {
     sessionManager.getSession(sessionName).then((session) => {
 
       req.body.statuses.forEach((status) => {
-        getJobResultPromises.push(Sec.getJobResult(status.jobData.jobId, session));
+        getJobResultPromises.push(Scheduler.getJobResult(status.jobData.jobId, session));
       });
 
       Promise.all(getJobResultPromises)

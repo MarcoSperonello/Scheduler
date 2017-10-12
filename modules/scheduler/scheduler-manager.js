@@ -201,7 +201,7 @@ class SchedulerManager {
    * @property {string} description - Brief description of the outcome of the
    * request (accepted or rejected).
    * @property {string} errors - Brief description of why the request
-   * cannot be serviced as specified in {@link requestStatus}; empty if it can
+   * cannot be serviced as specified in {@link requestStatus}; null if it could
    * be serviced.
    */
 
@@ -492,6 +492,22 @@ class SchedulerManager {
         reject(error);
       }
     });
+  }
+
+  /**
+   * Removes the job specified by jobId from the job history ([jobs_]{@link
+   * scheduler/SchedulerManager#jobs_}).
+   * @param {number} jobId - the id of the job to remove.
+   */
+  removeJobFromHistory(jobId) {
+    if (delete Scheduler.jobs_[jobId]) {
+      Logger.info(
+          'Removed job ' + jobId +
+          ' from job history. Current job history size: ' +
+          Object.keys(Scheduler.jobs_).length + '.');
+    } else {
+      Logger.info('Could not delete job ' + jobId + ' from job history.');
+    }
   }
 
   /**
@@ -910,4 +926,4 @@ class SchedulerManager {
   }
 }
 
-export const Sec = new SchedulerManager('./input_files/input.json');
+export const Scheduler = new SchedulerManager('./input_files/input.json');

@@ -1,5 +1,5 @@
 import Logger from '../logger';
-import {Sec, sessionManager, JOBTYPE} from './scheduler-manager';
+import {Scheduler, sessionManager, JOBTYPE} from './scheduler-manager';
 
 /** @module scheduler/monitors */
 
@@ -10,14 +10,14 @@ import {Sec, sessionManager, JOBTYPE} from './scheduler-manager';
  */
 export function monitorUsers() {
   let currentTime = new Date().getTime();
-  for (let i = Sec.users_.length - 1; i >= 0; i--) {
+  for (let i = Scheduler.users_.length - 1; i >= 0; i--) {
     if (currentTime -
-            Sec.users_[i].requests[Sec.users_[i].requests.length - 1] >
-        Sec.userLifespan_) {
+            Scheduler.users_[i].requests[Scheduler.users_[i].requests.length - 1] >
+        Scheduler.userLifespan_) {
       Logger.info(
-          'Removing user ' + Sec.users_[i].ip +
+          'Removing user ' + Scheduler.users_[i].ip +
           ' from history. The user has been inactive for longer than the maximum allotted time.');
-      Sec.users_.splice(i, 1);
+      Scheduler.users_.splice(i, 1);
     }
   }
 }
@@ -106,7 +106,7 @@ export function monitorJob(jobId, session) {
                   errors: error,
                 });
               });
-    }, Sec.jobPollingInterval_);
+    }, Scheduler.jobPollingInterval_);
   })
 }
 
@@ -135,8 +135,8 @@ function pollJob(jobId, session) {
   return new Promise((resolve, reject) => {
     try {
       // Name and type of the job.
-      let jobName = Sec.jobs_[jobId].jobName;
-      let jobType = Sec.jobs_[jobId].jobType;
+      let jobName = Scheduler.jobs_[jobId].jobName;
+      let jobType = Scheduler.jobs_[jobId].jobType;
 
       // Fetches the status of the specified job and verifies if any meaningful
       // changes to the status of the job took place or any timeouts have been
@@ -231,9 +231,9 @@ function monitorSingleJob(session, jobStatus, jobId) {
       // Relevant job information are stored in local variables in order to
       // minimize
       // the number of accesses to the jobs_ object.
-      let jobName = Sec.jobs_[jobId].jobName;
-      let prevJobStatus = Sec.jobs_[jobId].jobStatus;
-      let submitDate = Sec.jobs_[jobId].submitDate;
+      let jobName = Scheduler.jobs_[jobId].jobName;
+      let prevJobStatus = Scheduler.jobs_[jobId].jobStatus;
+      let submitDate = Scheduler.jobs_[jobId].submitDate;
 
       // If the job has not yet been completed but its status changed from
       // ON-HOLD/QUEUED to RUNNING, said status is updated to the current
@@ -258,8 +258,8 @@ function monitorSingleJob(session, jobStatus, jobId) {
               jobStatus[jobId].mainStatus + '.'
         });
 
-        Sec.jobs_[jobId].jobStatus = jobStatus[jobId].mainStatus;
-        Sec.jobs_[jobId].submitDate = new Date().getTime();
+        Scheduler.jobs_[jobId].jobStatus = jobStatus[jobId].mainStatus;
+        Scheduler.jobs_[jobId].submitDate = new Date().getTime();
       }
 
       // Terminates and removes from history jobs which are in ERROR state or
@@ -292,9 +292,9 @@ function monitorSingleJob(session, jobStatus, jobId) {
         // The job exceeded one of the timeouts and is deleted.
         else if (
             jobStatus[jobId].mainStatus !== 'RUNNING' &&
-                currentTime - submitDate > Sec.maxJobQueuedTime_ ||
+                currentTime - submitDate > Scheduler.maxJobQueuedTime_ ||
             jobStatus[jobId].mainStatus === 'RUNNING' &&
-                currentTime - submitDate > Sec.maxJobRunningTime_) {
+                currentTime - submitDate > Scheduler.maxJobRunningTime_) {
           Logger.info(
               'Job ' + jobId + ' (' + jobName + ') has exceeded maximum ' +
               jobStatus[jobId].mainStatus + ' runtime.');
@@ -358,7 +358,7 @@ function monitorSingleJob(session, jobStatus, jobId) {
                   });
                 },
                 (error) => { reject('Could not read job status: ' + error); });
-        removeJobFromHistory(jobId);
+        Scheduler.removeJobFromHistory(jobId);
       }
     } catch (error) {
       Logger.info('Error fetching job ' + jobId + 'from job history.');
@@ -433,13 +433,13 @@ function monitorArrayJob(session, jobStatus, jobId) {
     try {
       // Relevant job information are stored in local variables in order to
       // minimize the number of accesses to the jobs_ object.
-      let jobName = Sec.jobs_[jobId].jobName;
-      let submitDate = Sec.jobs_[jobId].submitDate;
-      let taskInfo = Sec.jobs_[jobId].taskInfo;
-      let firstTaskId = Sec.jobs_[jobId].firstTaskId;
-      let lastTaskId = Sec.jobs_[jobId].lastTaskId;
-      let increment = Sec.jobs_[jobId].increment;
-      let totalExecutionTime = Sec.jobs_[jobId].totalExecutionTime;
+      let jobName = Scheduler.jobs_[jobId].jobName;
+      let submitDate = Scheduler.jobs_[jobId].submitDate;
+      let taskInfo = Scheduler.jobs_[jobId].taskInfo;
+      let firstTaskId = Scheduler.jobs_[jobId].firstTaskId;
+      let lastTaskId = Scheduler.jobs_[jobId].lastTaskId;
+      let increment = Scheduler.jobs_[jobId].increment;
+      let totalExecutionTime = Scheduler.jobs_[jobId].totalExecutionTime;
 
       // One or more of the job's tasks are in ERROR. The whole job is deleted.
       if (jobStatus[jobId].mainStatus === 'ERROR') {
@@ -472,7 +472,7 @@ function monitorArrayJob(session, jobStatus, jobId) {
                 'COMPLETED' &&
             jobStatus[jobId].tasksStatus[firstTaskId].mainStatus !==
                 'RUNNING' &&
-            currentTime - submitDate > Sec.maxArrayJobQueuedTime_) {
+            currentTime - submitDate > Scheduler.maxArrayJobQueuedTime_) {
           Logger.info(
               'Job ' + jobId + ' (' + jobName + ') has exceeded maximum ' +
               jobStatus[jobId].tasksStatus[firstTaskId].mainStatus +
@@ -586,7 +586,7 @@ function monitorArrayJob(session, jobStatus, jobId) {
             }
             // If the job total execution time has exceeded the maximum value,
             // the job is terminated and removed from history.
-            if (totalExecutionTime > Sec.maxArrayJobRunningTime_) {
+            if (totalExecutionTime > Scheduler.maxArrayJobRunningTime_) {
               Logger.info(
                   'Job ' + jobId + ' (' + jobName +
                   ') has exceeded maximum RUNNING runtime. Terminating.');
@@ -611,8 +611,8 @@ function monitorArrayJob(session, jobStatus, jobId) {
           }
           // Updates the taskInfo and totalExecutionTime fields of the job in
           // the job history.
-          Sec.jobs_[jobId].taskInfo = taskInfo;
-          Sec.jobs_[jobId].totalExecutionTime = totalExecutionTime;
+          Scheduler.jobs_[jobId].taskInfo = taskInfo;
+          Scheduler.jobs_[jobId].totalExecutionTime = totalExecutionTime;
 
           // The job is still running.
           resolve({
@@ -649,7 +649,7 @@ function monitorArrayJob(session, jobStatus, jobId) {
                   });
                 },
                 (error) => { reject('Could not read job status: ' + error); });
-        removeJobFromHistory(jobId);
+        Scheduler.removeJobFromHistory(jobId);
       }
     } catch (error) {
       Logger.info('Error fetching job ' + jobId + 'from job history.');
@@ -689,13 +689,13 @@ function deleteJob(session, jobId, qacctAvailable) {
       session.control(jobId, session.TERMINATE)
           .then(
               () => {
-                let jobName = Sec.jobs_[jobId].jobName;
+                let jobName = Scheduler.jobs_[jobId].jobName;
                 Logger.info('Job ' + jobId + ' terminated.');
                 if (qacctAvailable) {
                   session.wait(jobId, 60000)
                       .then(
                           (jobInfo) => {
-                            removeJobFromHistory(jobId);
+                            Scheduler.removeJobFromHistory(jobId);
                             resolve(jobInfo);
                           },
                           (error) => {
@@ -705,7 +705,7 @@ function deleteJob(session, jobId, qacctAvailable) {
                             reject(error);
                           });
                 } else {
-                  removeJobFromHistory(jobId);
+                  Scheduler.removeJobFromHistory(jobId);
                   resolve();
                 }
               },
@@ -746,14 +746,14 @@ function deleteJob(session, jobId, qacctAvailable) {
 function deleteErrorJob(session, jobId) {
   return new Promise((resolve, reject) => {
     try {
-      let jobName = Sec.jobs_[jobId].jobName;
+      let jobName = Scheduler.jobs_[jobId].jobName;
       session.wait(jobId, 60000)
           .then(
               (jobInfo) => {
                 session.control(jobId, session.TERMINATE)
                     .then(
                         () => {
-                          removeJobFromHistory(jobId);
+                          Scheduler.removeJobFromHistory(jobId);
                           resolve(jobInfo);
                         },
                         (error) => {
@@ -774,20 +774,4 @@ function deleteErrorJob(session, jobId) {
       reject('Error fetching job ' + jobId + 'from job history: ' + error);
     }
   });
-}
-
-/**
- * Removes the job specified by jobId from the job history ([jobs_]{@link
- * scheduler/SchedulerManager#jobs_}).
- * @param {number} jobId - the id of the job to remove.
- */
-export function removeJobFromHistory(jobId) {
-  if (delete Sec.jobs_[jobId]) {
-    Logger.info(
-        'Removed job ' + jobId +
-        ' from job history. Current job history size: ' +
-        Object.keys(Sec.jobs_).length + '.');
-  } else {
-    Logger.info('Could not delete job ' + jobId + ' from job history.');
-  }
 }
