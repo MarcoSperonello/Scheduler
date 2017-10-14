@@ -9,7 +9,15 @@ export default {
     'waitJob': {
       path: '/wait',
       handler: Handlers.handleJobExecution
-    }
+    },
+    'schedulerTest': {
+      path: '/schedulerTest',
+      handler: Handlers.handleSchedulerTest
+    },
+    'tapJobTest': {
+      path: '/tap',
+      handler: Handlers.handleTapJobSubmission
+    },
   },
   'GET': {
     'root': {

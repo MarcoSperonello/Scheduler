@@ -11,6 +11,7 @@ echo "Job started on" `date`
 echo "------------------------------------------------------------------------"
 
 #echo -e "this is stdin\nhello world!"
+echo "current PID is $$"
 echo "HOME is $HOME"
 echo "USER is $USER"
 echo "JOB_ID is $JOB_ID"
@@ -35,7 +36,7 @@ fi
 rnd=$(shuf -i 2-5 -n 1)
 echo "Sleeping $rnd seconds..."
 #sleep $rnd
-sleep 10
+sleep 5
 
 echo "------------------------------------------------------------------------"
 echo "Job ended on" `date`

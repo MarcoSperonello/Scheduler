@@ -1,5 +1,5 @@
 import Logger from '../logger';
-import {Scheduler, sessionManager, JOBTYPE} from './scheduler-manager';
+import {Scheduler, sessionManager, JOB_TYPE} from './scheduler-manager';
 
 /** @module scheduler/monitors */
 
@@ -54,7 +54,7 @@ export function monitorUsers() {
 /**
  * Monitors the status of the job whose index is specified by the jobId
  * parameter. The status is checked after a set amount of time, specified by the
- * [jobPollingInterval_]{@link scheduler/SchedulerManager#jobPollingInterval_}
+ * [jobPollingInterval]{@link scheduler/SchedulerManager#jobPollingInterval}
  * parameter, has passed.<br>
  * The promise returned by the function is resolved once a job is in a COMPLETED
  * or ERROR state, otherwise it is rejected.
@@ -106,7 +106,7 @@ export function monitorJob(jobId, session) {
                   errors: error,
                 });
               });
-    }, Scheduler.jobPollingInterval_);
+    }, Scheduler.jobPollingInterval);
   })
 }
 
@@ -141,12 +141,12 @@ function pollJob(jobId, session) {
       // Fetches the status of the specified job and verifies if any meaningful
       // changes to the status of the job took place or any timeouts have been
       // violated since the previous check. The function used to do so depends
-      // on whether the JOBTYPE of the job is SINGLE or ARRAY.
+      // on whether the JOB_TYPE of the job is SINGLE or ARRAY.
       // The JSON object containing several job information is used to resolve
       // the promise.
       session.getJobProgramStatus([jobId]).then(
           (jobStatus) => {
-            if (jobType === JOBTYPE.SINGLE) {
+            if (jobType === JOB_TYPE.SINGLE) {
               monitorSingleJob(session, jobStatus, jobId)
                   .then(
                       (result) => { resolve(result); },
@@ -173,7 +173,7 @@ function pollJob(jobId, session) {
 }
 
 /**
- * Compares the current status of the job (of {@link JOBTYPE}.SINGLE) specified
+ * Compares the current status of the job (of {@link JOB_TYPE}.SINGLE) specified
  * by the index parameter to the one stored in the job history (hence memorized
  * during the previous call of this function or, if the function has not been
  * called before, after the job was submitted) for this job and takes
@@ -203,7 +203,7 @@ function pollJob(jobId, session) {
  * the updated submitDate field (point (1)) is subjected to unavoidable
  * approximations, whose precision is inversely proportional to the time
  * interval between two subsequent calls of this function (regulated by the
- * [jobPollingInterval_]{@link scheduler/SchedulerManager#jobPollingInterval_}
+ * [jobPollingInterval]{@link scheduler/SchedulerManager#jobPollingInterval}
  * parameter).<br><br>
  *
  * The promise always resolves unless an error occurs.
@@ -368,7 +368,7 @@ function monitorSingleJob(session, jobStatus, jobId) {
 }
 
 /**
- * Compares the current status of the job (of {@link JOBTYPE}.ARRAY) specified
+ * Compares the current status of the job (of {@link JOB_TYPE}.ARRAY) specified
  * by the index parameter to the one stored in the job history (hence memorized
  * during the previous call of this function or, if the function has not been
  * called before, after the job was submitted) for this job and takes
@@ -405,7 +405,7 @@ function monitorSingleJob(session, jobStatus, jobId) {
  * the runningStart and runningTime fields of each task are subjected to
  * unavoidable approximations, whose precision is inversely proportional to the
  * time interval between two subsequent calls of this function (regulated by the
- * [jobPollingInterval_]{@link scheduler/SchedulerManager#jobPollingInterval_}
+ * [jobPollingInterval]{@link scheduler/SchedulerManager#jobPollingInterval}
  * parameter).<br><br>
  *
  * The promise always resolves unless an error occurs.

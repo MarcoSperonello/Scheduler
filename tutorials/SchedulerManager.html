@@ -27,16 +27,16 @@ Configuration is done via a JSON file, ./input_files/input.json by default. The 
     	<b>[maxConcurrentJobs]{@link scheduler/SchedulerManager#maxConcurrentJobs_}</b>: maximum number of jobs that can be handled by the SGE at the same time. Requests received by a user when the maximum number of concurrent jobs has already been reached will not be forwarded to the SGE (unless the user submitting the request is whitelisted).
     </li>
     <li>
-    	<b>[maxJobRunningTime]{@link scheduler/SchedulerManager#maxJobRunningTime_}</b>: maximum time (in seconds) a [SINGLE]{@link JOBTYPE} job submitted to the SGE can spend in the RUNNING state, after which it is terminated and removed from the job history.
+    	<b>[maxJobRunningTime]{@link scheduler/SchedulerManager#maxJobRunningTime_}</b>: maximum time (in seconds) a [SINGLE]{@link JOB_TYPE} job submitted to the SGE can spend in the RUNNING state, after which it is terminated and removed from the job history.
     </li>
     <li>
-    	<b>[maxJobQueuedTime]{@link scheduler/SchedulerManager#maxJobQueuedTime_}</b>: maximum time (in seconds) a [SINGLE]{@link JOBTYPE} job submitted to the SGE can spend in the ON_HOLD/QUEUED state (without ever switching to RUNNING), after which it is terminated and removed from the job history.
+    	<b>[maxJobQueuedTime]{@link scheduler/SchedulerManager#maxJobQueuedTime_}</b>: maximum time (in seconds) a [SINGLE]{@link JOB_TYPE} job submitted to the SGE can spend in the ON_HOLD/QUEUED state (without ever switching to RUNNING), after which it is terminated and removed from the job history.
     </li>
     <li>
-    	<b>[maxArrayRunningJobTime]{@link scheduler/SchedulerManager#maxArrayJobRunningTime_}</b>: maximum time (in seconds) an [ARRAY]{@link JOBTYPE} job submitted to the SGE can spend in the RUNNING state, after which it is terminated and removed from the job history. Note that an [ARRAY]{@link JOBTYPE} job is considered to be RUNNING once the first task starts running.
+    	<b>[maxArrayRunningJobTime]{@link scheduler/SchedulerManager#maxArrayJobRunningTime_}</b>: maximum time (in seconds) an [ARRAY]{@link JOB_TYPE} job submitted to the SGE can spend in the RUNNING state, after which it is terminated and removed from the job history. Note that an [ARRAY]{@link JOB_TYPE} job is considered to be RUNNING once the first task starts running.
     </li>
     <li>
-    	<b>[maxJobQueuedTime]{@link scheduler/SchedulerManager#maxArrayJobQueuedTime_}</b>: maximum time (in seconds) an [ARRAY]{@link JOBTYPE} job submitted to the SGE can spend in the ON_HOLD/QUEUED state (without ever switching to RUNNING), after which it is terminated and removed from the job history. Note that an [ARRAY]{@link JOBTYPE} job is considered to be ON_HOLD/QUEUED as long as its first task is ON_HOLD/QUEUED itself.
+    	<b>[maxJobQueuedTime]{@link scheduler/SchedulerManager#maxArrayJobQueuedTime_}</b>: maximum time (in seconds) an [ARRAY]{@link JOB_TYPE} job submitted to the SGE can spend in the ON_HOLD/QUEUED state (without ever switching to RUNNING), after which it is terminated and removed from the job history. Note that an [ARRAY]{@link JOB_TYPE} job is considered to be ON_HOLD/QUEUED as long as its first task is ON_HOLD/QUEUED itself.
     </li>
     <li>
     	<b>[localListPath]{@link scheduler/SchedulerManager#localListPath_}</b>: path to the JSON file listing the blacklisted and whitelisted users for the service this specific instance of [SchedulerManager]{@link scheduler/SchedulerManager} module is being used for. The blacklist and whitelist fields are arrays of strings. Regular expressions are supported. See ./input_files/local-lists.json for an example.
@@ -48,7 +48,7 @@ Configuration is done via a JSON file, ./input_files/input.json by default. The 
     	<b>[minimumInputUpdateInterval]{@link scheduler/SchedulerManager#minimumInputUpdateInterval_}</b>: minimum time interval (in seconds) between two consecutive reads of the input file. The input file is read whenever a user submits a request, provided the previous read happened at least minimumInputUpdateInterval seconds ago.
     </li>
     <li>
-    	<b>[jobPollingInterval]{@link scheduler/SchedulerManager#jobPollingInterval_}</b>: time (in seconds) dictating how often the status and several other information of a job submitted to the SGE must be checked.
+    	<b>[jobPollingInterval]{@link scheduler/SchedulerManager#jobPollingInterval}</b>: time (in seconds) dictating how often the status and several other information of a job submitted to the SGE must be checked.
     </li>
     <li>
     	<b>[userPollingInterval]{@link scheduler/SchedulerManager#userPollingInterval_}</b>: time (in seconds) dictating how often the user history must be checked, in order to detect and purge requests which have exceeded their requestLifespan or users whose userLifespan has expired.
@@ -213,5 +213,37 @@ Note: for actual use, fetching the time of the request by reading the request's 
 </pre></td></tr></table></div>
 
 </p>
+<p>
+<h3> How a request is handled by the module </h3>
+The moment a request is submitted via [handleRequest]{@link scheduler/SchedulerManager#handleRequest}, the [verifyRequest_]{@link scheduler/SchedulerManager#verifyRequest_} method checks if the user is whitelisted ([isWhitelisted_]{@link scheduler/SchedulerManager#isWhitelisted_}), in which case the request can be serviced.<br>
+If the user is not whitelisted, additional checks are performed in order to verify that no constraints are violated by the request. These constraints are, in order of importance:<br>
+
+  <ul>
+  	<li>
+  		The user must not be blacklisted ([isBlacklisted_]{@link scheduler/SchedulerManager#isBlacklisted_}).
+  	</li>
+  	<li>
+  		The current number of jobs currently being handled by the SGE must be less than [maxConcurrentJobs]{@link scheduler/SchedulerManager#maxConcurrentJobs_}.<br>
+  		If multiple requests have been received at the same time (i.e. an epsilon milliseconds apart) and more than one is still being examined ([pendingJobsCounter]{@link scheduler/SchedulerManager#pendingJobsCounter_}] as the request in question itself is being examined, they are considered as if they were already submitted to the SGE. This is necessary to ensure that the [maxConcurrentJobs]{@link scheduler/SchedulerManager#maxConcurrentJobs_} constraint is not violated when multiple requests happen at the same time.
+  	</li>
+  	<li>
+      The number of requests (not including the one being examined) made by all users in the last [requestLifespan]{@link scheduler/SchedulerManager#requestLifespan_} seconds must be less or equal than [maxRequestsPerSecGlobal]{@link scheduler/SchedulerManager#maxRequestsPerSecGlobal_}.
+    </li>
+  	<li>
+      The number of requests (not including the one being examined) made by the user in the last [requestLifespan]{@link scheduler/SchedulerManager#requestLifespan_} seconds must be less or equal than [maxRequestsPerSecUser]{@link scheduler/SchedulerManager#maxRequestsPerSecUser_}.
+    </li>
+  </ul>
+<br>
+
+If all these checks are passed, the [handleJobSubmission]{@link scheduler/SchedulerManager#handleJobSubmission} attempts to submit the job to the SGE. The outcome of the submission, whether it succeeded or failed, is returned in a {@link RequestOutcome} object.
+</p>
+
+<h3> How the module monitors a submitted job </h3>
+<p>
+	A job can be monitored via the [getJobResult]{@link scheduler/SchedulerManager#getJobResult} method, which keeps calling [monitorJob]{@link scheduler/monitors#monitorJob} until the job execution ends (whether successfully or because of an error in the job file being executed or a timeout being exceeded) or an error in the monitoring process occurs.<br>
+	[monitorJob]{@link scheduler/monitors#monitorJob} delegates the actual monitoring to [pollJob]{@link scheduler/monitors#pollJob}, which is called every [jobPollingInterval]{@link scheduler/schedulerManager#jobPollingInterval} seconds. [pollJob]{@link scheduler/monitors#pollJob} uses the functions [monitorSingleJob]{@link scheduler/monitors#monitorSingleJob} or [monitorArrayJob]{@link scheduler/monitors#monitorArrayJob} (according to the job's [JOB_TYPE]{@link JOB_TYPE}) to check the status of the specified job to confirm if any meaningful events occurred.
+
+</p>
+
 </body>
 </html>

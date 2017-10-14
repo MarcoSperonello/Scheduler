@@ -10,11 +10,11 @@ import * as monitors from './monitors';
 /** Possible job types. A SINGLE job consists of a single task, while an ARRAY
  * job is made up of several tasks.
  *
- * @typedef JOBTYPE
+ * @typedef JOB_TYPE
  * @type {{SINGLE: string, ARRAY: string}}
  * @const
  */
-export const JOBTYPE = {
+export const JOB_TYPE = {
   SINGLE: 'SINGLE',
   ARRAY: 'ARRAY'
 };
@@ -99,14 +99,16 @@ class SchedulerManager {
     this.pendingJobsCounter_ = 0;
     /** User history, consisting of the users who have not exceeded their
      * maximum lifespan ([userLifespan]{@link
-        * scheduler/SchedulerManager#userLifespan_}).
+     * scheduler/SchedulerManager#userLifespan_}).
      * @type {array}
+     * @private
      */
     this.users_ = [];
     /** Recent request history by all users, consisting of the request which
      * have not exceeded their maximum lifespan ([requestLifespan]{@link
-        * scheduler/SchedulerManager#requestLifespan_}).
+     * scheduler/SchedulerManager#requestLifespan_}).
      * @type {array}
+     * @private
      */
     this.globalRequests_ = [];
     /** Blacklisted users.
@@ -121,15 +123,15 @@ class SchedulerManager {
     this.whitelist_ = [];
     /** Current setInterval ID of the [monitorUsers]{@link
         * modules:scheduler/monitors.monitorUsers} function, called in
-     * [updateMonitors]{@link scheduler/SchedulerManager.updateMonitors}.
+     * [updateMonitors_]{@link scheduler/SchedulerManager.updateMonitors_}.
      * @type {number}
      * @default null
      * @private
      */
     this.userPollingIntervalID_ = null;
-    /** Current setInterval ID of the [updateLists]{@link
-        * scheduler/SchedulerManager.updateLists} function, called in
-     * [updateMonitors]{@link scheduler/SchedulerManager.updateMonitors}.
+    /** Current setInterval ID of the [updateLists_]{@link
+        * scheduler/SchedulerManager.updateLists_} function, called in
+     * [updateMonitors_]{@link scheduler/SchedulerManager.updateMonitors_}.
      * @type {number}
      * @default null
      * @private
@@ -140,17 +142,17 @@ class SchedulerManager {
      * the constructor is called. Said variables are then updated to their
      * respective values specified in the [input file]{@link
         * scheduler/SchedulerManager#inputFile_} via
-     * [updateInputParameters]{@link
-        * scheduler/SchedulerManager#updateInputParameters}.
+     * [updateInputParameters_]{@link
+        * scheduler/SchedulerManager#updateInputParameters_}.
      * This "preemptive" initialization is necessary since this class is
      * instantiated only once and the class variables are periodically updated
-     * during runtime via [updateInputParameters]{@link
-        * scheduler/SchedulerManager#updateInputParameters}.
+     * during runtime via [updateInputParameters_]{@link
+        * scheduler/SchedulerManager#updateInputParameters_}.
      *
      * @type {Object}
      * @private
      */
-    // See the updateInputParameters method for a description of each of these
+    // See the updateInputParameters_ method for a description of each of these
     // variables.
     this.inputParams_ = {
       maxRequestsPerSecUser: 2,
@@ -173,7 +175,7 @@ class SchedulerManager {
 
     // Sets input parameters as specified in the input file. If there is an
     // error reading the input file, default parameters are set.
-    this.updateInputParameters();
+    this.updateInputParameters_();
 
     /*setInterval( () => {
       for (let user of this.whitelist_) {
@@ -224,26 +226,26 @@ class SchedulerManager {
    * @property {string} sessionName - The UUID of the session the job was
    * launched in.
    * @property {number} firstTaskId - The number of the first task of the job if
-   * it is a {@link JOBTYPE}.ARRAY job, null otherwise.
+   * it is a {@link JOB_TYPE}.ARRAY job, null otherwise.
    * @property {number} lastTaskId - The number of the last task of the job if
-   * it is a {@link JOBTYPE}.ARRAY, null otherwise.
+   * it is a {@link JOB_TYPE}.ARRAY, null otherwise.
    * @property {number} increment - The step size of the job if it is a {@link
-      * JOBTYPE}.ARRAY job, null otherwise.
+      * JOB_TYPE}.ARRAY job, null otherwise.
    * @property {array} taskInfo - Information for each task (see {@link
-      * taskData}) of the job if it is a {@link JOBTYPE}.ARRAY job, null
+      * taskData}) of the job if it is a {@link JOB_TYPE}.ARRAY job, null
    * otherwise.
    * @property {string} user - The IP address of the user who submitted the
    * request.
    * @property {string} submitDate - The time at which the job was submitted to
    * the SGE.
    * @property {string} totalExecutionTime - The sum of the time spent in the
-   * RUNNING state by each task of the job if it is a {@link JOBTYPE}.ARRAY job.
+   * RUNNING state by each task of the job if it is a {@link JOB_TYPE}.ARRAY job.
    * @property {string} jobType - the type of the job as specified in {@link
-      * JOBTYPE}.
+      * JOB_TYPE}.
    */
 
   /**
-   * Relevant information of a task of a {@link JOBTYPE}.ARRAY job.
+   * Relevant information of a task of a {@link JOB_TYPE}.ARRAY job.
    * @typedef {Object} taskData
    * @property {number} taskId - The ID of the task.
    * @property {string} status - The status of the task. See
@@ -273,6 +275,7 @@ class SchedulerManager {
    *      regarding the request. Its jobData field is null.
    *    </li>
    * </ul>
+   * @public
    */
   handleRequest(requestData, session) {
     return new Promise((resolve, reject) => {
@@ -296,7 +299,7 @@ class SchedulerManager {
       // it is read again and the input parameters are updated.
       if (new Date().getTime() - this.lastInputFileUpdate_ >
           this.minimumInputUpdateInterval_) {
-        this.updateInputParameters();
+        this.updateInputParameters_();
       }
 
       // Object to resolve or reject the promise with.
@@ -309,7 +312,7 @@ class SchedulerManager {
       };
 
       // Checks whether any constraints are violated.
-      let verifyOutcome = this.verifyRequest(requestData, userIndex);
+      let verifyOutcome = this.verifyRequest_(requestData, userIndex);
 
       // If no constraints are violated, the job can be submitted to the SGE.
       if (verifyOutcome.status) {
@@ -382,6 +385,7 @@ class SchedulerManager {
    *      be submitted.
    *    </li>
    * </ul>
+   * @public
    */
   handleJobSubmission(requestData, session) {
     return new Promise((resolve, reject) => {
@@ -397,11 +401,11 @@ class SchedulerManager {
         let increment = requestData.jobData.incr || null;
 
         // Determines if the job consists of a single task or multiple ones.
-        let jobType = this.checkArrayParams(start, end, increment);
+        let jobType = this.checkArrayParams_(start, end, increment);
 
         // Submits the job to the SGE. A different submission function is
-        // called, according to the JOBTYPE of the job.
-        let jobFunction = jobType === JOBTYPE.SINGLE ?
+        // called, according to the JOB_TYPE of the job.
+        let jobFunction = jobType === JOB_TYPE.SINGLE ?
             session.runJob(jobData) :
             session.runBulkJobs(jobData, start, end, increment);
         jobFunction.then(
@@ -421,7 +425,7 @@ class SchedulerManager {
                           // If the job is of the ARRAY type, all of its task
                           // are
                           // added to the taskInfo array.
-                          if (jobType === JOBTYPE.ARRAY) {
+                          if (jobType === JOB_TYPE.ARRAY) {
                             for (let taskId = start; taskId <= end;
                                  taskId += increment) {
                               console.log(
@@ -452,10 +456,10 @@ class SchedulerManager {
                             jobName: job.job_name,
                             sessionName: requestData.sessionName,
                             jobStatus: jobStatus[jobId].mainStatus,
-                            firstTaskId: jobType === JOBTYPE.SINGLE ? null :
+                            firstTaskId: jobType === JOB_TYPE.SINGLE ? null :
                                                                       start,
-                            lastTaskId: jobType === JOBTYPE.SINGLE ? null : end,
-                            increment: jobType === JOBTYPE.SINGLE ? null :
+                            lastTaskId: jobType === JOB_TYPE.SINGLE ? null : end,
+                            increment: jobType === JOB_TYPE.SINGLE ? null :
                                                                     increment,
                             taskInfo: taskInfo,
                             user: requestData.ip,
@@ -498,6 +502,7 @@ class SchedulerManager {
    * Removes the job specified by jobId from the job history ([jobs_]{@link
    * scheduler/SchedulerManager#jobs_}).
    * @param {number} jobId - the id of the job to remove.
+   * @public
    */
   removeJobFromHistory(jobId) {
     if (delete Scheduler.jobs_[jobId]) {
@@ -529,6 +534,7 @@ class SchedulerManager {
    *      failure to read the result of the job computation.
    *    </li>
    * </ul>
+   * @public
    */
   getJobResult() {
     // Parses the ID and the session of the job whose status needs to be
@@ -551,17 +557,18 @@ class SchedulerManager {
    * @param {number} userIndex - The corresponding index of the users_ array of
    * the user submitting the request.
    * @returns {requestStatus} status - Object storing the result of the checks.
+   * @private
    */
-  verifyRequest(requestData, userIndex) {
+  verifyRequest_(requestData, userIndex) {
     // If the user is blacklisted, the request is rejected.
-    if (this.isBlacklisted(requestData))
+    if (this.isBlacklisted_(requestData))
       return {
         status: false,
         errors: 'User ' + requestData.ip + ' is blacklisted'
       };
 
     // If the user is whitelisted, the request is accepted.
-    if (this.isWhitelisted(requestData)) return {status: true, errors: ''};
+    if (this.isWhitelisted_(requestData)) return {status: true, errors: ''};
 
     let jobLength = Object.keys(this.jobs_).length;
 
@@ -582,7 +589,7 @@ class SchedulerManager {
 
     // If the server is already at capacity, additional requests cannot be
     // serviced.
-    if (!this.checkGlobalRequests(requestData))
+    if (!this.checkGlobalRequests_(requestData))
       return {
         status: false,
         errors: 'Server currently at capacity (' + this.globalRequests_.length +
@@ -631,8 +638,9 @@ class SchedulerManager {
    *
    * @param {requestData} requestData - Object holding request information.
    * @returns {boolean} True if no constraints are violated.
+   * @private
    */
-  checkGlobalRequests(requestData) {
+  checkGlobalRequests_(requestData) {
     // Pruning of expired global requests, if any.
     for (let i = this.globalRequests_.length - 1; i >= 0; i--) {
       if (requestData.time - this.globalRequests_[i] > this.requestLifespan_) {
@@ -664,8 +672,9 @@ class SchedulerManager {
    *
    * @param {requestData} requestData - Object holding request information.
    * @returns {boolean} True if the user is blacklisted.
+   * @private
    */
-  isBlacklisted(requestData) {
+  isBlacklisted_(requestData) {
     if (this.blacklist_.findIndex((elem) => {
           let regexp = new RegExp(elem);
           if (regexp.test(requestData.ip)) return elem;
@@ -681,8 +690,9 @@ class SchedulerManager {
    *
    * @param {requestData} requestData - Object holding request information.
    * @returns {boolean} True if the user is whitelisted.
+   * @private
    */
-  isWhitelisted(requestData) {
+  isWhitelisted_(requestData) {
     if (this.whitelist_.findIndex((elem) => {
           let regexp = new RegExp(elem);
           if (regexp.test(requestData.ip)) return elem;
@@ -708,29 +718,31 @@ class SchedulerManager {
    * valid.
    * If there are no logical errors but the sum of the start and increment
    * parameters is bigger than the end parameter, the job is classified as
-   * {@link JOBTYPE}.SINGLE.
+   * {@link JOB_TYPE}.SINGLE.
    *
    * @param {number} start - The index of the first task.
    * @param {number} end - The index of the last task.
    * @param {number} increment - The index increment.
-   * @returns {string} {@link JOBTYPE}.SINGLE if the check fails, {@link
-      * JOBTYPE}.ARRAY
+   * @returns {string} {@link JOB_TYPE}.SINGLE if the check fails, {@link
+      * JOB_TYPE}.ARRAY
    * otherwise.
+   * @private
    */
-  checkArrayParams(start, end, increment) {
+  checkArrayParams_(start, end, increment) {
     return (!Number.isInteger(start) || !Number.isInteger(end) ||
             !Number.isInteger(increment) || start <= 0 ||
             start + increment > end) ?
-        JOBTYPE.SINGLE :
-        JOBTYPE.ARRAY;
+        JOB_TYPE.SINGLE :
+        JOB_TYPE.ARRAY;
   }
 
   /**
    * Updates the local monitors to check the user history and the local and
    * global black/whitelist files periodically.
    * The frequencies of these checks are specified in the input file.
+   * @private
    */
-  updateMonitors() {
+  updateMonitors_() {
     // Clears pre-existing intervals.
     if (this.userPollingIntervalID_ !== null)
       clearInterval(this.userPollingIntervalID_);
@@ -742,14 +754,15 @@ class SchedulerManager {
         monitors.monitorUsers.bind(this), this.userPollingInterval_);
     // Updates the black/whitelists as often as specified.
     this.listPollingIntervalID_ =
-        setInterval(this.updateLists.bind(this), this.listPollingInterval_);
+        setInterval(this.updateLists_.bind(this), this.listPollingInterval_);
   }
 
   /**
    * Attempts to read the local and global black/whitelist files and update the
    * arrays of the blacklisted and whitelisted users.
+   * @private
    */
-  updateLists() {
+  updateLists_() {
     if (this.localListPath_ !== '') {
       fs.readFile(this.localListPath_, (error, data) => {
         if (error) {
@@ -800,8 +813,9 @@ class SchedulerManager {
    * Attempts to read the input file and update the input parameters.<br>
    * Time related parameters are multiplied by 1000 in order to convert seconds
    * to milliseconds.
+   * @private
    */
-  updateInputParameters() {
+  updateInputParameters_() {
     fs.readFile(this.inputFile_, (error, data) => {
       if (error) {
         Logger.info(
@@ -851,13 +865,14 @@ class SchedulerManager {
       /** Time (in ms) after which a RUNNING job can be forcibly stopped.
        * @type {number}
        * @default 10000
-       * @private
+       * @public
        */
       this.maxJobRunningTime_ =
           this.inputParams_.maxJobRunningTime * 1000 || 10000;
       /** Time (in ms) after which a QUEUED job can be forcibly stopped.
        * @type {number}
        * @default 10000
+       * @public
        */
       this.maxJobQueuedTime_ =
           this.inputParams_.maxJobQueuedTime * 1000 || 10000;
@@ -865,6 +880,7 @@ class SchedulerManager {
        * be forcibly stopped.
        * @type {number}
        * @default 10000
+       * @public
        */
       this.maxArrayJobRunningTime_ =
           this.inputParams_.maxArrayJobRunningTime * 1000 || 10000;
@@ -872,6 +888,7 @@ class SchedulerManager {
        * be forcibly stopped.
        * @type {number}
        * @default 10000
+       * @public
        */
       this.maxArrayJobQueuedTime_ =
           this.inputParams_.maxArrayJobQueuedTime * 1000 || 10000;
@@ -903,9 +920,9 @@ class SchedulerManager {
       /** Time (in ms) interval between two consecutive job history polls.
        * @type {number}
        * @default 1000
-       * @private
+       * @public
        */
-      this.jobPollingInterval_ =
+      this.jobPollingInterval =
           this.inputParams_.jobPollingInterval * 1000 || 1000;
       /** Time (in ms) interval between two consecutive user history polls.
        * @type {number}
@@ -921,7 +938,7 @@ class SchedulerManager {
        */
       this.listPollingInterval_ =
           this.inputParams_.listPollingInterval * 1000 || 1000;
-      this.updateMonitors();
+      this.updateMonitors_();
     });
   }
 }
