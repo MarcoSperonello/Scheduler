@@ -138,14 +138,14 @@ function issuePdbRequest(requestData, session, filePath, fileName) {
 
         let jobResult = {};
         jobResult['status'] = status;
-        fs.readFile('./output/tap-output/' + status.sessionName + '/' + status.jobName + '.o' + status.jobId, (error, data) => {
+        fs.readFile('./output/tap-output/' + status.sessionName + '/' + status.jobName + '.o' + status.jobId, 'utf8', (error, data) => {
           if (error) {
             console.log('Error reading file ' + status.jobName + '.o' + status.jobId);
             reject(error);
           } else {
             jobResult['output'] = data;
             if (status.exitStatus !== '0') {
-              fs.readFile('./output/tap-output/' + status.sessionName + '/' + status.jobName + '.e' + status.jobId, (error, data) => {
+              fs.readFile('./output/tap-output/' + status.sessionName + '/' + status.jobName + '.e' + status.jobId, 'utf8', (error, data) => {
                 if (error) {
                   console.log('Error reading file ' + status.jobName + '.e' + status.jobId);
                   reject(error);
@@ -155,7 +155,7 @@ function issuePdbRequest(requestData, session, filePath, fileName) {
                 }
               });
             } else {
-              jobResult['resOut'] = './output/tap-output/' + status.sessionName + '/' + fileName + '.res.out';
+              jobResult['resOut'] = process.cwd() + '/output/tap-output/' + status.sessionName + '/' + fileName + '.res.out';
               resolve(jobResult);
             }
           }
