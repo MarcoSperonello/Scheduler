@@ -100,13 +100,33 @@ function writeToFileSystem(folderName, fileName, input) {
    });
  }
 
-function issuePdbRequest(requestData, session, fileName) {
+function issuePdbRequest(requestData, session, filePath, fileName) {
   return new Promise( (resolve, reject) => {
     Scheduler.handleRequest(requestData, session).then( (status) => {
+
       writeToFileSystem('tap-output/' + session.sessionName, 'Job ' + status.jobData.jobId + ' requestOutcome', status).then( (success) => {
         console.log(success);
       }, (error) => {
         console.log(error);
+      });
+
+      fs.readFile(filePath, (error, data) => {
+        if (error) {
+          console.log('Error reading file ' + filePath + ': ' + error);
+        } else {
+          fs.mkdir('./output/tap-output/' + session.sessionName, (error) => {
+            if (!error || error.code === 'EEXIST') {
+              fs.writeFile('./output/tap-output/' + session.sessionName + '/' + fileName, data, (error) => {
+                if (error) {
+                  console.log('Error writing file ' + fileName + ': ' + error);
+                }
+                else console.log('Written file ' + fileName);
+              });
+            } else {
+              console.log('Error creating ./output/tap-output/' + session.sessionName + ' folder: ' + error);
+            }
+          });
+        }
       });
 
       Scheduler.getJobResult(status.jobData.jobId, session).then( (status) => {
@@ -118,14 +138,14 @@ function issuePdbRequest(requestData, session, fileName) {
 
         let jobResult = {};
         jobResult['status'] = status;
-        fs.readFile('/home/marco/Uni/Tesi/Projects/node-ws-template/output/tap-output/' + status.sessionName + '/' + status.jobName + '.o' + status.jobId, (error, data) => {
+        fs.readFile('./output/tap-output/' + status.sessionName + '/' + status.jobName + '.o' + status.jobId, (error, data) => {
           if (error) {
             console.log('Error reading file ' + status.jobName + '.o' + status.jobId);
             reject(error);
           } else {
             jobResult['output'] = data;
             if (status.exitStatus !== '0') {
-              fs.readFile('/home/marco/Uni/Tesi/Projects/node-ws-template/output/tap-output/' + status.sessionName + '/' + status.jobName + '.e' + status.jobId, (error, data) => {
+              fs.readFile('./output/tap-output/' + status.sessionName + '/' + status.jobName + '.e' + status.jobId, (error, data) => {
                 if (error) {
                   console.log('Error reading file ' + status.jobName + '.e' + status.jobId);
                   reject(error);
@@ -135,7 +155,7 @@ function issuePdbRequest(requestData, session, fileName) {
                 }
               });
             } else {
-              jobResult['resOut'] = '/home/marco/Uni/Tesi/Projects/node-ws-template/output/tap-output/' + status.sessionName + '/' + fileName + '.res.out';
+              jobResult['resOut'] = './output/tap-output/' + status.sessionName + '/' + fileName + '.res.out';
               resolve(jobResult);
             }
           }
@@ -239,8 +259,23 @@ export default {
       }
     };
 
+/*
+    fs.readFile('/home/marco/Uni/Tesi/Projects/node-ws-template/sge-scripts/tap-script/3DFR.pdb', (error, data) => {
+      if (error) {
+        console.log('Error reading file 3DFR.pdb');
+      } else {
+        fs.writeFile('/home/marco/Uni/Tesi/Projects/node-ws-template/output/tap-output' + sessionName + '/3DFR.pdb', data, (error) => {
+          if (error) {
+            console.log('Error writing file 3DFR.pdb' + error);
+          }
+          else console.log('Written file 3DFR.pdb');
+        });
+      }
+    });
+*/
+
     sessionManager.createSession(sessionName).then( (session) => {
-      issuePdbRequest(requestDataPdb, session, '3DFR.pdb').then( (jobResult) => {
+      issuePdbRequest(requestDataPdb, session, '/home/marco/Uni/Tesi/Projects/node-ws-template/sge-scripts/tap-script/3DFR.pdb', '3DFR.pdb').then( (jobResult) => {
         console.log('Job ' + jobResult.status.jobId + ' of session ' + jobResult.status.sessionName + ' status: ' + jobResult.status.mainStatus + '-' + jobResult.status.subStatus + ', exitCode: ' + jobResult.status.exitStatus + ', failed: ' + jobResult.status.failed + ', errors: ' + jobResult.status.errors + ', description: ' + jobResult.status.description);
         res.send(200, jobResult);
       }, (error) => {
@@ -286,19 +321,6 @@ export default {
 
     let sessionName = generateUUIDV4();
 
-    fs.readFile(req.files.file.path, (error, data) => {
-      if (error) {
-        console.log('Error reading file ' + req.files.file.path);
-      } else {
-        fs.writeFile('/home/marco/Uni/Tesi/Projects/node-ws-template/output/tap-output' + sessionName + '/' + req.files.file.name, data, (error) => {
-          if (error) {
-            console.log('Error writing file ' + req.files.file.name);
-          }
-          else console.log('Written file ' + req.files.file.name);
-        });
-      }
-    });
-
     let jobTemplate = req.body.jobTemplate;
 
     jobTemplate.args[1] = req.files.file.path;
@@ -313,7 +335,7 @@ export default {
     };
 
     sessionManager.createSession(sessionName).then( (session) => {
-      issuePdbRequest(requestDataPdb, session, req.files.file.name).then( (jobResult) => {
+      issuePdbRequest(requestDataPdb, session, req.files.file.path, req.files.file.name).then( (jobResult) => {
         console.log('Job ' + jobResult.status.jobId + ' of session ' + jobResult.status.sessionName + ' status: ' + jobResult.status.mainStatus + '-' + jobResult.status.subStatus + ', exitCode: ' + jobResult.status.exitStatus + ', failed: ' + jobResult.status.failed + ', errors: ' + jobResult.status.errors + ', description: ' + jobResult.status.description);
         res.send(200, jobResult);
       }, (error) => {
