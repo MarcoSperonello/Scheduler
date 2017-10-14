@@ -103,12 +103,11 @@ function writeToFileSystem(folderName, fileName, input) {
 function issuePdbRequest(requestData, session, filePath, fileName) {
   return new Promise( (resolve, reject) => {
     Scheduler.handleRequest(requestData, session).then( (status) => {
-
-      writeToFileSystem('tap-output/' + session.sessionName, 'Job ' + status.jobData.jobId + ' requestOutcome', status).then( (success) => {
+/*      writeToFileSystem('tap-output/' + session.sessionName, 'Job ' + status.jobData.jobId + ' requestOutcome', status).then( (success) => {
         console.log(success);
       }, (error) => {
         console.log(error);
-      });
+      });*/
 
       fs.readFile(filePath, (error, data) => {
         if (error) {
@@ -130,25 +129,30 @@ function issuePdbRequest(requestData, session, filePath, fileName) {
       });
 
       Scheduler.getJobResult(status.jobData.jobId, session).then( (status) => {
-        writeToFileSystem('tap-output/' + session.sessionName, 'Job ' + status.jobId + ' jobStatusInformation', status).then( (success) => {
+/*        writeToFileSystem('tap-output/' + session.sessionName, 'Job ' + status.jobId + ' jobStatusInformation', status).then( (success) => {
           console.log(success);
         }, (error) => {
           console.log(error);
-        });
+        });*/
 
         let jobResult = {};
         jobResult['status'] = status;
+        if(status.mainStatus === 'ERROR' || status.mainStatus === 'COMPLETED' && status.subStatus === 'DELETED') {
+          reject(jobResult);
+          return;
+        }
+
         fs.readFile('./output/tap-output/' + status.sessionName + '/' + status.jobName + '.o' + status.jobId, 'utf8', (error, data) => {
           if (error) {
             console.log('Error reading file ' + status.jobName + '.o' + status.jobId);
-            reject(error);
+            reject({errors: error});
           } else {
             jobResult['output'] = data;
             if (status.exitStatus !== '0') {
               fs.readFile('./output/tap-output/' + status.sessionName + '/' + status.jobName + '.e' + status.jobId, 'utf8', (error, data) => {
                 if (error) {
                   console.log('Error reading file ' + status.jobName + '.e' + status.jobId);
-                  reject(error);
+                  reject({errors: error});
                 } else {
                   jobResult['error'] = data;
                   resolve(jobResult);
@@ -161,10 +165,10 @@ function issuePdbRequest(requestData, session, filePath, fileName) {
           }
         });
       }, (error) => {
-        reject(error);
+        reject({errors: error.errors});
       });
     }, (error) => {
-      reject(error);
+      reject({errors: error.errors});
     });
   });
 }
@@ -279,7 +283,12 @@ export default {
         console.log('Job ' + jobResult.status.jobId + ' of session ' + jobResult.status.sessionName + ' status: ' + jobResult.status.mainStatus + '-' + jobResult.status.subStatus + ', exitCode: ' + jobResult.status.exitStatus + ', failed: ' + jobResult.status.failed + ', errors: ' + jobResult.status.errors + ', description: ' + jobResult.status.description);
         res.send(200, jobResult);
       }, (error) => {
-        Logger.info('Error: ' + error.errors);
+        if(error.hasOwnProperty('status')) {
+          Logger.info('Error: ' + error.status.errors);
+        } else {
+          Logger.info('Error: ' + error.errors);
+        }
+        res.send(500, error);
       });
     }, (error) => {
       Logger.info('Could not create session ' + sessionName + ': ' + error);
@@ -339,7 +348,11 @@ export default {
         console.log('Job ' + jobResult.status.jobId + ' of session ' + jobResult.status.sessionName + ' status: ' + jobResult.status.mainStatus + '-' + jobResult.status.subStatus + ', exitCode: ' + jobResult.status.exitStatus + ', failed: ' + jobResult.status.failed + ', errors: ' + jobResult.status.errors + ', description: ' + jobResult.status.description);
         res.send(200, jobResult);
       }, (error) => {
-        Logger.info('Error: ' + error.errors);
+        if(error.hasOwnProperty('status')) {
+          Logger.info('Error: ' + error.status.errors);
+        } else {
+          Logger.info('Error: ' + error.errors);
+        }
         res.send(500, error);
       });
     }, (error) => {
@@ -355,7 +368,7 @@ export default {
 
     // Fetches the IP of the client who made the request.
     let requestIp = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
-    let hasAttachedSession = !!(req.body.hasOwnProperty("session") && req.body.session)
+    let hasAttachedSession = !!(req.body.hasOwnProperty("session") && req.body.session);
     let sessionName = hasAttachedSession ? req.body.session : generateUUIDV4();
     let sessionPromise = hasAttachedSession ? sessionManager.getSession(sessionName) : sessionManager.createSession(sessionName);
     let submissionPromise = [];
