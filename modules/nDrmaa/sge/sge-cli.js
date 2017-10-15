@@ -134,7 +134,10 @@ export function qsub(jobTemplate, start, end, incr){
     // console.log("Executing command: " + command);
 
     exec(command, opts, (err, stdout, stderr) => {
-      if (err) { reject(stderr) ; return; }
+      if (err) {
+        reject({stderr: stderr, err:  err});
+        return;
+      }
       resolve({stdout: stdout, stderr: stderr});
     });
   });

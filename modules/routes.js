@@ -24,6 +24,10 @@ export default {
       path: '/',
       handler: Handlers.handleRoot
     },
+    'getTapResult': {
+      path: '/tap/:sessionName/:outputFile',
+      handler: Handlers.handleTapResult
+    },
     'schedulerTest': {
       path: '/schedulerTest',
       handler: Handlers.handleSchedulerTest

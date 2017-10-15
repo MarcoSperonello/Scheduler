@@ -488,7 +488,10 @@ class SchedulerManager {
             (error) => {
               Logger.info(
                   'Error found in job specifications. Job not submitted to the SGE.');
-              reject(error);
+              if(!error.stderr)
+                reject(error.err);
+              else
+                reject(error.stderr);
             });
       } catch (error) {
         Logger.info(
