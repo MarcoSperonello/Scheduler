@@ -18,15 +18,23 @@ export default {
       path: '/tap',
       handler: Handlers.handleTapJobSubmission
     },
+    'frstJobTest': {
+      path: '/frst',
+      handler: Handlers.handleTapJobSubmission
+    },
   },
   'GET': {
     'root': {
       path: '/',
       handler: Handlers.handleRoot
     },
-    'getTapResult': {
+    'getTapOutputFile': {
       path: '/tap/:sessionName/:outputFile',
-      handler: Handlers.handleTapResult
+      handler: Handlers.handleShowTapOutFile
+    },
+    'retrieveTapResult': {
+      path: 'get-results/tap/:sessionName',
+      handler: Handlers.handleRetrieveTapResult
     },
     'schedulerTest': {
       path: '/schedulerTest',

@@ -18,7 +18,13 @@ makeOutputDirectories('./output/','tap-output').then( () => {
 }, (error) => {
   console.log(error);
 });
+
 makeOutputDirectories('./output/','dummy-output').then( () => {
+}, (error) => {
+  console.log(error);
+});
+
+makeOutputDirectories('./output/','frst-output').then( () => {
 }, (error) => {
   console.log(error);
 });
@@ -147,7 +153,7 @@ function issuePdbRequest(requestData, session, filePath, fileName) {
                 }
               });
             } else {
-              jobResult['resOut'] = status.sessionName + '/' + fileName + '.res.out';
+              jobResult['resOut'] = fileName + '.res.out';
               resolve(jobResult);
             }
           }
@@ -212,9 +218,6 @@ export default {
     sessionManager.createSession(sessionName).then( (session) => {
       issuePdbRequest(requestDataPdb, session, req.files.file.path, req.files.file.name).then( (jobResult) => {
         console.log('Job ' + jobResult.status.jobId + ' of session ' + jobResult.status.sessionName + ' status: ' + jobResult.status.mainStatus + '-' + jobResult.status.subStatus + ', exitCode: ' + jobResult.status.exitStatus + ', failed: ' + jobResult.status.failed + ', errors: ' + jobResult.status.errors + ', description: ' + jobResult.status.description);
-
-        // Prepend the base URL of the server to the resulting output link
-        jobResult.resOut = (req.isSecure()) ? 'https' : 'http' + '://' + req.headers.host + '/tap/' + jobResult.resOut;
         res.send(200, jobResult);
         sessionManager.closeSession(sessionName);
       }, (error) => {
@@ -234,8 +237,8 @@ export default {
     return next()
   },
 
-  handleTapResult: function handleTapResult(req, res, next) {
-    req.log.info(`request handler is ${handleTapResult.name}`);
+  handleShowTapOutFile: function handleShowTapOutFile(req, res, next) {
+    req.log.info(`request handler is ${handleShowTapOutFile.name}`);
     res.setHeader('content-type', 'text/plain');
 
     let sessionName = req.params.sessionName;
@@ -251,6 +254,97 @@ export default {
         res.send(data);
       }
     });
+
+    return next();
+  },
+
+  handleRetrieveTapResult: function handleRetrieveTapResult(req, res, next) {
+    req.log.info(`request handler is ${handleRetrieveTapResult.name}`);
+
+    let sessionName = req.params.sessionName;
+    let jobId = req.params.jobId;
+    let jobName = req.params.jobName;
+    let path = './output/tap-output/' + sessionName + "/";
+
+    let jobResult = {};
+
+    let stdErrRegExp = new RegExp(/(e{1}(\d)+$)/);
+    let stdOutRegExp = new RegExp(/(o{1}(\d)+$)/);
+    let resultOutputRegExp = new RegExp(/(res\.out$)/);
+
+    let stdOutFile = "";
+    let stdErrFile = "";
+    let resOutFile = "";
+
+    fs.readdir(path, (err, files) => {
+      if(err)
+      {
+        console.log('Error reading directory ' + sessionName);
+        res.send(404, {errors: "Session " + sessionName + " not found"});
+      }
+      else {
+        files.forEach(file => {
+          if (stdOutRegExp.test(file))
+            stdOutFile = file;
+
+          else if (stdErrRegExp.test(file))
+            stdErrFile = file;
+
+          else if (resultOutputRegExp.test(file))
+            resOutFile = file;
+        });
+
+        if (stdOutFile && stdErrFile) {
+          fs.readFile(path + stdOutFile, 'utf8', (error, data) => {
+            if (error) {
+              console.log('Error reading file ' + stdOutFile);
+              res.send(500, error);
+            }
+            else {
+              jobResult.output = data;
+              fs.readFile(path + stdErrFile, 'utf8', (error, data) => {
+                if (error) {
+                  console.log('Error reading file ' + stdErrFile);
+                  res.send(500, error);
+                }
+                else {
+                  jobResult.errors = data;
+                  jobResult.resOut = resOutFile;
+                  res.send(200, jobResult);
+                }
+              });
+            }
+          });
+        }
+        else
+          res.send(404, "Result not found for session " + sessionName);
+      }
+
+      return next();
+    });
+
+    // fs.readFile('./output/tap-output/' + sessionName + '/' + jobName + '.o' + jobId, 'utf8', (error, data) => {
+    //   if (error) {
+    //     console.log('Error reading file ' + jobName + '.o' + jobId);
+    //     res.send(500, {errors: error});
+    //   } else {
+    //     jobResult['output'] = data;
+    //     if (status.exitStatus !== '0') {
+    //       fs.readFile('./output/tap-output/' + sessionName + '/' + jobName + '.e' + jobId, 'utf8', (error, data) => {
+    //         if (error) {
+    //           console.log('Error reading file ' + jobName + '.e' + jobId);
+    //           res.send(500, {errors: error});
+    //         } else {
+    //           jobResult['errors'] = data;
+    //           res.send(200, jobResult);
+    //         }
+    //       });
+    //     } else {
+    //       jobResult['resOut'] = sessionName + '/' + fileName + '.res.out';
+    //       res.send(200, jobResult);
+    //     }
+    //   }
+    // });
 
     return next();
   },
