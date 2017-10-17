@@ -1,3 +1,10 @@
+/**
+ * @fileoverview Class that manages client requests to submit a job to the Sun
+ * Grid Engine.
+ *
+ * @author Marco Speronello
+ */
+
 import Db from '../database';
 import Logger from '../logger';
 

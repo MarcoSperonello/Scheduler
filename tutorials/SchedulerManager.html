@@ -1,12 +1,16 @@
 <html>
 <body>
 
-This is a brief tutorial on how to configure the [SchedulerManager]{@link scheduler/SchedulerManager} class and use it submit jobs, wait for their completion and get the results back. The following is everything you need to use in order to have access to all the important information (as specified in [jobStatusInformation]{@link module:scheduler/monitors~jobStatusInformation}) of a job whose execution has ended.<br>
-A complete example is featured at the end of this tutorial.
+This is a brief tutorial on how to configure the [SchedulerManager]{@link scheduler/SchedulerManager} class and use it submit jobs, wait for their completion and get the results back. The following is everything you need to use in order to have access to all the important information (as specified in [jobStatusInformation]{@link module:scheduler/monitors~jobStatusInformation}) of a job whose execution has ended.
+A complete example is featured at <a href="#example">the end of the how-to section</a> of the tutorial.<br>
+The last section consists of an explanation of <a href="#details">how the module actually works</a>.
+<br><br>
 
-
+<h6>Disclaimer: the choices made regarding the input parameters, their meaning and their behavior, the events the monitoring functions check as well as many other details all follow the specifications provided.</h6>
+<br>
+<h2> <a id="how-to"></a>Using SchedulerManager </h2>
 <p>
-<h3>Configuring SchedulerManager</h3>
+<h3> Configuring SchedulerManager </h3>
 
 Configuration is done via a JSON file, ./input_files/input.json by default. The parameters that can be specified are the following:<br>
 
@@ -58,10 +62,11 @@ Configuration is done via a JSON file, ./input_files/input.json by default. The 
     </li>
  </ul>
  <br>
-NOTE: a whitelisted user's requests will ALWAYS be forwarded to the SGE. Likewise, a blacklisted user's requests will ALWAYS be discarded.
+<b>NOTE:</b> a whitelisted user's requests will ALWAYS be forwarded to the SGE. Likewise, a blacklisted user's requests will ALWAYS be discarded.<br>
+<b>NOTE:</b> the input file is read whenever a request is received, provided the last time the file was read was at least [minimumInputUpdateInterval]{@link scheduler/SchedulerManager#minimumInputUpdateInterval_} seconds ago. Due to the non-blocking nature of this operation, it may happen that any change to the input parameters will be effective starting from the <i>next request received</i> by the system, and not the one that triggered the update of the input parameters: it is indeed possible that the request can be serviced faster than the file can be read and the parameters updated.
 
 <p>
-<h3>Submitting a job</h3>
+<h3> Submitting a job </h3>
  
 An instance of the [SchedulerManager]{@link scheduler/SchedulerManager} class is created and exported, under the name of Sec, when the server is launched.<br>
 To submit a job, [handleRequest]{@link scheduler/SchedulerManager#handleRequest} must be called. This method requires a {@link requestData} object, which specifies who issued the request, at what time, and the details of the job to submit in the form of a {@link JobTemplate} object.<br>
@@ -127,9 +132,9 @@ For example, to monitor the status of a job whose id is stored in a jobId variab
 </p>
 
 <p>
-<h3> Complete example </h3>
+<h3> <a id="example"></a>Complete example </h3>
 
-A fully functional example of how to submit a job and get its result once its execution has ended is obtained by simply combining the previous snippets of code. Console logging was added to demonstrate how to read the results returned by the methods. Remember to change the remoteCommand and workingDirectory fields of the {@link RequestData} object before running the example.<br>
+A fully functional example of how to submit a job and get its result once its execution has ended is obtained by simply combining the previous snippets of code. Console logging was added to demonstrate how to read the results returned by the methods. Remember to change the remoteCommand and workingDirectory fields of the {@link requestData} object before running the example.<br>
 Note: for actual use, fetching the time of the request by reading the request's "time" field (req.time() in Restify) is a better solution than the one reported in the upcoming example.<br><br>
 
 <!-- HTML generated using hilite.me --><div style="background: #ffffff; overflow:auto;width:auto;border:solid gray;border-width:.1em .1em .1em .8em;padding:.2em .6em;"><table><tr><td><pre style="margin: 0; line-height: 125%"> 1
@@ -213,6 +218,7 @@ Note: for actual use, fetching the time of the request by reading the request's 
 </pre></td></tr></table></div>
 
 </p>
+<h2> <a id="details"></a> Software behavior </h2>
 <p>
 <h3> How a request is handled by the module </h3>
 The moment a request is submitted via [handleRequest]{@link scheduler/SchedulerManager#handleRequest}, the [verifyRequest_]{@link scheduler/SchedulerManager#verifyRequest_} method checks if the user is whitelisted ([isWhitelisted_]{@link scheduler/SchedulerManager#isWhitelisted_}), in which case the request can be serviced.<br>
@@ -224,7 +230,7 @@ If the user is not whitelisted, additional checks are performed in order to veri
   	</li>
   	<li>
   		The current number of jobs currently being handled by the SGE must be less than [maxConcurrentJobs]{@link scheduler/SchedulerManager#maxConcurrentJobs_}.<br>
-  		If multiple requests have been received at the same time (i.e. an epsilon milliseconds apart) and more than one is still being examined ([pendingJobsCounter]{@link scheduler/SchedulerManager#pendingJobsCounter_}] as the request in question itself is being examined, they are considered as if they were already submitted to the SGE. This is necessary to ensure that the [maxConcurrentJobs]{@link scheduler/SchedulerManager#maxConcurrentJobs_} constraint is not violated when multiple requests happen at the same time.
+  		If multiple requests have been received at the same time (i.e. an epsilon milliseconds apart) and more than one is still being examined ([pendingJobsCounter]{@link scheduler/SchedulerManager#pendingJobsCounter_}) as the request in question itself is being examined, they are considered as if they were already submitted to the SGE. This is necessary to ensure that the [maxConcurrentJobs]{@link scheduler/SchedulerManager#maxConcurrentJobs_} constraint is not violated when multiple requests happen at the same time.
   	</li>
   	<li>
       The number of requests (not including the one being examined) made by all users in the last [requestLifespan]{@link scheduler/SchedulerManager#requestLifespan_} seconds must be less or equal than [maxRequestsPerSecGlobal]{@link scheduler/SchedulerManager#maxRequestsPerSecGlobal_}.
@@ -235,14 +241,26 @@ If the user is not whitelisted, additional checks are performed in order to veri
   </ul>
 <br>
 
-If all these checks are passed, the [handleJobSubmission]{@link scheduler/SchedulerManager#handleJobSubmission} attempts to submit the job to the SGE. The outcome of the submission, whether it succeeded or failed, is returned in a {@link RequestOutcome} object.
+If all these checks are passed, the [handleJobSubmission]{@link scheduler/SchedulerManager#handleJobSubmission} attempts to submit the job to the SGE. The outcome of the submission, whether it succeeded or failed, is returned in a {@link requestOutcome} object.
 </p>
 
 <h3> How the module monitors a submitted job </h3>
 <p>
 	A job can be monitored via the [getJobResult]{@link scheduler/SchedulerManager#getJobResult} method, which keeps calling [monitorJob]{@link scheduler/monitors#monitorJob} until the job execution ends (whether successfully or because of an error in the job file being executed or a timeout being exceeded) or an error in the monitoring process occurs.<br>
-	[monitorJob]{@link scheduler/monitors#monitorJob} delegates the actual monitoring to [pollJob]{@link scheduler/monitors#pollJob}, which is called every [jobPollingInterval]{@link scheduler/schedulerManager#jobPollingInterval} seconds. [pollJob]{@link scheduler/monitors#pollJob} uses the functions [monitorSingleJob]{@link scheduler/monitors#monitorSingleJob} or [monitorArrayJob]{@link scheduler/monitors#monitorArrayJob} (according to the job's [JOB_TYPE]{@link JOB_TYPE}) to check the status of the specified job to confirm if any meaningful events occurred.
-
+	[monitorJob]{@link scheduler/monitors#monitorJob} delegates the actual monitoring to [pollJob]{@link scheduler/monitors#pollJob}, which is called every [jobPollingInterval]{@link scheduler/schedulerManager#jobPollingInterval} seconds. [pollJob]{@link scheduler/monitors#pollJob} uses the functions [monitorSingleJob]{@link scheduler/monitors#monitorSingleJob} or [monitorArrayJob]{@link scheduler/monitors#monitorArrayJob} (according to the job's [JOB_TYPE]{@link JOB_TYPE}) to check the status of the specified job to confirm if any meaningful events occurred.<br>
+	The main events being monitored are the time the job spends in the ON_HOLD/QUEUED state, the time spent in the RUNNING state, or if the job enters the ERROR state.<br>
+	The following conventions were established (as per specifications) for [ARRAY]{@link JOB_TYPE} jobs:<br>
+	<ul>
+		<li>
+			The job as a whole is ON_HOLD/QUEUED as long as its first task is. When said task moves to the RUNNING state, the job is considered to be RUNNING. 
+		</li>
+		<li>
+			The RUNNING time of the job consists of the <i>cumulative RUNNING time of each task of the job</i>. For example, if the job consists of 3 tasks and each task runs for 5 seconds, the total RUNNING time is approximately 15 seconds (5 per task for a total of 15). 
+		</li>
+		<li>
+			If at least one task is in ERROR, then the job as a whole is.
+		</li>
+	</ul>
 </p>
 
 </body>

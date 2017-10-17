@@ -1,5 +1,12 @@
+/**
+ * @fileoverview Collection of functions used to monitor the user array and the
+ * status of submitted jobs, in order to take appropriate action if necessary.
+ *
+ * @author Marco Speronello
+ */
+
 import Logger from '../logger';
-import {Scheduler, sessionManager, JOB_TYPE} from './scheduler-manager';
+import {Scheduler, JOB_TYPE} from './scheduler-manager';
 
 /** @module scheduler/monitors */
 

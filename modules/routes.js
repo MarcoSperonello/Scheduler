@@ -20,7 +20,7 @@ export default {
     },
     'frstJobTest': {
       path: '/frst',
-      handler: Handlers.handleTapJobSubmission
+      handler: Handlers.handleFrstJobSubmission
     },
   },
   'GET': {
