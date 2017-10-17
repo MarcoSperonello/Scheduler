@@ -12,7 +12,7 @@ The last section consists of an explanation of <a href="#details">how the module
 <p>
 <h3> Configuring SchedulerManager </h3>
 
-Configuration is done via a JSON file, ./input_files/input.json by default. The parameters that can be specified are the following:<br>
+Configuration is done via a JSON file, ./input_files/input.json by default. If you want settings to be read from a different file, simply edit the path of the file <a href="scheduler_scheduler-manager.js.html#line923">where the SchedulerManager is instantiated</a>. The parameters that can be specified are the following:<br>
 
  <ul>
   	<li>
@@ -22,7 +22,7 @@ Configuration is done via a JSON file, ./input_files/input.json by default. The 
       <b>[maxRequestsPerSecGlobal]{@link scheduler/SchedulerManager#maxRequestsPerSecGlobal_}</b>: maximum number of requests that can be issued by all users collectively in a single time unit ([requestLifespan]{@link scheduler/SchedulerManager#requestLifespan_}). This is a stronger constraint than [maxRequestsPerSecUser]{@link scheduler/SchedulerManager#maxRequestsPerSecUser_}. For example, if three users issued one request each in a given time unit, and [maxRequestsPerSecGlobal]{@link scheduler/SchedulerManager#maxRequestsPerSecGlobal_} was set to 3, another request by any user would be rejected (unless the user submitting the request is whitelisted).
     </li>
     <li>
-    	<b>[userLifespan]{@link scheduler/SchedulerManager#userLifespan_}</b>: time (in seconds) that must pass without any requests being issued by a given user, after which said user will be removed from the user history. The next time the user will submit a request, it will be as if it was the first time the user ever tried to issue one.
+    	<b>[userLifespan]{@link scheduler/SchedulerManager#userLifespan}</b>: time (in seconds) that must pass without any requests being issued by a given user, after which said user will be removed from the user history. The next time the user will submit a request, it will be as if it was the first time the user ever tried to issue one.
     </li>
     <li>
     	<b>[requestLifespan]{@link scheduler/SchedulerManager#requestLifespan_}</b>: time (in seconds) that a request issued by a user spends in the user's request history, after which it is deleted. This parameter represents the "time unit" mentioned in [maxRequestsPerSecUser]{@link scheduler/SchedulerManager#maxRequestsPerSecUser_} and [maxRequestsPerSecGlobal]{@link scheduler/SchedulerManager#maxRequestsPerSecGlobal_}.
@@ -68,7 +68,7 @@ Configuration is done via a JSON file, ./input_files/input.json by default. The 
 <p>
 <h3> Submitting a job </h3>
  
-An instance of the [SchedulerManager]{@link scheduler/SchedulerManager} class is created and exported, under the name of Sec, when the server is launched.<br>
+An instance (named "Scheduler") of the [SchedulerManager]{@link scheduler/SchedulerManager} class as well as an instance (named "sessionManager") of [SessionManager]{@link SessionManager} are created and exported when the server is launched.<br>
 To submit a job, [handleRequest]{@link scheduler/SchedulerManager#handleRequest} must be called. This method requires a {@link requestData} object, which specifies who issued the request, at what time, and the details of the job to submit in the form of a {@link JobTemplate} object.<br>
 An example of {@link requestData} would be:<br><br>
 
@@ -110,6 +110,8 @@ It is now possible to call the [handleRequest]{@link scheduler/SchedulerManager#
 <br><br>
 The status object which the promise resolves into in case of success is a {@link requestOutcome} object holding several useful information, the most important of which is the job ID (stored in the jobId field) assigned by the SGE to the job that has just been submitted.<br>
 In case of rejection, the object returned is also of the {@link requestOutcome} kind. The reason for the rejection can be found in the "errors" field of the object.
+
+<b>NOTE:</b> a single call of [handleRequest]{@link scheduler/SchedulerManager#handleRequest} handles <i>the submission of <b>ONE</b> job</i> (be it [SINGLE]{@link JOB_TYPE} or [ARRAY]{@link JOB_TYPE}). If you want to submit another job, then [handleRequest]{@link scheduler/SchedulerManager#handleRequest} must be called again.
 
 </p>
 <p>
@@ -247,7 +249,7 @@ If all these checks are passed, the [handleJobSubmission]{@link scheduler/Schedu
 <h3> How the module monitors a submitted job </h3>
 <p>
 	A job can be monitored via the [getJobResult]{@link scheduler/SchedulerManager#getJobResult} method, which keeps calling [monitorJob]{@link scheduler/monitors#monitorJob} until the job execution ends (whether successfully or because of an error in the job file being executed or a timeout being exceeded) or an error in the monitoring process occurs.<br>
-	[monitorJob]{@link scheduler/monitors#monitorJob} delegates the actual monitoring to [pollJob]{@link scheduler/monitors#pollJob}, which is called every [jobPollingInterval]{@link scheduler/schedulerManager#jobPollingInterval} seconds. [pollJob]{@link scheduler/monitors#pollJob} uses the functions [monitorSingleJob]{@link scheduler/monitors#monitorSingleJob} or [monitorArrayJob]{@link scheduler/monitors#monitorArrayJob} (according to the job's [JOB_TYPE]{@link JOB_TYPE}) to check the status of the specified job to confirm if any meaningful events occurred.<br>
+	[monitorJob]{@link scheduler/monitors#monitorJob} delegates the actual monitoring to [pollJob]{@link scheduler/monitors#pollJob}, which is called every [jobPollingInterval]{@link scheduler/SchedulerManager#jobPollingInterval} seconds. [pollJob]{@link scheduler/monitors#pollJob} uses the functions [monitorSingleJob]{@link scheduler/monitors#monitorSingleJob} or [monitorArrayJob]{@link scheduler/monitors#monitorArrayJob} (according to the job's [JOB_TYPE]{@link JOB_TYPE}) to check the status of the specified job to confirm if any meaningful events occurred.<br>
 	The main events being monitored are the time the job spends in the ON_HOLD/QUEUED state, the time spent in the RUNNING state, or if the job enters the ERROR state.<br>
 	The following conventions were established (as per specifications) for [ARRAY]{@link JOB_TYPE} jobs:<br>
 	<ul>

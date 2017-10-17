@@ -5,9 +5,6 @@
  * @author Marco Speronello
  */
 
-import Db from '../database';
-import Logger from '../logger';
-
 import fs from 'fs';
 import JobTemplate from '../nDrmaa/JobTemplate';
 import SessionManager from '../nDrmaa/sge/SessionManager';
@@ -106,11 +103,10 @@ class SchedulerManager {
     this.pendingJobsCounter_ = 0;
     /** User history, consisting of the users who have not exceeded their
      * maximum lifespan ([userLifespan]{@link
-     * scheduler/SchedulerManager#userLifespan_}).
+     * scheduler/SchedulerManager#userLifespan}).
      * @type {array}
-     * @private
      */
-    this.users_ = [];
+    this.users = [];
     /** Recent request history by all users, consisting of the request which
      * have not exceeded their maximum lifespan ([requestLifespan]{@link
      * scheduler/SchedulerManager#requestLifespan_}).
@@ -183,12 +179,6 @@ class SchedulerManager {
     // Sets input parameters as specified in the input file. If there is an
     // error reading the input file, default parameters are set.
     this.updateInputParameters_();
-
-    /*setInterval( () => {
-      for (let user of this.whitelist_) {
-        console.log('whitelisted user ' + user);
-      }
-    }, 5000);*/
   }
 
   /**
@@ -246,7 +236,8 @@ class SchedulerManager {
    * @property {string} submitDate - The time at which the job was submitted to
    * the SGE.
    * @property {string} totalExecutionTime - The sum of the time spent in the
-   * RUNNING state by each task of the job if it is a {@link JOB_TYPE}.ARRAY job.
+   * RUNNING state by each task of the job if it is a {@link JOB_TYPE}.ARRAY
+   * job.
    * @property {string} jobType - the type of the job as specified in {@link
       * JOB_TYPE}.
    */
@@ -293,12 +284,12 @@ class SchedulerManager {
       // Removes the :*: prefix from the ip address, if present.
       requestData.ip = requestData.ip.replace(/^.*:/, '');
 
-      // Fetches the index in the users_ array corresponding to that of the user
+      // Fetches the index in the users array corresponding to that of the user
       // who submitted the request.
-      let userIndex = this.users_.findIndex(
+      let userIndex = this.users.findIndex(
           (elem) => { return elem.ip === requestData.ip; });
 
-      Logger.info(
+      console.log(
           'Request received by ' + requestData.ip + ' at ' +
           new Date(requestData.time) + '.');
 
@@ -328,23 +319,22 @@ class SchedulerManager {
         // received, and total number of requests still in the user history)
         // otherwise.
         if (userIndex === -1) {
-          Logger.info('Creating user ' + requestData.ip + '.');
+          console.log('Creating user ' + requestData.ip + '.');
           // The new user is added to the user list along with the request
           // timestamp.
-          this.users_.push({
+          this.users.push({
             ip: requestData.ip,
             requests: [requestData.time],
             requestAmount: 1,
           });
         } else {
-          Logger.info('User ' + requestData.ip + ' found.');
-          this.users_[userIndex].requests.push(requestData.time);
-          this.users_[userIndex].requestAmount++;
+          console.log('User ' + requestData.ip + ' found.');
+          this.users[userIndex].requests.push(requestData.time);
+          this.users[userIndex].requestAmount++;
         }
         // Adds the request to the global requests array.
         this.globalRequests_.push(requestData.time);
 
-        // this.registerRequestToDatabase(requestData);
         // Attempts to submit the job to the SGE.
         this.handleJobSubmission(requestData, session)
             .then(
@@ -430,8 +420,7 @@ class SchedulerManager {
                               new Date(job.submission_time).getTime();
                           let taskInfo = [];
                           // If the job is of the ARRAY type, all of its task
-                          // are
-                          // added to the taskInfo array.
+                          // are added to the taskInfo array.
                           if (jobType === JOB_TYPE.ARRAY) {
                             for (let taskId = start; taskId <= end;
                                  taskId += increment) {
@@ -448,8 +437,7 @@ class SchedulerManager {
                                             .tasksStatus[taskId]
                                             .mainStatus,
                                 // Time at which the task switched to the
-                                // RUNNING
-                                // state.
+                                // RUNNING state.
                                 runningStart: 0,
                                 // Time the task has spent in the RUNNING state.
                                 runningTime: 0,
@@ -464,25 +452,25 @@ class SchedulerManager {
                             sessionName: requestData.sessionName,
                             jobStatus: jobStatus[jobId].mainStatus,
                             firstTaskId: jobType === JOB_TYPE.SINGLE ? null :
-                                                                      start,
-                            lastTaskId: jobType === JOB_TYPE.SINGLE ? null : end,
+                                                                       start,
+                            lastTaskId: jobType === JOB_TYPE.SINGLE ? null :
+                                                                      end,
                             increment: jobType === JOB_TYPE.SINGLE ? null :
-                                                                    increment,
+                                                                     increment,
                             taskInfo: taskInfo,
                             user: requestData.ip,
                             submitDate: jobSubmitDate,
                             // Total execution time of an ARRAY job (the sum of
-                            // the
-                            // runningTimes of all tasks).
+                            // the runningTimes of all tasks).
                             totalExecutionTime: 0,
                             jobType: jobType,
                           };
                           // Adds the job to the jobs object_.
                           this.jobs_[jobId] = jobDescription;
-                          Logger.info(
+                          console.log(
                               'Added job ' + jobId + ' (' + job.job_name +
                               ') on ' + new Date(jobSubmitDate));
-                          Logger.info(
+                          console.log(
                               'Added job ' + jobId + ' (' + job.job_name +
                               ') to job history. Current job history size: ' +
                               Object.keys(this.jobs_).length + '.');
@@ -493,15 +481,16 @@ class SchedulerManager {
                   (error) => { reject(error); });
             },
             (error) => {
-              Logger.info(
+              console.log(
                   'Error found in job specifications. Job not submitted to the SGE.');
-              if(!error.stderr)
+              if (!error.stderr) {
                 reject(error.err);
-              else
+              } else {
                 reject(error.stderr);
+              }
             });
       } catch (error) {
-        Logger.info(
+        console.log(
             'Error reading job specifications. Job not submitted to the SGE.');
         reject(error);
       }
@@ -516,12 +505,12 @@ class SchedulerManager {
    */
   removeJobFromHistory(jobId) {
     if (delete Scheduler.jobs_[jobId]) {
-      Logger.info(
+      console.log(
           'Removed job ' + jobId +
           ' from job history. Current job history size: ' +
           Object.keys(Scheduler.jobs_).length + '.');
     } else {
-      Logger.info('Could not delete job ' + jobId + ' from job history.');
+      console.log('Could not delete job ' + jobId + ' from job history.');
     }
   }
 
@@ -564,7 +553,7 @@ class SchedulerManager {
    * requestStatus} object.
    *
    * @param {requestData} requestData - Object holding request information.
-   * @param {number} userIndex - The corresponding index of the users_ array of
+   * @param {number} userIndex - The corresponding index of the users array of
    * the user submitting the request.
    * @returns {requestStatus} status - Object storing the result of the checks.
    * @private
@@ -608,7 +597,7 @@ class SchedulerManager {
 
     if (userIndex === -1) return {status: true, errors: ''};
 
-    let user = this.users_[userIndex];
+    let user = this.users[userIndex];
 
     // If the user's request history is not full, the request can be serviced.
     if (user.requestAmount < this.maxRequestsPerSecUser_)
@@ -630,10 +619,6 @@ class SchedulerManager {
 
     // If no user requests were pruned, the user is already at capacity.
     // Additional requests cannot be serviced.
-    /*    Logger.info(
-            'User ' + user.ip +
-            ' cannot submit more requests right now: there are currently ' +
-            user.requests.length + ' request(s) in the user\'s history.');*/
     return {
       status: false,
       errors: 'User ' + user.ip + ' cannot submit more requests right now: ' +
@@ -655,10 +640,6 @@ class SchedulerManager {
     for (let i = this.globalRequests_.length - 1; i >= 0; i--) {
       if (requestData.time - this.globalRequests_[i] > this.requestLifespan_) {
         this.globalRequests_.splice(0, i + 1);
-        // console.log("Removed " + (i + 1) + " request(s) from global request
-        // history. "
-        //    + "There are currently " + this.globalRequests_.length + " global
-        //    request(s).");
         break;
       }
     }
@@ -666,10 +647,7 @@ class SchedulerManager {
     // If the server is already at capacity, additional requests cannot be
     // serviced.
     if (this.globalRequests_.length >= this.maxRequestsPerSecGlobal_) {
-      // console.log("globalRequests_.length: " + this.globalRequests_.length +
-      // ".
-      // Cannot service more requests.");
-      Logger.info(
+      console.log(
           'Server currently at capacity (' + this.globalRequests_.length +
           ' global requests currently present). Cannot service more requests.');
       return false;
@@ -689,7 +667,7 @@ class SchedulerManager {
           let regexp = new RegExp(elem);
           if (regexp.test(requestData.ip)) return elem;
         }) !== -1) {
-      Logger.info('User ' + requestData.ip + ' is blacklisted.');
+      console.log('User ' + requestData.ip + ' is blacklisted.');
       return true;
     }
     return false;
@@ -707,20 +685,10 @@ class SchedulerManager {
           let regexp = new RegExp(elem);
           if (regexp.test(requestData.ip)) return elem;
         }) !== -1) {
-      Logger.info('User ' + requestData.ip + ' is whitelisted.');
+      console.log('User ' + requestData.ip + ' is whitelisted.');
       return true;
     }
     return false;
-  }
-
-  /**
-   * Logs a request to database.
-   *
-   * @param {requestData} requestData - Object holding request information.
-   */
-  registerRequestToDatabase(requestData) {
-    Logger.info('Logging request to database.');
-    Db.performInsertOne(requestData, 'test');
   }
 
   /**
@@ -776,7 +744,7 @@ class SchedulerManager {
     if (this.localListPath_ !== '') {
       fs.readFile(this.localListPath_, (error, data) => {
         if (error) {
-          Logger.info(
+          console.log(
               'Error while reading local lists file ' + this.localListPath_ +
               '.');
         } else {
@@ -797,7 +765,7 @@ class SchedulerManager {
     if (this.globalListPath_ !== '') {
       fs.readFile(this.globalListPath_, (error, data) => {
         if (error) {
-          Logger.info(
+          console.log(
               'Error while reading local lists file ' + this.globalListPath_ +
               '.');
         } else {
@@ -828,11 +796,11 @@ class SchedulerManager {
   updateInputParameters_() {
     fs.readFile(this.inputFile_, (error, data) => {
       if (error) {
-        Logger.info(
+        console.log(
             'Error while reading input file ' + this.inputFile_ +
             '. using default parameters.');
       } else {
-        Logger.info('Successfully read input file ' + this.inputFile_ + '.');
+        console.log('Successfully read input file ' + this.inputFile_ + '.');
         this.inputParams_ = JSON.parse(data);
       }
 
@@ -856,9 +824,8 @@ class SchedulerManager {
        * of a user before the user is removed from history.
        * @type {number}
        * @default 100000
-       * @private
        */
-      this.userLifespan_ = this.inputParams_.userLifespan * 1000 || 1000000;
+      this.userLifespan = this.inputParams_.userLifespan * 1000 || 1000000;
       /** Time (in ms) after which a request can be removed from history.
        * @type {number}
        * @default 5000
