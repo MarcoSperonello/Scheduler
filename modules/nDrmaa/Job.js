@@ -1,7 +1,11 @@
 /**
- * The Job class represents a job submitted to the DRMS. It contains various information such as the job's id,
- * the session it belongs to, the job template that with the option used for its creation, and other info if the job
- * is an array job.
+ * @fileoverview Class representing a job submitted to the DRMS, including various information about the job.
+ *
+ * @author Andrea Gallina
+ */
+
+/**
+ * Class representing a job submitted to the DRMS, including various information about the job.
  */
 class Job{
   /**

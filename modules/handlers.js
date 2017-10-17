@@ -342,45 +342,44 @@ export default {
       if(err)
       {
         console.log('Error reading directory ' + sessionName);
-        res.send(404, {errors: "Session " + sessionName + " not found"});
+        res.send(500, {errors: err});
       }
-      else {
-        files.forEach(file => {
-          if (stdOutRegExp.test(file))
-            stdOutFile = file;
 
-          else if (stdErrRegExp.test(file))
-            stdErrFile = file;
+      files.forEach(file => {
+        if (stdOutRegExp.test(file))
+          stdOutFile = file;
 
-          else if (resultOutputRegExp.test(file))
-            resOutFile = file;
+        else if (stdErrRegExp.test(file))
+          stdErrFile = file;
+
+        else if (resultOutputRegExp.test(file))
+          resOutFile = file;
+      });
+
+      if (stdOutFile && stdErrFile) {
+        fs.readFile(path + stdOutFile, 'utf8', (error, data) => {
+          if (error) {
+            console.log('Error reading file ' + stdOutFile);
+            res.send(500, error);
+          }
+          else {
+            jobResult.output = data;
+            fs.readFile(path + stdErrFile, 'utf8', (error, data) => {
+              if (error) {
+                console.log('Error reading file ' + stdErrFile);
+                res.send(500, error);
+              }
+              else {
+                jobResult.errors = data;
+                jobResult.resOut = resOutFile;
+                res.send(200, jobResult);
+              }
+            });
+          }
         });
-
-        if (stdOutFile && stdErrFile) {
-          fs.readFile(path + stdOutFile, 'utf8', (error, data) => {
-            if (error) {
-              console.log('Error reading file ' + stdOutFile);
-              res.send(500, error);
-            }
-            else {
-              jobResult.output = data;
-              fs.readFile(path + stdErrFile, 'utf8', (error, data) => {
-                if (error) {
-                  console.log('Error reading file ' + stdErrFile);
-                  res.send(500, error);
-                }
-                else {
-                  jobResult.errors = data;
-                  jobResult.resOut = resOutFile;
-                  res.send(200, jobResult);
-                }
-              });
-            }
-          });
-        }
-        else
-          res.send(404, "Result not found for session " + sessionName);
       }
+      else
+        res.send(404, {errors: "Result not found for session " + sessionName});
 
       return next();
     });

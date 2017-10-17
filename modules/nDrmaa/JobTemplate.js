@@ -1,4 +1,10 @@
 /**
+ * @fileoverview Class representing a Job Template.
+ *
+ * @author Andrea Gallina
+ */
+
+/**
  * Class representing a Job Template.
  * @see http://gridscheduler.sourceforge.net/htmlman/htmlman3/drmaa_attributes.html
  */

@@ -5,6 +5,12 @@ import {EventEmitter} from "events";
 
 let _refreshInterval = 1000;                    // Refresh interval for the monitor
 /**
+ * @fileoverview Class for monitoring jobs' completion.
+ *
+ * @author Andrea Gallina
+ */
+
+/**
  * Class for monitoring jobs' completion.
  * @extends EventEmitter
  */

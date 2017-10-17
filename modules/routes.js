@@ -29,7 +29,7 @@ export default {
       handler: Handlers.handleRoot
     },
     'getTapOutputFile': {
-      path: '/tap/:sessionName/:outputFile',
+      path: 'get-results/tap/:sessionName/:outputFile',
       handler: Handlers.handleShowTapOutFile
     },
     'retrieveTapResult': {

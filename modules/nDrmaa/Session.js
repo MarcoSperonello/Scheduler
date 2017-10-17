@@ -1,4 +1,10 @@
 /**
+ * @fileoverview Abstract class representing the operations available for interacting with the DRM.
+ *
+ * @author Andrea Gallina
+ */
+
+/**
  * Wait indefinitely for a result.  Used with the Session.wait() and Session.synchronize() methods.
  * @const
  */

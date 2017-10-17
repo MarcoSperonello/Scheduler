@@ -3,6 +3,12 @@ import Version from "../Version";
 import * as Exception from "../Exceptions";
 
 /**
+ * @fileoverview Module that provides a set of functions to interact with Grid Engine through CLI
+ *
+ * @author Andrea Gallina
+ */
+
+/**
  * Module that provides a set of functions to interact with Grid Engine through CLI
  * @module sge-cli
  */

@@ -1,3 +1,9 @@
+/**
+ * @fileoverview Abstract class used to create and manage objects of class Session, tailored to the DRMS in use.
+ *
+ * @author Andrea Gallina
+ */
+
 import * as Exception from "./Exceptions";
 
 let _Sessions = {};                       // List of active sessions created by the SessionManager

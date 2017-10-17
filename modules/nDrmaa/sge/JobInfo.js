@@ -1,6 +1,12 @@
 import JobInfo from "../JobInfo";
 
 /**
+ * @fileoverview Class providing information about a completed Grid Engine job.
+ *
+ * @author Andrea Gallina
+ */
+
+/**
  * Class providing information about a completed Grid Engine job.
  * @extends JobInfo
  */

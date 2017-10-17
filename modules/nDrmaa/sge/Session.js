@@ -11,6 +11,12 @@ let _jobs = {};                                 // Object containing the jobs su
 
 
 /**
+ * @fileoverview Class that extends the abstract class Session, providing a DRMAA interface to Grid Engine.
+ *
+ * @author Andrea Gallina
+ */
+
+/**
  * Class that extends the abstract class Session, providing a DRMAA interface to Grid Engine.
  * @extends Session
  */

@@ -1,3 +1,9 @@
+/**
+ * @fileoverview Class representing the version of a DRMS
+ *
+ * @author Andrea Gallina
+ */
+
 import * as Exceptions from "./Exceptions";
 
 /**

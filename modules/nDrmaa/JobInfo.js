@@ -1,4 +1,10 @@
 /**
+ * @fileoverview Abstract class representing the status and info of a finished job.
+ *
+ * @author Andrea Gallina
+ */
+
+/**
  * Abstract class representing the status and info of a finished job.
  */
 class JobInfo{

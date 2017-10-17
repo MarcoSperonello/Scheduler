@@ -5,6 +5,12 @@ import Session from "./Session";
 import * as Exception from "../Exceptions";
 
 /**
+ * @fileoverview Implementation of class SessionManager for SGE.
+ *
+ * @author Andrea Gallina
+ */
+
+/**
  * Implementation of class SessionManager for SGE.
  * @extends SessionManager
  */

@@ -1,22 +1,9 @@
-// let exceptions = [
-//   "AlreadyActiveSessionException",
-//   "DrmsInitException",
-//   "ExitTimeoutException",
-//   "InvalidArgumentException",
-//   "InvalidSessionArgument",
-//   "InvalidSessionException",
-//   "NoActiveSessionException",
-//   "UnsupportedAttributeException"
-// ];
 
-
-// exceptions.forEach((exception) => {
-//   exports[exception] = (msg) => {
-//     let err = new Error(msg);
-//     err.name = exception;
-//     return err;
-//   }
-// });
+/**
+ * @fileoverview The exceptions used in the nDrmaa module.
+ *
+ * @author Andrea Gallina
+ */
 
 /**
  * The exceptions used in the nDrmaa module.
