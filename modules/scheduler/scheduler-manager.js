@@ -7,7 +7,6 @@
 
 import fs from 'fs';
 import JobTemplate from '../nDrmaa/JobTemplate';
-import SessionManager from '../nDrmaa/sge/SessionManager';
 import * as sgeClient from '../nDrmaa/sge/sge-cli';
 import * as monitors from './monitors';
 
@@ -22,9 +21,6 @@ export const JOB_TYPE = {
   SINGLE: 'SINGLE',
   ARRAY: 'ARRAY'
 };
-
-// Handles creation of Drmaa sessions.
-export const sessionManager = new SessionManager();
 
 /**
  * Class that manages client requests to submit a job to the Sun Grid Engine
@@ -48,7 +44,10 @@ export const sessionManager = new SessionManager();
  * root of the project directory (temporary arrangement).<br><br>
  *
  * INSTANTIATION:<br>
- * The class constructor is called automatically and the input file, whose path
+ * Instances of this class are created by the [createSchedulerManager]{@link
+ * scheduler/SchedulerFactory#createSchedulerManager} method of
+ * [SchedulerFactory]
+ * {@link scheduler/SchedulerFactory}. The input file, whose path
  * is passed to the constructor, is read in order to configure the class
  * parameters. Said file is then read every time a request is received by the
  * server (provided the last read happened a long enough time ago), so
@@ -65,9 +64,8 @@ export const sessionManager = new SessionManager();
     * scheduler/SchedulerManager#handleJobSubmission} method which attempts to
  * submit the job to the SGE. [handleRequest]{@link
     * scheduler/SchedulerManager#handleRequest} returns a promise which
- * eventually
- * resolves into a {@link requestOutcome} object containing several information
- * regarding the outcome of the request.
+ * eventually resolves into a {@link requestOutcome} object containing several
+ * information regarding the outcome of the request.
  * <br><br>
  * Please refer to the [tutorial]{@tutorial SchedulerManager} for an in-depth
  * explanation.
@@ -82,9 +80,14 @@ class SchedulerManager {
    * variables to these values. If the file cannot be found or not all
    * parameters are specified within it, the missing parameters are initialized
    * to default values.
-   * @param {string} inputFile - the path of the file with the input parameters.
+   * @param {string} inputFile - The path of the file with the input parameters.
+   * @param {string} name - The name of this instance of SchedulerManager
    */
-  constructor(inputFile) {
+  constructor(name, inputFile) {
+    /** The name of this instance of SchedulerManager.
+     * @type {string}
+     */
+    this.name = name;
     /** The path of the file from which to read the input parameters.
      * @type {string}
      * @private
@@ -500,15 +503,15 @@ class SchedulerManager {
   /**
    * Removes the job specified by jobId from the job history ([jobs_]{@link
    * scheduler/SchedulerManager#jobs_}).
-   * @param {number} jobId - the id of the job to remove.
+   * @param {number} jobId - The id of the job to remove.
    * @public
    */
   removeJobFromHistory(jobId) {
-    if (delete Scheduler.jobs_[jobId]) {
+    if (delete this.jobs_[jobId]) {
       console.log(
           'Removed job ' + jobId +
           ' from job history. Current job history size: ' +
-          Object.keys(Scheduler.jobs_).length + '.');
+          Object.keys(this.jobs_).length + '.');
     } else {
       console.log('Could not delete job ' + jobId + ' from job history.');
     }
@@ -536,15 +539,15 @@ class SchedulerManager {
    * @public
    */
   getJobResult() {
-    // Parses the ID and the session of the job whose status needs to be
-    // monitored.
-    let jobId = Array.from(arguments);
+    // Stores the ID, scheduler instance and the session of the job whose status
+    // needs to be monitored.
+    let parameters = Array.from(arguments);
     // Keeps calling the monitorJob function to monitor the job until the
     // promise resolves or an error occurs.
-    return monitors.monitorJob.apply(null, jobId).catch((result) => {
+    return monitors.monitorJob.apply(null, parameters).catch((result) => {
       if (result.hasOwnProperty('monitoringError'))
         return Promise.reject(result);
-      return this.getJobResult.apply(this, jobId);
+      return this.getJobResult.apply(this, parameters);
     })
   }
 
@@ -729,7 +732,7 @@ class SchedulerManager {
 
     // Polls the user history as often as specified.
     this.userPollingIntervalID_ = setInterval(
-        monitors.monitorUsers.bind(this), this.userPollingInterval_);
+        monitors.monitorUsers.bind(this, this), this.userPollingInterval_);
     // Updates the black/whitelists as often as specified.
     this.listPollingIntervalID_ =
         setInterval(this.updateLists_.bind(this), this.listPollingInterval_);
@@ -920,4 +923,4 @@ class SchedulerManager {
   }
 }
 
-export const Scheduler = new SchedulerManager('./input_files/input.json');
+module.exports.SchedulerManager = SchedulerManager;

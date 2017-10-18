@@ -6,13 +6,23 @@ import aux from './aux';
 import fs from 'fs';
 import Logger from './logger';
 import {getRoutes} from './server';
-import {Scheduler, sessionManager} from "./scheduler/scheduler-manager";
+import {SchedulerFactory} from "./scheduler/scheduler-factory";
 
 import JobTemplate from "./nDrmaa/JobTemplate";
 import SessionManager from "./nDrmaa/sge/SessionManager";
 
-let sm = new SessionManager();
+let sessionManager = new SessionManager();
 
+let schedulerFactory = new SchedulerFactory();
+
+let scheduler = null;
+
+try {
+  scheduler = schedulerFactory.createSchedulerManager(
+      'test', './input_files/input.json');
+} catch (error) {
+  console.log(error);
+}
 
 makeOutputDirectories('./output/','tap-output').then( () => {
 }, (error) => {
@@ -67,13 +77,13 @@ function writeToFileSystem(folderName, fileName, input) {
     //fs.mkdir('./output/' + folderName, (error) => {
     //makeOutputDirectories('./output', (error) => {
     makeOutputDirectories('./output/', folderName).then( () => {
-        fs.writeFile('./output/' + folderName + '/' + fileName + '.json', JSON.stringify(input, null, '\t'), (error) => {
-          if (!error || error.code === 'EEXIST') {
-            resolve('Written file ./output/' + folderName + '/' + fileName + '.json');
-          } else {
-            reject('Could not write file ./output/' + folderName + '/' + fileName + '.json: ' + error);
-          }
-        });
+      fs.writeFile('./output/' + folderName + '/' + fileName + '.json', JSON.stringify(input, null, '\t'), (error) => {
+        if (!error || error.code === 'EEXIST') {
+          resolve('Written file ./output/' + folderName + '/' + fileName + '.json');
+        } else {
+          reject('Could not write file ./output/' + folderName + '/' + fileName + '.json: ' + error);
+        }
+      });
     }, (error) => {
       reject('Error while making directory ' + folderName + ': ' + error);
     });
@@ -81,34 +91,34 @@ function writeToFileSystem(folderName, fileName, input) {
 }
 
 
- function issueRequest(requestData, session) {
-   return new Promise( (resolve, reject) => {
-     Scheduler.handleRequest(requestData, session).then( (status) => {
-       writeToFileSystem('dummy-output/' + session.sessionName, 'Job ' + status.jobData.jobId + ' requestOutcome', status).then( (success) => {
-         console.log(success);
-       }, (error) => {
-         console.log(error);
-       });
+function issueRequest(requestData, session) {
+  return new Promise( (resolve, reject) => {
+    scheduler.handleRequest(requestData, session).then( (status) => {
+      writeToFileSystem('dummy-output/' + session.sessionName, 'Job ' + status.jobData.jobId + ' requestOutcome', status).then( (success) => {
+        console.log(success);
+      }, (error) => {
+        console.log(error);
+      });
 
-       Scheduler.getJobResult(status.jobData.jobId, session).then( (status) => {
-         writeToFileSystem('dummy-output/' + session.sessionName, 'Job ' + status.jobId + ' jobStatusInformation', status).then( (success) => {
-           console.log(success);
-         }, (error) => {
-           console.log(error);
-         });
-         resolve(status);
-       }, (error) => {
-         reject(error);
-       });
-     }, (error) => {
-       reject(error);
-     });
-   });
- }
+      scheduler.getJobResult(status.jobData.jobId, scheduler, session).then( (status) => {
+        writeToFileSystem('dummy-output/' + session.sessionName, 'Job ' + status.jobId + ' jobStatusInformation', status).then( (success) => {
+          console.log(success);
+        }, (error) => {
+          console.log(error);
+        });
+        resolve(status);
+      }, (error) => {
+        reject(error);
+      });
+    }, (error) => {
+      reject(error);
+    });
+  });
+}
 
 function issuePdbRequest(requestData, session, filePath, fileName) {
   return new Promise( (resolve, reject) => {
-    Scheduler.handleRequest(requestData, session).then( (status) => {
+    scheduler.handleRequest(requestData, session).then( (status) => {
       fs.readFile(filePath, (error, data) => {
         if (error) {
           console.log('Error reading file ' + filePath + ': ' + error);
@@ -128,7 +138,7 @@ function issuePdbRequest(requestData, session, filePath, fileName) {
         }
       });
 
-      Scheduler.getJobResult(status.jobData.jobId, session).then( (status) => {
+      scheduler.getJobResult(status.jobData.jobId, scheduler, session).then( (status) => {
         let jobResult = {};
         jobResult['status'] = status;
         if(status.mainStatus === 'ERROR' || status.mainStatus === 'COMPLETED' && status.subStatus === 'DELETED') {
@@ -169,7 +179,7 @@ function issuePdbRequest(requestData, session, filePath, fileName) {
 
 function issueFrstRequest(requestData, session, filePath, fileName) {
   return new Promise( (resolve, reject) => {
-    Scheduler.handleRequest(requestData, session).then( (status) => {
+    scheduler.handleRequest(requestData, session).then( (status) => {
       fs.readFile(filePath, (error, data) => {
         if (error) {
           console.log('Error reading file ' + filePath + ': ' + error);
@@ -189,7 +199,7 @@ function issueFrstRequest(requestData, session, filePath, fileName) {
         }
       });
 
-      Scheduler.getJobResult(status.jobData.jobId, session).then( (status) => {
+      scheduler.getJobResult(status.jobData.jobId, scheduler, session).then( (status) => {
         let jobResult = {};
         jobResult['status'] = status;
         if(status.mainStatus === 'ERROR' || status.mainStatus === 'COMPLETED' && status.subStatus === 'DELETED') {
@@ -270,14 +280,14 @@ export default {
     jobTemplate.outputPath = '../../output/tap-output/' + sessionName;
     jobTemplate.errorPath = '../../output/tap-output/' + sessionName;
 
-    let requestDataPdb = {
+    let tapRequestData = {
       ip: requestIp,
       time: req.time(),
       jobData: jobTemplate,
     };
 
     sessionManager.createSession(sessionName).then( (session) => {
-      issuePdbRequest(requestDataPdb, session, req.files.file.path, req.files.file.name).then( (jobResult) => {
+      issuePdbRequest(tapRequestData, session, req.files.file.path, req.files.file.name).then( (jobResult) => {
         console.log('Job ' + jobResult.status.jobId + ' of session ' + jobResult.status.sessionName + ' status: ' + jobResult.status.mainStatus + '-' + jobResult.status.subStatus + ', exitCode: ' + jobResult.status.exitStatus + ', failed: ' + jobResult.status.failed + ', errors: ' + jobResult.status.errors + ', description: ' + jobResult.status.description);
         res.send(200, jobResult);
         sessionManager.closeSession(sessionName);
@@ -299,20 +309,27 @@ export default {
     return next()
   },
 
-  handleShowTapOutFile: function handleShowTapOutFile(req, res, next) {
-    req.log.info(`request handler is ${handleShowTapOutFile.name}`);
+  handleShowServiceOutputFile: function handleShowServiceOutputFile(req, res, next) {
+    req.log.info(`request handler is ${handleShowServiceOutputFile.name}`);
     res.setHeader('content-type', 'text/plain');
 
+    let service = req.params.service;
     let sessionName = req.params.sessionName;
     let outputFile = req.params.outputFile;
 
+    if(service !== "tap" && service !== "frst")
+    {
+      res.send(500, {error: "Invalid service request"});
+      return next();
+    }
 
-    fs.readFile('./output/tap-output/' + sessionName + '/' + outputFile, 'utf8', (error, data) => {
+    fs.readFile('./output/'+ service +'-output/' + sessionName + '/' + outputFile, 'utf8', (error, data) => {
       if (error) {
         console.log('Error reading file ' + outputFile);
         res.send(404, "404 Not Found: File " + outputFile + " in folder " + sessionName + " not found");
       }
       else {
+        console.log(data);
         res.send(data);
       }
     });
@@ -320,19 +337,29 @@ export default {
     return next();
   },
 
-  handleRetrieveTapResult: function handleRetrieveTapResult(req, res, next) {
-    req.log.info(`request handler is ${handleRetrieveTapResult.name}`);
+  handleRetrieveServiceResult: function handleRetrieveServiceResult(req, res, next) {
+    req.log.info(`request handler is ${handleRetrieveServiceResult.name}`);
 
+    let service = req.params.service;
     let sessionName = req.params.sessionName;
-    let jobId = req.params.jobId;
-    let jobName = req.params.jobName;
-    let path = './output/tap-output/' + sessionName + "/";
+
+    let path = './output/' + service + '-output/' + sessionName + "/";
 
     let jobResult = {};
 
     let stdErrRegExp = new RegExp(/(e{1}(\d)+$)/);
     let stdOutRegExp = new RegExp(/(o{1}(\d)+$)/);
-    let resultOutputRegExp = new RegExp(/(res\.out$)/);
+    let resultOutputRegExp = null;
+
+    if(service === "tap")
+      resultOutputRegExp = new RegExp(/(res\.out$)/);
+    else if(service === "frst")
+      resultOutputRegExp = new RegExp(/(pdb$)/);
+    else
+    {
+      res.send(500, "Invalid service request");
+      return next();
+    }
 
     let stdOutFile = "";
     let stdErrFile = "";
@@ -380,32 +407,7 @@ export default {
       }
       else
         res.send(404, {errors: "Result not found for session " + sessionName});
-
-      return next();
     });
-
-    // fs.readFile('./output/tap-output/' + sessionName + '/' + jobName + '.o' + jobId, 'utf8', (error, data) => {
-    //   if (error) {
-    //     console.log('Error reading file ' + jobName + '.o' + jobId);
-    //     res.send(500, {errors: error});
-    //   } else {
-    //     jobResult['output'] = data;
-    //     if (status.exitStatus !== '0') {
-    //       fs.readFile('./output/tap-output/' + sessionName + '/' + jobName + '.e' + jobId, 'utf8', (error, data) => {
-    //         if (error) {
-    //           console.log('Error reading file ' + jobName + '.e' + jobId);
-    //           res.send(500, {errors: error});
-    //         } else {
-    //           jobResult['errors'] = data;
-    //           res.send(200, jobResult);
-    //         }
-    //       });
-    //     } else {
-    //       jobResult['resOut'] = sessionName + '/' + fileName + '.res.out';
-    //       res.send(200, jobResult);
-    //     }
-    //   }
-    // });
 
     return next();
   },
@@ -417,6 +419,7 @@ export default {
     let sessionName = generateUUIDV4();
 
     let jobTemplate = {};
+
     try{
       jobTemplate = JSON.parse(req.body.jobTemplate);
     } catch(e) {
@@ -429,14 +432,14 @@ export default {
     jobTemplate.outputPath = '../../output/frst-output/' + sessionName;
     jobTemplate.errorPath = '../../output/frst-output/' + sessionName;
 
-    let requestDataFrst = {
+    let frstRequestData = {
       ip: requestIp,
       time: req.time(),
       jobData: jobTemplate,
     };
 
     sessionManager.createSession(sessionName).then( (session) => {
-      issueFrstRequest(requestDataFrst, session, req.files.file.path, req.files.file.name).then( (jobResult) => {
+      issueFrstRequest(frstRequestData, session, req.files.file.path, req.files.file.name).then( (jobResult) => {
         console.log('Job ' + jobResult.status.jobId + ' of session ' + jobResult.status.sessionName + ' status: ' + jobResult.status.mainStatus + '-' + jobResult.status.subStatus + ', exitCode: ' + jobResult.status.exitStatus + ', failed: ' + jobResult.status.failed + ', errors: ' + jobResult.status.errors + ', description: ' + jobResult.status.description);
         res.send(200, jobResult);
         sessionManager.closeSession(sessionName);
@@ -535,7 +538,7 @@ export default {
         outputPath: '../../output/frst-output/' + sessionName,
         errorPath: '../../output/frst-output/' + sessionName,
         args: [
-            '-i 3DFR.pdb',
+          '-i 3DFR.pdb',
           '-o /home/marco/Uni/Tesi/Projects/node-ws-template/output/frst-output/' + sessionName + '/frst.pdb',
           '-w 5',
           '-v',
@@ -587,9 +590,9 @@ export default {
     });
 
     /*    sessionManager.createSession(sessionName).then( (session) => {
-          Scheduler.handleRequest(requestData, session).then( (status) => {
+          scheduler.handleRequest(requestData, session).then( (status) => {
             console.log('Request outcome: ' + status.description );
-            Scheduler.getJobResult(status.jobData.jobId, session).then( (status) => {
+            scheduler.getJobResult(status.jobData.jobId, scheduler, session).then( (status) => {
               console.log('Job ' + status.jobId + ' of session ' + status.sessionName + ' status: ' + status.mainStatus + '-' + status.subStatus + ', exitCode: ' + status.exitStatus + ', failed: \"' + status.failed + '\", errors: ' + status.errors + ', description: ' + status.description);
             }, (error) => {
               console.log('Error: ' + error.errors);
@@ -631,53 +634,53 @@ export default {
     sessionPromise.then((session) => {
       req.body.jobTemplates.forEach((jobTemplate) => {
         submissionPromise.push(
-          Scheduler.handleRequest({
-            ip: requestIp,
-            time: req.time(),
-            jobData: jobTemplate
-          }, session)
+            scheduler.handleRequest({
+              ip: requestIp,
+              time: req.time(),
+              jobData: jobTemplate
+            }, session)
         );
       });
 
       Promise.all(submissionPromise.map(p => p.catch(e => e)))
-        .then((statuses) => {
-          let errorsOccurred = false;
-          let failedStatuses = [];
+          .then((statuses) => {
+            let errorsOccurred = false;
+            let failedStatuses = [];
 
-          statuses.forEach((status) => {
-            if(status.errors)
+            statuses.forEach((status) => {
+              if(status.errors)
+              {
+                failedStatuses.push(status);
+                errorsOccurred = true;
+              }
+              else
+              {
+                writeToFileSystem("dummy-output/" + session.sessionName, 'Job ' + status.jobData.jobId + ' requestOutcome', status).then( (success) => {
+                  console.log(success);
+                }, (error) => {
+                  console.log(error);
+                });
+              }
+            });
+
+            if(errorsOccurred)
             {
-              failedStatuses.push(status);
-              errorsOccurred = true;
+              statuses.forEach((status) => {
+                if(!status.errors)
+                  scheduler.removeJobFromHistory(status.jobData.jobId)
+              });
+              res.send(500, failedStatuses);
+              sessionManager.closeSession(sessionName);
             }
             else
-            {
-              writeToFileSystem("dummy-output/" + session.sessionName, 'Job ' + status.jobData.jobId + ' requestOutcome', status).then( (success) => {
-                console.log(success);
-              }, (error) => {
-                console.log(error);
-              });
-            }
-          });
+              res.send(200, {statuses: statuses, session: sessionName});
+          })
 
-          if(errorsOccurred)
-          {
-            statuses.forEach((status) => {
-              if(!status.errors)
-                Scheduler.removeJobFromHistory(status.jobData.jobId)
-            });
-            res.send(500, failedStatuses);
+          .catch((error) => {
+            console.log(error);
             sessionManager.closeSession(sessionName);
-          }
-          else
-            res.send(200, {statuses: statuses, session: sessionName});
-        })
-
-        .catch((error) => {
-          console.log(error);
-          sessionManager.closeSession(sessionName);
-          res.send(500, error);
-        });
+            res.send(500, error);
+          });
 
     }, (error) => {
       Logger.info('Could not create session ' + sessionName + ': ' + error);
@@ -701,45 +704,45 @@ export default {
     sessionManager.getSession(sessionName).then((session) => {
 
       req.body.statuses.forEach((status) => {
-        getJobResultPromises.push(Scheduler.getJobResult(status.jobData.jobId, session));
+        getJobResultPromises.push(scheduler.getJobResult(status.jobData.jobId, scheduler, session));
       });
 
       Promise.all(getJobResultPromises)
-        .then((statuses) => {
-          let errorsOccurred = false;
-          let failedJobs = [];
+          .then((statuses) => {
+            let errorsOccurred = false;
+            let failedJobs = [];
 
-          statuses.forEach((status) =>
-          {
-            if(status.mainStatus!=="COMPLETED" || status.subStatus==="DELETED")
+            statuses.forEach((status) =>
             {
-              errorsOccurred = true;
-              failedJobs.push(status);
-            }
-          });
-
-          if(!errorsOccurred){
-            if(req.body.closeSession)
-              sessionManager.closeSession(sessionName);
-            res.send(200, {statuses: statuses});
-          }
-          else
-          {
-            sessionManager.closeSession(sessionName);
-            res.send(500, statuses);
-          }
-
-          statuses.forEach((status) => {
-            writeToFileSystem("dummy-output/" + session.sessionName, 'Job ' + status.jobId + ' requestOutcome', status).then( (success) => {
-              console.log(success);
-            }, (error) => {
-              console.log(error);
+              if(status.mainStatus!=="COMPLETED" || status.subStatus==="DELETED")
+              {
+                errorsOccurred = true;
+                failedJobs.push(status);
+              }
             });
+
+            if(!errorsOccurred){
+              if(req.body.closeSession)
+                sessionManager.closeSession(sessionName);
+              res.send(200, {statuses: statuses});
+            }
+            else
+            {
+              sessionManager.closeSession(sessionName);
+              res.send(500, statuses);
+            }
+
+            statuses.forEach((status) => {
+              writeToFileSystem("dummy-output/" + session.sessionName, 'Job ' + status.jobId + ' requestOutcome', status).then( (success) => {
+                console.log(success);
+              }, (error) => {
+                console.log(error);
+              });
+            });
+          }, (error) => {
+            sessionManager.closeSession(sessionName);
+            res.send(500, [error]);
           });
-      }, (error) => {
-        sessionManager.closeSession(sessionName);
-        res.send(500, [error]);
-      });
 
     }, (error) => {
       res.send(500, [error]);

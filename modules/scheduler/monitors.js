@@ -5,26 +5,26 @@
  * @author Marco Speronello
  */
 
-import {JOB_TYPE, Scheduler} from './scheduler-manager';
+import {JOB_TYPE} from './scheduler-manager';
 
 /** @module scheduler/monitors */
 
 /**
  * Scans the users array and removes users which have been inactive (i.e. have
  * not made a request) for longer than the maximum allotted time
- * ([userLifespan]{@link scheduler/SchedulerManager#userLifespan}).
+ * ([userLifespan]{@link scheduler/schedulerManager#userLifespan}).
  */
-export function monitorUsers() {
+export function monitorUsers(scheduler) {
   let currentTime = new Date().getTime();
-  for (let i = Scheduler.users.length - 1; i >= 0; i--) {
+  for (let i = scheduler.users.length - 1; i >= 0; i--) {
     if (currentTime -
-            Scheduler.users[i]
-                .requests[Scheduler.users[i].requests.length - 1] >
-        Scheduler.userLifespan) {
+            scheduler.users[i]
+                .requests[scheduler.users[i].requests.length - 1] >
+        scheduler.userLifespan) {
       console.log(
-          'Removing user ' + Scheduler.users[i].ip +
+          'Removing user ' + scheduler.users[i].ip +
           ' from history. The user has been inactive for longer than the maximum allotted time.');
-      Scheduler.users.splice(i, 1);
+      scheduler.users.splice(i, 1);
     }
   }
 }
@@ -61,12 +61,13 @@ export function monitorUsers() {
 /**
  * Monitors the status of the job whose index is specified by the jobId
  * parameter. The status is checked after a set amount of time, specified by the
- * [jobPollingInterval]{@link scheduler/SchedulerManager#jobPollingInterval}
+ * [jobPollingInterval]{@link scheduler/schedulerManager#jobPollingInterval}
  * parameter, has passed.<br>
  * The promise returned by the function is resolved once a job is in a COMPLETED
  * or ERROR state, otherwise it is rejected.
  *
  * @param {number} jobId - The id of the job to monitor.
+ * @param {SchedulerManager} scheduler - The scheduler that monitors this job.
  * @param {Session} session - The name of the session the job belongs to.
  * @returns {Promise}
  * <ul>
@@ -85,12 +86,12 @@ export function monitorUsers() {
  * Note: the exitStatus, failed and errors fields are always null if the job was
  * terminated while !RUNNING (i.e. while QUEUED/ON_HOLD).
  */
-export function monitorJob(jobId, session) {
+export function monitorJob(jobId, scheduler, session) {
   return new Promise((resolve, reject) => {
     setTimeout(() => {
       // Keeps checking the status of the job until it is completed or an
       // error occurs.
-      pollJob(jobId, session)
+      pollJob(jobId, scheduler, session)
           .then(
               (status) => {
                 // The job is not COMPLETED or in ERROR, the function is called
@@ -113,7 +114,7 @@ export function monitorJob(jobId, session) {
                   errors: error,
                 });
               });
-    }, Scheduler.jobPollingInterval);
+    }, scheduler.jobPollingInterval);
   })
 }
 
@@ -138,12 +139,12 @@ export function monitorJob(jobId, session) {
  *    </li>
  * </ul>
  */
-function pollJob(jobId, session) {
+function pollJob(jobId, scheduler, session) {
   return new Promise((resolve, reject) => {
     try {
       // Name and type of the job.
-      let jobName = Scheduler.jobs_[jobId].jobName;
-      let jobType = Scheduler.jobs_[jobId].jobType;
+      let jobName = scheduler.jobs_[jobId].jobName;
+      let jobType = scheduler.jobs_[jobId].jobType;
 
       // Fetches the status of the specified job and verifies if any meaningful
       // changes to the status of the job took place or any timeouts have been
@@ -154,12 +155,12 @@ function pollJob(jobId, session) {
       session.getJobProgramStatus([jobId]).then(
           (jobStatus) => {
             if (jobType === JOB_TYPE.SINGLE) {
-              monitorSingleJob(session, jobStatus, jobId)
+              monitorSingleJob(session, scheduler, jobStatus, jobId)
                   .then(
                       (result) => { resolve(result); },
                       (error) => { reject(error); });
             } else {
-              monitorArrayJob(session, jobStatus, jobId)
+              monitorArrayJob(session, scheduler, jobStatus, jobId)
                   .then(
                       (result) => { resolve(result); },
                       (error) => { reject(error); });
@@ -195,10 +196,10 @@ function pollJob(jobId, session) {
  * from history;<br>
  * (3) the job was !RUNNING, is still !RUNNING and the time limit for !RUNNING
  * jobs ([maxJobQueuedTime_]{@link
- * scheduler/SchedulerManager#maxJobQueuedTime_}) has been exceeded --> the job
+ * scheduler/schedulerManager#maxJobQueuedTime_}) has been exceeded --> the job
  * is forcibly terminated and deleted from history;<br>
  * (4) the job was RUNNING, is still RUNNING and the time limit for RUNNING jobs
- * ([maxJobRunningTime_]{@link scheduler/SchedulerManager#maxJobRunningTime_})
+ * ([maxJobRunningTime_]{@link scheduler/schedulerManager#maxJobRunningTime_})
  * has been exceeded --> the job is forcibly terminated and deleted from
  * history;<br>
  * (5) the job was !COMPLETED and is now COMPLETED --> the job is deleted from
@@ -210,7 +211,7 @@ function pollJob(jobId, session) {
  * the updated submitDate field (point (1)) is subjected to unavoidable
  * approximations, whose precision is inversely proportional to the time
  * interval between two subsequent calls of this function (regulated by the
- * [jobPollingInterval]{@link scheduler/SchedulerManager#jobPollingInterval}
+ * [jobPollingInterval]{@link scheduler/schedulerManager#jobPollingInterval}
  * parameter).<br><br>
  *
  * The promise always resolves unless an error occurs.
@@ -232,14 +233,14 @@ function pollJob(jobId, session) {
  *    </li>
  * </ul>
  */
-function monitorSingleJob(session, jobStatus, jobId) {
+function monitorSingleJob(session, scheduler, jobStatus, jobId) {
   return new Promise((resolve, reject) => {
     try {
       // Relevant job information are stored in local variables in order to
       // minimize the number of accesses to the jobs_ object.
-      let jobName = Scheduler.jobs_[jobId].jobName;
-      let prevJobStatus = Scheduler.jobs_[jobId].jobStatus;
-      let submitDate = Scheduler.jobs_[jobId].submitDate;
+      let jobName = scheduler.jobs_[jobId].jobName;
+      let prevJobStatus = scheduler.jobs_[jobId].jobStatus;
+      let submitDate = scheduler.jobs_[jobId].submitDate;
 
       // If the job has not yet been completed but its status changed from
       // ON-HOLD/QUEUED to RUNNING, said status is updated to the current
@@ -263,8 +264,8 @@ function monitorSingleJob(session, jobStatus, jobId) {
               jobStatus[jobId].mainStatus + '.'
         });
 
-        Scheduler.jobs_[jobId].jobStatus = jobStatus[jobId].mainStatus;
-        Scheduler.jobs_[jobId].submitDate = new Date().getTime();
+        scheduler.jobs_[jobId].jobStatus = jobStatus[jobId].mainStatus;
+        scheduler.jobs_[jobId].submitDate = new Date().getTime();
       }
 
       // Terminates and removes from history jobs which are in ERROR state or
@@ -277,7 +278,7 @@ function monitorSingleJob(session, jobStatus, jobId) {
           console.log(
               'Job ' + jobId + ' (' + jobName + ') is in ' +
               jobStatus[jobId].mainStatus + ' state.');
-          deleteErrorJob(session, jobId)
+          deleteErrorJob(session, scheduler, jobId)
               .then(
                   (jobInfo) => {
                     resolve({
@@ -297,13 +298,15 @@ function monitorSingleJob(session, jobStatus, jobId) {
         // The job exceeded one of the timeouts and is deleted.
         else if (
             jobStatus[jobId].mainStatus !== 'RUNNING' &&
-                currentTime - submitDate > Scheduler.maxJobQueuedTime_ ||
+                currentTime - submitDate > scheduler.maxJobQueuedTime_ ||
             jobStatus[jobId].mainStatus === 'RUNNING' &&
-                currentTime - submitDate > Scheduler.maxJobRunningTime_) {
+                currentTime - submitDate > scheduler.maxJobRunningTime_) {
           console.log(
               'Job ' + jobId + ' (' + jobName + ') has exceeded maximum ' +
               jobStatus[jobId].mainStatus + ' runtime.');
-          deleteJob(session, jobId, jobStatus[jobId].mainStatus === 'RUNNING')
+          deleteJob(
+              session, scheduler, jobId,
+              jobStatus[jobId].mainStatus === 'RUNNING')
               .then(
                   (jobInfo) => {
                     resolve({
@@ -363,7 +366,7 @@ function monitorSingleJob(session, jobStatus, jobId) {
                   });
                 },
                 (error) => { reject('Could not read job status: ' + error); });
-        Scheduler.removeJobFromHistory(jobId);
+        scheduler.removeJobFromHistory(jobId);
       }
     } catch (error) {
       console.log('Error fetching job ' + jobId + 'from job history.');
@@ -390,13 +393,13 @@ function monitorSingleJob(session, jobStatus, jobId) {
  * the job is forcibly terminated and deleted from history;<br>
  * (2) the first task of the job was !RUNNING, is still !RUNNING and the time
  * limit for !RUNNING array jobs ([maxArrayJobQueuedTime_]{@link
-    * scheduler/SchedulerManager#maxArrayJobQueuedTime_}) has been exceeded -->
+    * scheduler/schedulerManager#maxArrayJobQueuedTime_}) has been exceeded -->
  * the
  * job is forcibly terminated and deleted from history;<br>
  * (3) at least the first task of the job started RUNNING and total execution
  * time of the job has exceeded the time limit for RUNNING array jobs
  * ([maxArrayJobRunningTime_]{@link
-    * scheduler/SchedulerManager#maxArrayJobRunningTime_}) --> the job is
+    * scheduler/schedulerManager#maxArrayJobRunningTime_}) --> the job is
  * forcibly
  * terminated and deleted from history;<br>
  * (4) the job was !COMPLETED and is now COMPLETED --> the job is deleted from
@@ -410,7 +413,7 @@ function monitorSingleJob(session, jobStatus, jobId) {
  * the runningStart and runningTime fields of each task are subjected to
  * unavoidable approximations, whose precision is inversely proportional to the
  * time interval between two subsequent calls of this function (regulated by the
- * [jobPollingInterval]{@link scheduler/SchedulerManager#jobPollingInterval}
+ * [jobPollingInterval]{@link scheduler/schedulerManager#jobPollingInterval}
  * parameter).<br><br>
  *
  * The promise always resolves unless an error occurs.
@@ -433,25 +436,25 @@ function monitorSingleJob(session, jobStatus, jobId) {
  *    </li>
  * </ul>
  */
-function monitorArrayJob(session, jobStatus, jobId) {
+function monitorArrayJob(session, scheduler, jobStatus, jobId) {
   return new Promise((resolve, reject) => {
     try {
       // Relevant job information are stored in local variables in order to
       // minimize the number of accesses to the jobs_ object.
-      let jobName = Scheduler.jobs_[jobId].jobName;
-      let submitDate = Scheduler.jobs_[jobId].submitDate;
-      let taskInfo = Scheduler.jobs_[jobId].taskInfo;
-      let firstTaskId = Scheduler.jobs_[jobId].firstTaskId;
-      let lastTaskId = Scheduler.jobs_[jobId].lastTaskId;
-      let increment = Scheduler.jobs_[jobId].increment;
-      let totalExecutionTime = Scheduler.jobs_[jobId].totalExecutionTime;
+      let jobName = scheduler.jobs_[jobId].jobName;
+      let submitDate = scheduler.jobs_[jobId].submitDate;
+      let taskInfo = scheduler.jobs_[jobId].taskInfo;
+      let firstTaskId = scheduler.jobs_[jobId].firstTaskId;
+      let lastTaskId = scheduler.jobs_[jobId].lastTaskId;
+      let increment = scheduler.jobs_[jobId].increment;
+      let totalExecutionTime = scheduler.jobs_[jobId].totalExecutionTime;
 
       // One or more of the job's tasks are in ERROR. The whole job is deleted.
       if (jobStatus[jobId].mainStatus === 'ERROR') {
         console.log(
             'Job ' + jobId + ' (' + jobName + ') is in ' +
             jobStatus[jobId].mainStatus + ' state.');
-        deleteErrorJob(session, jobId)
+        deleteErrorJob(session, scheduler, jobId)
             .then(
                 (jobInfo) => {
                   resolve({
@@ -477,12 +480,12 @@ function monitorArrayJob(session, jobStatus, jobId) {
                 'COMPLETED' &&
             jobStatus[jobId].tasksStatus[firstTaskId].mainStatus !==
                 'RUNNING' &&
-            currentTime - submitDate > Scheduler.maxArrayJobQueuedTime_) {
+            currentTime - submitDate > scheduler.maxArrayJobQueuedTime_) {
           console.log(
               'Job ' + jobId + ' (' + jobName + ') has exceeded maximum ' +
               jobStatus[jobId].tasksStatus[firstTaskId].mainStatus +
               ' runtime. Terminating.');
-          deleteJob(session, jobId, false)
+          deleteJob(session, scheduler, jobId, false)
               .then(
                   () => {
                     resolve({
@@ -591,11 +594,11 @@ function monitorArrayJob(session, jobStatus, jobId) {
             }
             // If the job total execution time has exceeded the maximum value,
             // the job is terminated and removed from history.
-            if (totalExecutionTime > Scheduler.maxArrayJobRunningTime_) {
+            if (totalExecutionTime > scheduler.maxArrayJobRunningTime_) {
               console.log(
                   'Job ' + jobId + ' (' + jobName +
                   ') has exceeded maximum RUNNING runtime. Terminating.');
-              deleteJob(session, jobId, true)
+              deleteJob(session, scheduler, jobId, true)
                   .then(
                       (jobInfo) => {
                         resolve({
@@ -616,8 +619,8 @@ function monitorArrayJob(session, jobStatus, jobId) {
           }
           // Updates the taskInfo and totalExecutionTime fields of the job in
           // the job history.
-          Scheduler.jobs_[jobId].taskInfo = taskInfo;
-          Scheduler.jobs_[jobId].totalExecutionTime = totalExecutionTime;
+          scheduler.jobs_[jobId].taskInfo = taskInfo;
+          scheduler.jobs_[jobId].totalExecutionTime = totalExecutionTime;
 
           // The job is still running.
           resolve({
@@ -654,7 +657,7 @@ function monitorArrayJob(session, jobStatus, jobId) {
                   });
                 },
                 (error) => { reject('Could not read job status: ' + error); });
-        Scheduler.removeJobFromHistory(jobId);
+        scheduler.removeJobFromHistory(jobId);
       }
     } catch (error) {
       console.log('Error fetching job ' + jobId + 'from job history.');
@@ -688,19 +691,19 @@ function monitorArrayJob(session, jobStatus, jobId) {
  *    </li>
  * </ul>
  */
-function deleteJob(session, jobId, qacctAvailable) {
+function deleteJob(session, scheduler, jobId, qacctAvailable) {
   return new Promise((resolve, reject) => {
     try {
       session.control(jobId, session.TERMINATE)
           .then(
               () => {
-                let jobName = Scheduler.jobs_[jobId].jobName;
+                let jobName = scheduler.jobs_[jobId].jobName;
                 console.log('Job ' + jobId + ' terminated.');
                 if (qacctAvailable) {
                   session.wait(jobId, 60000)
                       .then(
                           (jobInfo) => {
-                            Scheduler.removeJobFromHistory(jobId);
+                            scheduler.removeJobFromHistory(jobId);
                             resolve(jobInfo);
                           },
                           (error) => {
@@ -710,7 +713,7 @@ function deleteJob(session, jobId, qacctAvailable) {
                             reject(error);
                           });
                 } else {
-                  Scheduler.removeJobFromHistory(jobId);
+                  scheduler.removeJobFromHistory(jobId);
                   resolve();
                 }
               },
@@ -748,17 +751,17 @@ function deleteJob(session, jobId, qacctAvailable) {
  *    </li>
  * </ul>
  */
-function deleteErrorJob(session, jobId) {
+function deleteErrorJob(session, scheduler, jobId) {
   return new Promise((resolve, reject) => {
     try {
-      let jobName = Scheduler.jobs_[jobId].jobName;
+      let jobName = scheduler.jobs_[jobId].jobName;
       session.wait(jobId, 60000)
           .then(
               (jobInfo) => {
                 session.control(jobId, session.TERMINATE)
                     .then(
                         () => {
-                          Scheduler.removeJobFromHistory(jobId);
+                          scheduler.removeJobFromHistory(jobId);
                           resolve(jobInfo);
                         },
                         (error) => {

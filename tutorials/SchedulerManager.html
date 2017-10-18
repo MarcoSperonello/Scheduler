@@ -1,7 +1,7 @@
 <html>
 <body>
 
-This is a brief tutorial on how to configure the [SchedulerManager]{@link scheduler/SchedulerManager} class and use it submit jobs, wait for their completion and get the results back. The following is everything you need to use in order to have access to all the important information (as specified in [jobStatusInformation]{@link module:scheduler/monitors~jobStatusInformation}) of a job whose execution has ended.
+This is a brief tutorial on how to instantiate and configure the [SchedulerManager]{@link scheduler/SchedulerManager} class and use it submit jobs, wait for their completion and get the results back. The following is everything you need to use in order to have access to all the important information (as specified in [jobStatusInformation]{@link module:scheduler/monitors~jobStatusInformation}) of a job whose execution has ended.
 A complete example is featured at <a href="#example">the end of the how-to section</a> of the tutorial.<br>
 The last section consists of an explanation of <a href="#details">how the module actually works</a>.
 <br><br>
@@ -9,10 +9,34 @@ The last section consists of an explanation of <a href="#details">how the module
 <h6>Disclaimer: the choices made regarding the input parameters, their meaning and their behavior, the events the monitoring functions check as well as many other details all follow the specifications provided.</h6>
 <br>
 <h2> <a id="how-to"></a>Using SchedulerManager </h2>
-<p>
-<h3> Configuring SchedulerManager </h3>
 
-Configuration is done via a JSON file, ./input_files/input.json by default. If you want settings to be read from a different file, simply edit the path of the file <a href="scheduler_scheduler-manager.js.html#line923">where the SchedulerManager is instantiated</a>. The parameters that can be specified are the following:<br>
+<p>
+<h3> Creating a SchedulerManager instance </h3>
+
+The creation of [SchedulerManager]{@link scheduler/SchedulerManager} instances is done via the [SchedulerFactory]{@link scheduler/SchedulerFactory} class, which is instantiated by simply calling the constructor. Its method [createSchedulerManager]{@link scheduler/SchedulerFactory#createSchedulerManager} can then be used to create [SchedulerManager]{@link scheduler/SchedulerManager} instances: this method requires a (non-null, non-empty) name to give to the instance that will be created and a path to the JSON file where the parameters necessary for the proper configuration of [SchedulerManager]{@link scheduler/SchedulerManager} are stored (see the <a href="configuration">next paragraph</a> for details). If no errors occur, this method returns the newly created [SchedulerManager]{@link scheduler/SchedulerManager} instance which can then be used to <a href="submission">submit jobs</a> to the SGE.<br>
+An example of creating a [SchedulerManager]{@link scheduler/SchedulerManager} instance using the [SchedulerFactory]{@link scheduler/SchedulerFactory} class would be:<br><br>
+
+<!-- HTML generated using hilite.me --><div style="background: #ffffff; overflow:auto;width:auto;border:solid gray;border-width:.1em .1em .1em .8em;padding:.2em .6em;"><pre style="margin: 0; line-height: 125%"><span style="color: #008800; font-weight: bold">import</span> {SchedulerFactory} from <span style="background-color: #fff0f0">&#39;./scheduler/scheduler-factory&#39;</span>;
+
+<span style="color: #008800; font-weight: bold">let</span> schedulerFactory <span style="color: #333333">=</span> <span style="color: #008800; font-weight: bold">new</span> SchedulerFactory();
+
+<span style="color: #008800; font-weight: bold">let</span> scheduler <span style="color: #333333">=</span> <span style="color: #008800; font-weight: bold">null</span>;
+
+<span style="color: #008800; font-weight: bold">try</span> {
+  scheduler <span style="color: #333333">=</span> schedulerFactory.createSchedulerManager(
+      <span style="background-color: #fff0f0">&#39;name of your scheduler&#39;</span>, <span style="background-color: #fff0f0">&#39;/path/of/your/input/file.json&#39;</span>);
+} <span style="color: #008800; font-weight: bold">catch</span> (error) {
+  console.log(error);
+}
+</pre></div>
+
+</p>
+
+
+<p>
+<h3> <a id="configuration"></a>Configuring SchedulerManager </h3>
+
+Configuration is done via a JSON file passed to the constructor of the class. The parameters that can be specified are the following:<br>
 
  <ul>
   	<li>
@@ -66,32 +90,37 @@ Configuration is done via a JSON file, ./input_files/input.json by default. If y
 <b>NOTE:</b> the input file is read whenever a request is received, provided the last time the file was read was at least [minimumInputUpdateInterval]{@link scheduler/SchedulerManager#minimumInputUpdateInterval_} seconds ago. Due to the non-blocking nature of this operation, it may happen that any change to the input parameters will be effective starting from the <i>next request received</i> by the system, and not the one that triggered the update of the input parameters: it is indeed possible that the request can be serviced faster than the file can be read and the parameters updated.
 
 <p>
-<h3> Submitting a job </h3>
- 
-An instance (named "Scheduler") of the [SchedulerManager]{@link scheduler/SchedulerManager} class as well as an instance (named "sessionManager") of [SessionManager]{@link SessionManager} are created and exported when the server is launched.<br>
+<h3> <a id="submission"></a> Submitting a job </h3>
+
 To submit a job, [handleRequest]{@link scheduler/SchedulerManager#handleRequest} must be called. This method requires a {@link requestData} object, which specifies who issued the request, at what time, and the details of the job to submit in the form of a {@link JobTemplate} object.<br>
 An example of {@link requestData} would be:<br><br>
 
-<!-- HTML generated using hilite.me --><div style="background: #ffffff; overflow:auto;width:auto;border:solid gray;border-width:.1em .1em .1em .8em;padding:.2em .6em;"><pre style="margin: 0; line-height: 125%">    <span style="color: #008800; font-weight: bold">let</span> requestData <span style="color: #333333">=</span> {
-      ip<span style="color: #333333">:</span> <span style="background-color: #fff0f0">&#39;127.0.0.1&#39;</span>, <span style="color: #888888">// Just an example. Configure it properly during actual use!</span>
-      time<span style="color: #333333">:</span> new Date().getTime(), <span style="color: #888888">// Approximate time at which the request was received.</span>
-      jobData<span style="color: #333333">:</span> {
-        remoteCommand<span style="color: #333333">:</span> <span style="background-color: #fff0f0">&#39;/path/of/your/job/file.sh&#39;</span>,
-        workingDirectory<span style="color: #333333">:</span> <span style="background-color: #fff0f0">&#39;/your/working/directory&#39;</span>,
-        jobName<span style="color: #333333">:</span> <span style="background-color: #fff0f0">&#39;name of your job&#39;</span>,
-      },
-    };
+<!-- HTML generated using hilite.me --><div style="background: #ffffff; overflow:auto;width:auto;border:solid gray;border-width:.1em .1em .1em .8em;padding:.2em .6em;"><pre style="margin: 0; line-height: 125%"><span style="color: #008800; font-weight: bold">let</span> requestData <span style="color: #333333">=</span> {
+  ip <span style="color: #333333">:</span> <span style="background-color: #fff0f0">&#39;127.0.0.1&#39;</span>, <span style="color: #888888">// Just an example. Configure it properly during actual use!</span>
+  time <span style="color: #333333">:</span> <span style="color: #008800; font-weight: bold">new</span> <span style="color: #007020">Date</span>() .getTime(), <span style="color: #888888">// Approximate time at which the request was received.</span>
+  jobData <span style="color: #333333">:</span> {
+    remoteCommand <span style="color: #333333">:</span> <span style="background-color: #fff0f0">&#39;/path/of/your/job/file.sh&#39;</span>,
+    workingDirectory <span style="color: #333333">:</span> <span style="background-color: #fff0f0">&#39;/your/working/directory&#39;</span>,
+    jobName <span style="color: #333333">:</span> <span style="background-color: #fff0f0">&#39;name of your job&#39;</span>,
+  },
+};
 </pre></div>
 
+<br><br>[handleRequest]{@link scheduler/SchedulerManager#handleRequest} also requires a {@link Session} object, so the {@link Session} must be created beforehand, using the [createSession]{@link SessionManager#createSession} method (which returns a promise) of the {@link SessionManager} class that needs to be instantiated. For example: <br><br>
 
-<br><br>[handleRequest]{@link scheduler/SchedulerManager#handleRequest} also requires a {@link Session} object, so the {@link Session} must be created beforehand, using the [createSession]{@link SessionManager#createSession} method, which returns a promise. For example: <br><br>
+<!-- HTML generated using hilite.me --><div style="background: #ffffff; overflow:auto;width:auto;border:solid gray;border-width:.1em .1em .1em .8em;padding:.2em .6em;"><pre style="margin: 0; line-height: 125%"><span style="color: #008800; font-weight: bold">import</span> SessionManager from <span style="background-color: #fff0f0">&quot;./nDrmaa/sge/SessionManager&quot;</span>;
 
-<!-- HTML generated using hilite.me --><div style="background: #ffffff; overflow:auto;width:auto;border:solid gray;border-width:.1em .1em .1em .8em;padding:.2em .6em;"><pre style="margin: 0; line-height: 125%">sessionManager.createSession(sessionName).then( (session) <span style="color: #333333">=&gt;</span> {
+<span style="color: #888888">// ...</span>
+
+<span style="color: #008800; font-weight: bold">let</span> sessionManager <span style="color: #333333">=</span> <span style="color: #008800; font-weight: bold">new</span> SessionManager();
+
+sessionManager.createSession(sessionName).then( (session) <span style="color: #333333">=&gt;</span> {
   <span style="color: #888888">// Do something.</span>
 }, (error) <span style="color: #333333">=&gt;</span> {
   <span style="color: #888888">// Something went wrong with the creation of the session.</span>
 });
 </pre></div>
+
 
 
 <br><br>
@@ -100,7 +129,7 @@ For all possible ways to specify the properties of the jobData object, refer to 
 
 It is now possible to call the [handleRequest]{@link scheduler/SchedulerManager#handleRequest} method, which returns a promise. As explained in the [handleRequest]{@link scheduler/SchedulerManager#handleRequest} documentation, the promise resolves only if a job is succesfully submitted to the SGE; the promise is otherwise rejected. To attempt to submit the job and check if the submission was successful, one can do the following: <br><br>
 
-<!-- HTML generated using hilite.me --><div style="background: #ffffff; overflow:auto;width:auto;border:solid gray;border-width:.1em .1em .1em .8em;padding:.2em .6em;"><pre style="margin: 0; line-height: 125%">Sec.handleRequest(requestData, session).then( (status) <span style="color: #333333">=&gt;</span> {
+<!-- HTML generated using hilite.me --><div style="background: #ffffff; overflow:auto;width:auto;border:solid gray;border-width:.1em .1em .1em .8em;padding:.2em .6em;"><pre style="margin: 0; line-height: 125%">scheduler.handleRequest(requestData, session).then( (status) <span style="color: #333333">=&gt;</span> {
   <span style="color: #888888">// Do something with the result.</span>
 }, (error) <span style="color: #333333">=&gt;</span> {
   <span style="color: #888888">// The request could not be accepted for some reason.</span>
@@ -117,12 +146,12 @@ In case of rejection, the object returned is also of the {@link requestOutcome} 
 <p>
 <h3> Examining the status and other relevant information of a completed job </h3>
 
-To monitor a submitted job, it is sufficient to call the [getJobResult]{@link scheduler/SchedulerManager#getJobResult} method, which requires the id of the job to monitor and the session the job was launched in. This method returns a promise. As explained in the documentation, said promise resolves when the job that is being monitored enters the COMPLETED or ERROR state, while it is rejected when an error <i>of the monitoring process</i> occurs: if a job is in ERROR status, the promise resolves anyway.<br>
+To monitor a submitted job, it is sufficient to call the [getJobResult]{@link scheduler/SchedulerManager#getJobResult} method, which requires the id of the job to monitor, the scheduler who handled this job's submission and the session the job was launched in. This method returns a promise. As explained in the documentation, said promise resolves when the job that is being monitored enters the COMPLETED or ERROR state, while it is rejected when an error <i>of the monitoring process</i> occurs: if a job is in ERROR status, the promise resolves anyway.<br>
 In case of success, the promise resolves into a [jobStatusInformation]{@link module:scheduler/monitors~jobStatusInformation} object, containing several information about the now finished job.<br>
 In case of rejection, the promise returns an object whose "errors" field contains information regarding the error that occurred.<br>
 For example, to monitor the status of a job whose id is stored in a jobId variable, one would do:<br><br>
 
-<!-- HTML generated using hilite.me --><div style="background: #ffffff; overflow:auto;width:auto;border:solid gray;border-width:.1em .1em .1em .8em;padding:.2em .6em;"><pre style="margin: 0; line-height: 125%">Sec.getJobResult(status.jobData.jobId, session).then( (status) <span style="color: #333333">=&gt;</span> {
+<!-- HTML generated using hilite.me --><div style="background: #ffffff; overflow:auto;width:auto;border:solid gray;border-width:.1em .1em .1em .8em;padding:.2em .6em;"><pre style="margin: 0; line-height: 125%">scheduler.getJobResult(status.jobData.jobId, scheduler, session).then( (status) <span style="color: #333333">=&gt;</span> {
   <span style="color: #888888">// The job terminated its execution in an expected manner.</span>
 }, (error) <span style="color: #333333">=&gt;</span> {
   <span style="color: #888888">// Something went wrong while monitoring the job.</span>
@@ -177,47 +206,78 @@ Note: for actual use, fetching the time of the request by reading the request's 
 36
 37
 38
-39</pre></td><td><pre style="margin: 0; line-height: 125%"><span style="color: #008800; font-weight: bold">let</span> requestData <span style="color: #333333">=</span> {
-      ip<span style="color: #333333">:</span> <span style="background-color: #fff0f0">&#39;127.0.0.1&#39;</span>, <span style="color: #888888">// Just an example. Configure it properly during actual use!</span>
-      time<span style="color: #333333">:</span> new Date().getTime(), <span style="color: #888888">// Approximate time at which the request was received.</span>
-      jobData<span style="color: #333333">:</span> {
-        remoteCommand<span style="color: #333333">:</span> <span style="background-color: #fff0f0">&#39;/path/of/your/job/file.sh&#39;</span>,
-        workingDirectory<span style="color: #333333">:</span> <span style="background-color: #fff0f0">&#39;/your/working/directory&#39;</span>,
-        jobName<span style="color: #333333">:</span> <span style="background-color: #fff0f0">&#39;name of your job&#39;</span>,
-      },
-    };
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54</pre></td><td><pre style="margin: 0; line-height: 125%"><span style="color: #008800; font-weight: bold">import</span> {SchedulerFactory} from <span style="background-color: #fff0f0">&#39;./scheduler/scheduler-factory&#39;</span>;
+<span style="color: #008800; font-weight: bold">import</span> SessionManager from <span style="background-color: #fff0f0">&#39;./nDrmaa/sge/SessionManager&#39;</span>;
 
-    sessionManager.createSession(<span style="background-color: #fff0f0">&#39;yourSession&#39;</span>)
-        .then(
-            (session) <span style="color: #333333">=&gt;</span> {
-              Sec.handleRequest(requestData, session)
-                  .then(
-                      (status) <span style="color: #333333">=&gt;</span> {
-                        console.log(<span style="background-color: #fff0f0">&#39;Request outcome: &#39;</span> <span style="color: #333333">+</span> status.description);
-                        Sec.getJobResult(status.jobData.jobId, session)
-                            .then(
-                                (status) <span style="color: #333333">=&gt;</span> {
-                                  console.log(
-                                      <span style="background-color: #fff0f0">&#39;Job &#39;</span> <span style="color: #333333">+</span> status.jobId <span style="color: #333333">+</span> <span style="background-color: #fff0f0">&#39; of session &#39;</span> <span style="color: #333333">+</span>
-                                      status.sessionName <span style="color: #333333">+</span> <span style="background-color: #fff0f0">&#39; status: &#39;</span> <span style="color: #333333">+</span>
-                                      status.mainStatus <span style="color: #333333">+</span> <span style="background-color: #fff0f0">&#39;-&#39;</span> <span style="color: #333333">+</span>
-                                      status.subStatus <span style="color: #333333">+</span> <span style="background-color: #fff0f0">&#39;, exitCode: &#39;</span> <span style="color: #333333">+</span>
-                                      status.exitStatus <span style="color: #333333">+</span> <span style="background-color: #fff0f0">&#39;, failed: &#39;</span> <span style="color: #333333">+</span>
-                                      status.failed <span style="color: #333333">+</span> <span style="background-color: #fff0f0">&#39;, errors: &#39;</span> <span style="color: #333333">+</span>
-                                      status.errors <span style="color: #333333">+</span> <span style="background-color: #fff0f0">&#39;, description: &#39;</span> <span style="color: #333333">+</span>
-                                      status.description);
-                                },
-                                (error) <span style="color: #333333">=&gt;</span> {
-                                  console.log(<span style="background-color: #fff0f0">&#39;Error: &#39;</span> <span style="color: #333333">+</span> error.errors);
-                                });
-                      },
-                      (error) <span style="color: #333333">=&gt;</span> { console.log(<span style="background-color: #fff0f0">&#39;Error: &#39;</span> <span style="color: #333333">+</span> error.errors); });
-            },
-            (error) <span style="color: #333333">=&gt;</span> {
-              console.log(
-                  <span style="background-color: #fff0f0">&#39;Could not create session &#39;</span> <span style="color: #333333">+</span> sessionName <span style="color: #333333">+</span> <span style="background-color: #fff0f0">&#39;: &#39;</span> <span style="color: #333333">+</span> error);
-            });
+<span style="color: #008800; font-weight: bold">let</span> schedulerFactory <span style="color: #333333">=</span> <span style="color: #008800; font-weight: bold">new</span> SchedulerFactory();
+<span style="color: #008800; font-weight: bold">let</span> sessionManager <span style="color: #333333">=</span> <span style="color: #008800; font-weight: bold">new</span> SessionManager();
+
+<span style="color: #008800; font-weight: bold">let</span> scheduler <span style="color: #333333">=</span> <span style="color: #008800; font-weight: bold">null</span>;
+
+<span style="color: #008800; font-weight: bold">try</span> {
+  scheduler <span style="color: #333333">=</span> schedulerFactory.createSchedulerManager(
+      <span style="background-color: #fff0f0">&#39;name of your scheduler&#39;</span>, <span style="background-color: #fff0f0">&#39;/path/of/your/input/file.json&#39;</span>);
+} <span style="color: #008800; font-weight: bold">catch</span> (error) {
+  console.log(error);
+}
+
+<span style="color: #008800; font-weight: bold">let</span> requestData <span style="color: #333333">=</span> {
+  ip <span style="color: #333333">:</span> <span style="background-color: #fff0f0">&#39;127.0.0.1&#39;</span>, <span style="color: #888888">// Just an example. Configure it properly during actual use!</span>
+  time <span style="color: #333333">:</span> <span style="color: #008800; font-weight: bold">new</span> <span style="color: #007020">Date</span>() .getTime(), <span style="color: #888888">// Approximate time at which the request was received.</span>
+  jobData <span style="color: #333333">:</span> {
+    remoteCommand <span style="color: #333333">:</span> <span style="background-color: #fff0f0">&#39;/path/of/your/job/file.sh&#39;</span>,
+    workingDirectory <span style="color: #333333">:</span> <span style="background-color: #fff0f0">&#39;/your/working/directory&#39;</span>,
+    jobName <span style="color: #333333">:</span> <span style="background-color: #fff0f0">&#39;name of your job&#39;</span>,
+  },
+};
+
+sessionManager.createSession(<span style="background-color: #fff0f0">&#39;yourSession&#39;</span>)
+    .then(
+        (session) <span style="color: #333333">=&gt;</span> {
+          scheduler.handleRequest(requestData, session)
+              .then(
+                  (status) <span style="color: #333333">=&gt;</span> {
+                    console.log(<span style="background-color: #fff0f0">&#39;Request outcome: &#39;</span> <span style="color: #333333">+</span> status.description);
+                    scheduler
+                        .getJobResult(status.jobData.jobId, scheduler, session)
+                        .then(
+                            (status) <span style="color: #333333">=&gt;</span> {
+                              console.log(
+                                  <span style="background-color: #fff0f0">&#39;Job &#39;</span> <span style="color: #333333">+</span> status.jobId <span style="color: #333333">+</span> <span style="background-color: #fff0f0">&#39; of session &#39;</span> <span style="color: #333333">+</span>
+                                  status.sessionName <span style="color: #333333">+</span> <span style="background-color: #fff0f0">&#39; status: &#39;</span> <span style="color: #333333">+</span>
+                                  status.mainStatus <span style="color: #333333">+</span> <span style="background-color: #fff0f0">&#39;-&#39;</span> <span style="color: #333333">+</span> status.subStatus <span style="color: #333333">+</span>
+                                  <span style="background-color: #fff0f0">&#39;, exitCode: &#39;</span> <span style="color: #333333">+</span> status.exitStatus <span style="color: #333333">+</span>
+                                  <span style="background-color: #fff0f0">&#39;, failed: &#39;</span> <span style="color: #333333">+</span> status.failed <span style="color: #333333">+</span> <span style="background-color: #fff0f0">&#39;, errors: &#39;</span> <span style="color: #333333">+</span>
+                                  status.errors <span style="color: #333333">+</span> <span style="background-color: #fff0f0">&#39;, description: &#39;</span> <span style="color: #333333">+</span>
+                                  status.description);
+                            },
+                            (error) <span style="color: #333333">=&gt;</span> {
+                              console.log(<span style="background-color: #fff0f0">&#39;Error: &#39;</span> <span style="color: #333333">+</span> error.errors);
+                            });
+                  },
+                  (error) <span style="color: #333333">=&gt;</span> { console.log(<span style="background-color: #fff0f0">&#39;Error: &#39;</span> <span style="color: #333333">+</span> error.errors); });
+        },
+        (error) <span style="color: #333333">=&gt;</span> {
+          console.log(<span style="background-color: #fff0f0">&#39;Could not create session &#39;</span> <span style="color: #333333">+</span> sessionName <span style="color: #333333">+</span> <span style="background-color: #fff0f0">&#39;: &#39;</span> <span style="color: #333333">+</span> error);
+        });
 </pre></td></tr></table></div>
+
+
 
 </p>
 <h2> <a id="details"></a> Software behavior </h2>
@@ -232,7 +292,7 @@ If the user is not whitelisted, additional checks are performed in order to veri
   	</li>
   	<li>
   		The current number of jobs currently being handled by the SGE must be less than [maxConcurrentJobs]{@link scheduler/SchedulerManager#maxConcurrentJobs_}.<br>
-  		If multiple requests have been received at the same time (i.e. an epsilon milliseconds apart) and more than one is still being examined ([pendingJobsCounter]{@link scheduler/SchedulerManager#pendingJobsCounter_}) as the request in question itself is being examined, they are considered as if they were already submitted to the SGE. This is necessary to ensure that the [maxConcurrentJobs]{@link scheduler/SchedulerManager#maxConcurrentJobs_} constraint is not violated when multiple requests happen at the same time.
+  		If multiple requests have been received at the same time (i.e. an epsilon milliseconds apart) and more than one is still being examined ([pendingJobsCounter]{@link scheduler/SchedulerManager#pendingJobsCounter_} > 1) as the request in question itself is being examined, they are considered as if they were already submitted to the SGE. This is necessary to ensure that the [maxConcurrentJobs]{@link scheduler/SchedulerManager#maxConcurrentJobs_} constraint is not violated when multiple requests happen at the same time.
   	</li>
   	<li>
       The number of requests (not including the one being examined) made by all users in the last [requestLifespan]{@link scheduler/SchedulerManager#requestLifespan_} seconds must be less or equal than [maxRequestsPerSecGlobal]{@link scheduler/SchedulerManager#maxRequestsPerSecGlobal_}.
@@ -248,8 +308,8 @@ If all these checks are passed, the [handleJobSubmission]{@link scheduler/Schedu
 
 <h3> How the module monitors a submitted job </h3>
 <p>
-	A job can be monitored via the [getJobResult]{@link scheduler/SchedulerManager#getJobResult} method, which keeps calling [monitorJob]{@link scheduler/monitors#monitorJob} until the job execution ends (whether successfully or because of an error in the job file being executed or a timeout being exceeded) or an error in the monitoring process occurs.<br>
-	[monitorJob]{@link scheduler/monitors#monitorJob} delegates the actual monitoring to [pollJob]{@link scheduler/monitors#pollJob}, which is called every [jobPollingInterval]{@link scheduler/SchedulerManager#jobPollingInterval} seconds. [pollJob]{@link scheduler/monitors#pollJob} uses the functions [monitorSingleJob]{@link scheduler/monitors#monitorSingleJob} or [monitorArrayJob]{@link scheduler/monitors#monitorArrayJob} (according to the job's [JOB_TYPE]{@link JOB_TYPE}) to check the status of the specified job to confirm if any meaningful events occurred.<br>
+	A job can be monitored via the [getJobResult]{@link scheduler/SchedulerManager#getJobResult} method, which keeps calling [monitorJob]{@link module:scheduler/monitors.monitorJob} until the job execution ends (whether successfully or because of an error in the job file being executed or a timeout being exceeded) or an error in the monitoring process occurs.<br>
+	[monitorJob]{@link module:scheduler/monitors.monitorJob} delegates the actual monitoring to [pollJob]{@link module:scheduler/monitors~pollJob}, which is called every [jobPollingInterval]{@link scheduler/SchedulerManager#jobPollingInterval} seconds. [pollJob]{@link module:scheduler/monitors~pollJob} uses the functions [monitorSingleJob]{@link module:scheduler/monitors~monitorSingleJob} or [monitorArrayJob]{@link module:scheduler/monitors~monitorArrayJob} (according to the job's [JOB_TYPE]{@link JOB_TYPE}) to check the status of the specified job to confirm if any meaningful events occurred.<br>
 	The main events being monitored are the time the job spends in the ON_HOLD/QUEUED state, the time spent in the RUNNING state, or if the job enters the ERROR state.<br>
 	The following conventions were established (as per specifications) for [ARRAY]{@link JOB_TYPE} jobs:<br>
 	<ul>
