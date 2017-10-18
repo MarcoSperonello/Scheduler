@@ -14,11 +14,11 @@ export default {
       path: '/schedulerTest',
       handler: Handlers.handleSchedulerTest
     },
-    'tapJobTest': {
+    'tapJobSubmission': {
       path: '/tap',
       handler: Handlers.handleTapJobSubmission
     },
-    'frstJobTest': {
+    'frstJobSubmission': {
       path: '/frst',
       handler: Handlers.handleFrstJobSubmission
     },
@@ -28,13 +28,13 @@ export default {
       path: '/',
       handler: Handlers.handleRoot
     },
-    'getTapOutputFile': {
-      path: 'get-results/tap/:sessionName/:outputFile',
-      handler: Handlers.handleShowTapOutFile
+    'getServiceOutputFile': {
+      path: 'get-results/:service/:sessionName/:outputFile',
+      handler: Handlers.handleShowServiceOutputFile
     },
-    'retrieveTapResult': {
-      path: 'get-results/tap/:sessionName',
-      handler: Handlers.handleRetrieveTapResult
+    'retrieveServiceResult': {
+      path: 'get-results/:service/:sessionName',
+      handler: Handlers.handleRetrieveServiceResult
     },
     'schedulerTest': {
       path: '/schedulerTest',

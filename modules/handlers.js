@@ -270,14 +270,14 @@ export default {
     jobTemplate.outputPath = '../../output/tap-output/' + sessionName;
     jobTemplate.errorPath = '../../output/tap-output/' + sessionName;
 
-    let requestDataPdb = {
+    let tapRequestData = {
       ip: requestIp,
       time: req.time(),
       jobData: jobTemplate,
     };
 
     sessionManager.createSession(sessionName).then( (session) => {
-      issuePdbRequest(requestDataPdb, session, req.files.file.path, req.files.file.name).then( (jobResult) => {
+      issuePdbRequest(tapRequestData, session, req.files.file.path, req.files.file.name).then( (jobResult) => {
         console.log('Job ' + jobResult.status.jobId + ' of session ' + jobResult.status.sessionName + ' status: ' + jobResult.status.mainStatus + '-' + jobResult.status.subStatus + ', exitCode: ' + jobResult.status.exitStatus + ', failed: ' + jobResult.status.failed + ', errors: ' + jobResult.status.errors + ', description: ' + jobResult.status.description);
         res.send(200, jobResult);
         sessionManager.closeSession(sessionName);
@@ -299,20 +299,27 @@ export default {
     return next()
   },
 
-  handleShowTapOutFile: function handleShowTapOutFile(req, res, next) {
-    req.log.info(`request handler is ${handleShowTapOutFile.name}`);
+  handleShowServiceOutputFile: function handleShowServiceOutputFile(req, res, next) {
+    req.log.info(`request handler is ${handleShowServiceOutputFile.name}`);
     res.setHeader('content-type', 'text/plain');
 
+    let service = req.params.service;
     let sessionName = req.params.sessionName;
     let outputFile = req.params.outputFile;
 
+    if(service !== "tap" && service !== "frst")
+    {
+      res.send(500, {error: "Invalid service request"});
+      return next();
+    }
 
-    fs.readFile('./output/tap-output/' + sessionName + '/' + outputFile, 'utf8', (error, data) => {
+    fs.readFile('./output/'+ service +'-output/' + sessionName + '/' + outputFile, 'utf8', (error, data) => {
       if (error) {
         console.log('Error reading file ' + outputFile);
         res.send(404, "404 Not Found: File " + outputFile + " in folder " + sessionName + " not found");
       }
       else {
+        console.log(data);
         res.send(data);
       }
     });
@@ -320,19 +327,29 @@ export default {
     return next();
   },
 
-  handleRetrieveTapResult: function handleRetrieveTapResult(req, res, next) {
-    req.log.info(`request handler is ${handleRetrieveTapResult.name}`);
+  handleRetrieveServiceResult: function handleRetrieveServiceResult(req, res, next) {
+    req.log.info(`request handler is ${handleRetrieveServiceResult.name}`);
 
+    let service = req.params.service;
     let sessionName = req.params.sessionName;
-    let jobId = req.params.jobId;
-    let jobName = req.params.jobName;
-    let path = './output/tap-output/' + sessionName + "/";
+
+    let path = './output/' + service + '-output/' + sessionName + "/";
 
     let jobResult = {};
 
     let stdErrRegExp = new RegExp(/(e{1}(\d)+$)/);
     let stdOutRegExp = new RegExp(/(o{1}(\d)+$)/);
-    let resultOutputRegExp = new RegExp(/(res\.out$)/);
+    let resultOutputRegExp = null;
+
+    if(service === "tap")
+      resultOutputRegExp = new RegExp(/(res\.out$)/);
+    else if(service === "frst")
+      resultOutputRegExp = new RegExp(/(pdb$)/);
+    else
+    {
+      res.send(500, "Invalid service request");
+      return next();
+    }
 
     let stdOutFile = "";
     let stdErrFile = "";
@@ -380,32 +397,7 @@ export default {
       }
       else
         res.send(404, {errors: "Result not found for session " + sessionName});
-
-      return next();
     });
-
-    // fs.readFile('./output/tap-output/' + sessionName + '/' + jobName + '.o' + jobId, 'utf8', (error, data) => {
-    //   if (error) {
-    //     console.log('Error reading file ' + jobName + '.o' + jobId);
-    //     res.send(500, {errors: error});
-    //   } else {
-    //     jobResult['output'] = data;
-    //     if (status.exitStatus !== '0') {
-    //       fs.readFile('./output/tap-output/' + sessionName + '/' + jobName + '.e' + jobId, 'utf8', (error, data) => {
-    //         if (error) {
-    //           console.log('Error reading file ' + jobName + '.e' + jobId);
-    //           res.send(500, {errors: error});
-    //         } else {
-    //           jobResult['errors'] = data;
-    //           res.send(200, jobResult);
-    //         }
-    //       });
-    //     } else {
-    //       jobResult['resOut'] = sessionName + '/' + fileName + '.res.out';
-    //       res.send(200, jobResult);
-    //     }
-    //   }
-    // });
 
     return next();
   },
@@ -417,6 +409,7 @@ export default {
     let sessionName = generateUUIDV4();
 
     let jobTemplate = {};
+
     try{
       jobTemplate = JSON.parse(req.body.jobTemplate);
     } catch(e) {
@@ -429,14 +422,14 @@ export default {
     jobTemplate.outputPath = '../../output/frst-output/' + sessionName;
     jobTemplate.errorPath = '../../output/frst-output/' + sessionName;
 
-    let requestDataFrst = {
+    let frstRequestData = {
       ip: requestIp,
       time: req.time(),
       jobData: jobTemplate,
     };
 
     sessionManager.createSession(sessionName).then( (session) => {
-      issueFrstRequest(requestDataFrst, session, req.files.file.path, req.files.file.name).then( (jobResult) => {
+      issueFrstRequest(frstRequestData, session, req.files.file.path, req.files.file.name).then( (jobResult) => {
         console.log('Job ' + jobResult.status.jobId + ' of session ' + jobResult.status.sessionName + ' status: ' + jobResult.status.mainStatus + '-' + jobResult.status.subStatus + ', exitCode: ' + jobResult.status.exitStatus + ', failed: ' + jobResult.status.failed + ', errors: ' + jobResult.status.errors + ', description: ' + jobResult.status.description);
         res.send(200, jobResult);
         sessionManager.closeSession(sessionName);
