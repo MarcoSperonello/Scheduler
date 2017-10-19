@@ -6,10 +6,11 @@ import aux from './aux';
 import fs from 'fs';
 import Logger from './logger';
 import {getRoutes} from './server';
-import {SchedulerFactory} from "./scheduler/scheduler-factory";
+//import {SchedulerFactory} from "./scheduler/scheduler-factory";
 
 import JobTemplate from "./nDrmaa/JobTemplate";
-import SessionManager from "./nDrmaa/sge/SessionManager";
+import {SchedulerFactory, SessionManager} from 'ndrmaa';
+//import SessionManager from "./nDrmaa/sge/SessionManager";
 
 let sessionManager = new SessionManager();
 

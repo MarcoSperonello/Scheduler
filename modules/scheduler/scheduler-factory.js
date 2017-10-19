@@ -10,7 +10,7 @@ import {SchedulerManager} from './scheduler-manager';
 let schedulers_ = [];
 
 /**
- * Class that manages instantiation and retrieval and deletion of
+ * Class that manages instantiation, retrieval and deletion of
  * [SchedulerManager]{@link scheduler/SchedulerManager} objects.
  *
  * @alias scheduler/SchedulerFactory

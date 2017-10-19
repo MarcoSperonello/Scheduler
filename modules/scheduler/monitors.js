@@ -12,7 +12,7 @@ import {JOB_TYPE} from './scheduler-manager';
 /**
  * Scans the users array and removes users which have been inactive (i.e. have
  * not made a request) for longer than the maximum allotted time
- * ([userLifespan]{@link scheduler/schedulerManager#userLifespan}).
+ * ([userLifespan]{@link scheduler/SchedulerManager#userLifespan}).
  */
 export function monitorUsers(scheduler) {
   let currentTime = new Date().getTime();
@@ -61,7 +61,7 @@ export function monitorUsers(scheduler) {
 /**
  * Monitors the status of the job whose index is specified by the jobId
  * parameter. The status is checked after a set amount of time, specified by the
- * [jobPollingInterval]{@link scheduler/schedulerManager#jobPollingInterval}
+ * [jobPollingInterval]{@link scheduler/SchedulerManager#jobPollingInterval}
  * parameter, has passed.<br>
  * The promise returned by the function is resolved once a job is in a COMPLETED
  * or ERROR state, otherwise it is rejected.
@@ -181,7 +181,7 @@ function pollJob(jobId, scheduler, session) {
 }
 
 /**
- * Compares the current status of the job (of {@link JOB_TYPE}.SINGLE) specified
+ * Compares the current status of the the [SINGLE]{@link JOB_TYPE} job specified
  * by the index parameter to the one stored in the job history (hence memorized
  * during the previous call of this function or, if the function has not been
  * called before, after the job was submitted) for this job and takes
@@ -195,11 +195,11 @@ function pollJob(jobId, scheduler, session) {
  * (2) the job is in ERROR state --> the job is forcibly terminated and deleted
  * from history;<br>
  * (3) the job was !RUNNING, is still !RUNNING and the time limit for !RUNNING
- * jobs ([maxJobQueuedTime_]{@link
- * scheduler/schedulerManager#maxJobQueuedTime_}) has been exceeded --> the job
+ * jobs ([maxJobQueuedTime]{@link
+ * scheduler/SchedulerManager#maxJobQueuedTime}) has been exceeded --> the job
  * is forcibly terminated and deleted from history;<br>
  * (4) the job was RUNNING, is still RUNNING and the time limit for RUNNING jobs
- * ([maxJobRunningTime_]{@link scheduler/schedulerManager#maxJobRunningTime_})
+ * ([maxJobRunningTime]{@link scheduler/SchedulerManager#maxJobRunningTime})
  * has been exceeded --> the job is forcibly terminated and deleted from
  * history;<br>
  * (5) the job was !COMPLETED and is now COMPLETED --> the job is deleted from
@@ -207,11 +207,11 @@ function pollJob(jobId, scheduler, session) {
  *
  * Note: the submitDate field of the job is used to verify whether any timeouts
  * were hit (points (3) and (4)).<br>
- * Note: given the asynchronicity of this function and the ones which call it,
+ * Note: given the asynchrony of this function and the ones which call it,
  * the updated submitDate field (point (1)) is subjected to unavoidable
  * approximations, whose precision is inversely proportional to the time
  * interval between two subsequent calls of this function (regulated by the
- * [jobPollingInterval]{@link scheduler/schedulerManager#jobPollingInterval}
+ * [jobPollingInterval]{@link scheduler/SchedulerManager#jobPollingInterval}
  * parameter).<br><br>
  *
  * The promise always resolves unless an error occurs.
@@ -298,9 +298,9 @@ function monitorSingleJob(session, scheduler, jobStatus, jobId) {
         // The job exceeded one of the timeouts and is deleted.
         else if (
             jobStatus[jobId].mainStatus !== 'RUNNING' &&
-                currentTime - submitDate > scheduler.maxJobQueuedTime_ ||
+                currentTime - submitDate > scheduler.maxJobQueuedTime ||
             jobStatus[jobId].mainStatus === 'RUNNING' &&
-                currentTime - submitDate > scheduler.maxJobRunningTime_) {
+                currentTime - submitDate > scheduler.maxJobRunningTime) {
           console.log(
               'Job ' + jobId + ' (' + jobName + ') has exceeded maximum ' +
               jobStatus[jobId].mainStatus + ' runtime.');
@@ -376,7 +376,7 @@ function monitorSingleJob(session, scheduler, jobStatus, jobId) {
 }
 
 /**
- * Compares the current status of the job (of {@link JOB_TYPE}.ARRAY) specified
+ * Compares the current status of the [ARRAY]{@link JOB_TYPE} job specified
  * by the index parameter to the one stored in the job history (hence memorized
  * during the previous call of this function or, if the function has not been
  * called before, after the job was submitted) for this job and takes
@@ -392,14 +392,14 @@ function monitorSingleJob(session, scheduler, jobStatus, jobId) {
  * (1) the job is in ERROR state (one or more of its tasks is in ERROR) -->
  * the job is forcibly terminated and deleted from history;<br>
  * (2) the first task of the job was !RUNNING, is still !RUNNING and the time
- * limit for !RUNNING array jobs ([maxArrayJobQueuedTime_]{@link
-    * scheduler/schedulerManager#maxArrayJobQueuedTime_}) has been exceeded -->
+ * limit for !RUNNING array jobs ([maxArrayJobQueuedTime]{@link
+    * scheduler/SchedulerManager#maxArrayJobQueuedTime}) has been exceeded -->
  * the
  * job is forcibly terminated and deleted from history;<br>
  * (3) at least the first task of the job started RUNNING and total execution
  * time of the job has exceeded the time limit for RUNNING array jobs
- * ([maxArrayJobRunningTime_]{@link
-    * scheduler/schedulerManager#maxArrayJobRunningTime_}) --> the job is
+ * ([maxArrayJobRunningTime]{@link
+    * scheduler/SchedulerManager#maxArrayJobRunningTime}) --> the job is
  * forcibly
  * terminated and deleted from history;<br>
  * (4) the job was !COMPLETED and is now COMPLETED --> the job is deleted from
@@ -409,11 +409,11 @@ function monitorSingleJob(session, scheduler, jobStatus, jobId) {
  * the RUNNING time of each task.<br>
  * Note: the runningStart and runningTime fields of each task are used in the
  * computation of the total running time of the job (point (3)).<br>
- * Note: given the asynchronicity of this function and the ones which call it,
+ * Note: given the asynchrony of this function and the ones which call it,
  * the runningStart and runningTime fields of each task are subjected to
  * unavoidable approximations, whose precision is inversely proportional to the
  * time interval between two subsequent calls of this function (regulated by the
- * [jobPollingInterval]{@link scheduler/schedulerManager#jobPollingInterval}
+ * [jobPollingInterval]{@link scheduler/SchedulerManager#jobPollingInterval}
  * parameter).<br><br>
  *
  * The promise always resolves unless an error occurs.
@@ -480,7 +480,7 @@ function monitorArrayJob(session, scheduler, jobStatus, jobId) {
                 'COMPLETED' &&
             jobStatus[jobId].tasksStatus[firstTaskId].mainStatus !==
                 'RUNNING' &&
-            currentTime - submitDate > scheduler.maxArrayJobQueuedTime_) {
+            currentTime - submitDate > scheduler.maxArrayJobQueuedTime) {
           console.log(
               'Job ' + jobId + ' (' + jobName + ') has exceeded maximum ' +
               jobStatus[jobId].tasksStatus[firstTaskId].mainStatus +
@@ -594,7 +594,7 @@ function monitorArrayJob(session, scheduler, jobStatus, jobId) {
             }
             // If the job total execution time has exceeded the maximum value,
             // the job is terminated and removed from history.
-            if (totalExecutionTime > scheduler.maxArrayJobRunningTime_) {
+            if (totalExecutionTime > scheduler.maxArrayJobRunningTime) {
               console.log(
                   'Job ' + jobId + ' (' + jobName +
                   ') has exceeded maximum RUNNING runtime. Terminating.');

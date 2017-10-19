@@ -46,11 +46,10 @@ export const JOB_TYPE = {
  * INSTANTIATION:<br>
  * Instances of this class are created by the [createSchedulerManager]{@link
  * scheduler/SchedulerFactory#createSchedulerManager} method of
- * [SchedulerFactory]
- * {@link scheduler/SchedulerFactory}. The input file, whose path
- * is passed to the constructor, is read in order to configure the class
- * parameters. Said file is then read every time a request is received by the
- * server (provided the last read happened a long enough time ago), so
+ * [SchedulerFactory]{@link scheduler/SchedulerFactory}. The input file,
+ * whose path is passed to the constructor, is read in order to configure the
+ * class parameters. Said file is then read every time a request is received by
+ * the server (provided the last read happened a long enough time ago), so
  * reconfiguration of input parameters during runtime is supported.
  * Refer to the sample file and the constructor comments for further details
  * regarding the input parameters.
@@ -81,7 +80,7 @@ class SchedulerManager {
    * parameters are specified within it, the missing parameters are initialized
    * to default values.
    * @param {string} inputFile - The path of the file with the input parameters.
-   * @param {string} name - The name of this instance of SchedulerManager
+   * @param {string} name - The name of this instance of SchedulerManager.
    */
   constructor(name, inputFile) {
     /** The name of this instance of SchedulerManager.
@@ -129,15 +128,15 @@ class SchedulerManager {
     this.whitelist_ = [];
     /** Current setInterval ID of the [monitorUsers]{@link
         * modules:scheduler/monitors.monitorUsers} function, called in
-     * [updateMonitors_]{@link scheduler/SchedulerManager.updateMonitors_}.
+     * [updateMonitors_]{@link scheduler/SchedulerManager#updateMonitors_}.
      * @type {number}
      * @default null
      * @private
      */
     this.userPollingIntervalID_ = null;
     /** Current setInterval ID of the [updateLists_]{@link
-        * scheduler/SchedulerManager.updateLists_} function, called in
-     * [updateMonitors_]{@link scheduler/SchedulerManager.updateMonitors_}.
+        * scheduler/SchedulerManager#updateLists_} function, called in
+     * [updateMonitors_]{@link scheduler/SchedulerManager#updateMonitors_}.
      * @type {number}
      * @default null
      * @private
@@ -699,14 +698,13 @@ class SchedulerManager {
    * valid.
    * If there are no logical errors but the sum of the start and increment
    * parameters is bigger than the end parameter, the job is classified as
-   * {@link JOB_TYPE}.SINGLE.
+   * [SINGLE]{@link JOB_TYPE}.
    *
    * @param {number} start - The index of the first task.
    * @param {number} end - The index of the last task.
    * @param {number} increment - The index increment.
-   * @returns {string} {@link JOB_TYPE}.SINGLE if the check fails, {@link
-      * JOB_TYPE}.ARRAY
-   * otherwise.
+   * @returns {string} [SINGLE]{@link JOB_TYPE} if the check fails, [ARRAY]{@link
+      * JOB_TYPE} otherwise.
    * @private
    */
   checkArrayParams_(start, end, increment) {
@@ -826,7 +824,7 @@ class SchedulerManager {
       /** Maximum time (in ms) allowed to pass after the most recent request
        * of a user before the user is removed from history.
        * @type {number}
-       * @default 100000
+       * @default 1000000
        */
       this.userLifespan = this.inputParams_.userLifespan * 1000 || 1000000;
       /** Time (in ms) after which a request can be removed from history.
@@ -847,14 +845,14 @@ class SchedulerManager {
        * @default 10000
        * @public
        */
-      this.maxJobRunningTime_ =
+      this.maxJobRunningTime =
           this.inputParams_.maxJobRunningTime * 1000 || 10000;
       /** Time (in ms) after which a QUEUED job can be forcibly stopped.
        * @type {number}
        * @default 10000
        * @public
        */
-      this.maxJobQueuedTime_ =
+      this.maxJobQueuedTime =
           this.inputParams_.maxJobQueuedTime * 1000 || 10000;
       /** Time (in ms) after which an array job whose first task is RUNNING can
        * be forcibly stopped.
@@ -862,7 +860,7 @@ class SchedulerManager {
        * @default 10000
        * @public
        */
-      this.maxArrayJobRunningTime_ =
+      this.maxArrayJobRunningTime =
           this.inputParams_.maxArrayJobRunningTime * 1000 || 10000;
       /** Time (in ms) after which an array job whose first task is QUEUED can
        * be forcibly stopped.
@@ -870,7 +868,7 @@ class SchedulerManager {
        * @default 10000
        * @public
        */
-      this.maxArrayJobQueuedTime_ =
+      this.maxArrayJobQueuedTime =
           this.inputParams_.maxArrayJobQueuedTime * 1000 || 10000;
       /** Path of the local black/whitelist file.
        * @type {string}
